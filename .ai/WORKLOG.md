@@ -81,3 +81,5 @@
 - Limite de validação: perfis foram criados durante a sessão atual; descoberta automática pelo cliente requer nova sessão com o repositório confiável e não foi alegada como confirmada.
 - Verificações Web finais: 41/41 Vitest, `npm run typecheck`, `npm run build` e `npm audit --audit-level=high` passaram; audit encontrou 0 vulnerabilidades.
 - Verificações Rust: rustfmt 1.94.1 `--check` passou. `cargo test --workspace` baixou dependências, mas permanece `BLOCKED_TOOLING` por ausência local de `link.exe`; CI Linux é o gate executável após publicação.
+- Publicação: commits `fb204ee`, `c7ab1dc` e `61c8d8e` enviados para `origin/main`; `git ls-remote` confirmou `61c8d8e3d2b60db9bcb78fb72ca34fe185442730` no remoto.
+- CI: workflow `quality` run `35742455205` concluiu com `success` para `61c8d8e`, cobrindo os gates Rust e Web definidos no repositório.
