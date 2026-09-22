@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "documentId": "doc_0000000000000000000000000000000000000000000000000000000000000000",
+  "sourceHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "language": null,
+  "pages": [{
+    "number": 1,
+    "extractionQuality": "partial",
+    "rawText": "PR0CEDURE DIVISI0N",
+    "ocrText": "PROCEDURE DIVISION",
+    "reconstructedText": "PROCEDURE DIVISION",
+    "regions": [{
+      "id": "r_1_1",
+      "type": "code",
+      "bbox": [10, 20, 300, 60],
+      "language": null,
+      "sources": { "rawText": "PR0CEDURE DIVISI0N", "ocrText": "PROCEDURE DIVISION", "reconstructedText": "PROCEDURE DIVISION" },
+      "content": { "kind": "code", "sourceText": "PR0CEDURE DIVISI0N", "detectedLanguage": "cobol", "suspiciousTokens": ["PR0CEDURE", "DIVISI0N"] },
+      "uncertainty": "reconstructed",
+      "qualityStatus": "review_required",
+      "confidence": 0.96,
+      "flags": ["technical_token_review"]
+    }]
+  }]
+}

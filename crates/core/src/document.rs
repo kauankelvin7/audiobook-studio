@@ -56,6 +56,8 @@ pub enum BlockType {
     Table,
     Formula,
     Figure,
+    Diagram,
+    Chart,
     Caption,
     Quote,
     Toc,

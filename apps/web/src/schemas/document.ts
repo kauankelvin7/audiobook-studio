@@ -7,7 +7,7 @@ const finiteNumber = z.number().finite();
 export const documentBlockSchema = z.object({
   id: z.string().min(1),
   type: z.enum([
-    "heading", "paragraph", "list", "code", "table", "formula", "figure", "caption",
+    "heading", "paragraph", "list", "code", "table", "formula", "figure", "diagram", "chart", "caption",
     "quote", "toc", "header", "footer", "reference", "metadata", "corrupted", "unknown",
   ]),
   language: z.string().nullable(),

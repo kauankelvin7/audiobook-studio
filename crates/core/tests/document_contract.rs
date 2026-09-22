@@ -1,5 +1,6 @@
 use audiobook_core::{
-    sha256_source, DocumentIr, DocumentManifest, DomainError, GenerationJob, JobState, TextQuality,
+    sha256_source, BlockType, DocumentIr, DocumentManifest, DomainError, GenerationJob, JobState,
+    TextQuality,
 };
 
 const FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -24,6 +25,18 @@ fn document_round_trip_preserves_unknown_and_ocr_pages() {
     assert_eq!(document, restored);
     assert_eq!(restored.pages[0].blocks[1].text, "Trecho incerto");
     assert_eq!(restored.pages[1].text_quality, TextQuality::NeedsOcr);
+}
+
+#[test]
+fn complex_visual_block_types_keep_stable_wire_names() {
+    assert_eq!(
+        serde_json::to_string(&BlockType::Diagram).unwrap(),
+        "\"diagram\""
+    );
+    assert_eq!(
+        serde_json::to_string(&BlockType::Chart).unwrap(),
+        "\"chart\""
+    );
 }
 
 #[test]
