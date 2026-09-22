@@ -61,3 +61,23 @@
 - `docs/PERFORMANCE_REQUIREMENTS.md` enumera requisitos PERF-01..12, estratégia de fakes/benchmark/matriz e o que ainda é apenas designed. Contratos `EnginePlan`/benchmark/estados foram ampliados; profiler/router/TTS/player não foram implementados nesta execução.
 - Gates após o segundo pedido: `npm test` 16/16, `npm run typecheck`, `npm run build` e `npm audit --audit-level=high` (0 vulnerabilidades) passaram. Rust não mudou e seguirá validado no CI Linux; teste local ainda depende de linker MSVC ausente.
 - Publicação: commits `827056a` e `e6097de` enviados a `origin/main`. GitHub Actions `quality` run `35730730855` do commit `e6097de` concluiu com sucesso (jobs Rust e Web definidos em `.github/workflows/quality.yml`). Estado local limpo antes deste registro.
+
+## 2026-09-22 — M2 layout/ruído e verificação de browser
+- PRE-FLIGHT atual registrado no TASK_PACKET com `main` limpo em `844cc48`; relatório RF-STR-007/M2 e ADR 0004 consultados.
+- Decisão: agrupar runs adjacentes por EOL/posição, preservar `rawText` e ordem; marcar apenas candidatos de cabeçalho/rodapé quando texto exato se repetir em margens de pelo menos três páginas e 60% do total. Nenhum trecho é removido, confiança continua `null` e tipo incerto permanece `unknown`.
+- Teste inicial: 20/20 Vitest, typecheck e build passaram (build exigiu repetição fora do sandbox por `spawn EPERM`).
+- Browser real via agent-browser temporário revelou bug não coberto: mensagens internas PDF.js (`sourceName`, `targetName`, `action`, `data`) eram tratadas como erro, apagando status e encerrando Worker. Decoder de fronteira adicionado; três testes de regressão.
+- Verificação após correção: 23/23 Vitest, typecheck e build passaram. Em sessão Chrome limpa, PDF sintético mostrou duas páginas e aviso `needs_ocr`; JSON enviado como entrada inválida mostrou erro tipado e não manteve prévia anterior. Screenshot completo inspecionado; `errors --json` retornou lista vazia na sessão limpa. Erros históricos anteriores eram da instrumentação temporária inválida e do HMR durante edição, não do fluxo final.
+- Limites: página rotacionada não é classificada por margem; texto de documento real multicoluna e browser matrix não foram testados. PDF.js usa fake worker interno dentro do Worker do aplicativo; UI ficou responsiva no teste curto, sem benchmark de documentos grandes.
+
+## 2026-09-22 — Ingestão v2 e política multiagente
+- PRE-FLIGHT: ingestão/OCR e multiagente registrados no TASK_PACKET. O Lead permaneceu único writer; Explorer e QA atuaram read-only.
+- Ingestão: adicionados DocumentIR v2 TS, migração explícita v1→v2, camadas `rawText`/`ocrText`/`reconstructedText`, proveniência/incerteza, conteúdo tipado para código/tabela/fórmula/visual, audit/project manifests e fixture v2.
+- Policies testadas: OCR seletivo com escopo explícito e IDs normalizados; eviction LRU apenas de artefatos regeneráveis/desprotegidos, com validação numérica.
+- PDF hardening: decoder separa mensagens internas do PDF.js do protocolo do aplicativo; limites de texto expandido e cancelamento cooperativo foram adicionados. Limite conhecido: `getTextContent()` pode alocar memória antes do corte e o `AbortSignal` não interrompe internamente o PDF.js.
+- Arquitetura: ADRs 0008/0009, estratégia de testes, segurança e `GAP_ANALYSIS` classificam engines OCR/visual, storage físico, TTS e runtime narrativo como pendentes; schemas não foram descritos como engines funcionais.
+- Multiagente: documentação oficial confirmou `.codex/agents/*.toml`; Codex CLI local `0.155.0-alpha.9.2` reportou `multi_agent` estável. Criados dez perfis e limite de três subagentes. Onze TOMLs parsearam com `tomllib`.
+- Teste multiagente real: Explorer Terra/medium auditou configuração; QA Terra/medium revisou o change set; Lead integrou. QA encontrou incompatibilidade `region.type/content.kind`, fonte vazia, IDs OCR não normalizados e accounting inválido de eviction; todos foram corrigidos e rechecados. O risco de expansão PDF antes do limite permanece documentado.
+- Limite de validação: perfis foram criados durante a sessão atual; descoberta automática pelo cliente requer nova sessão com o repositório confiável e não foi alegada como confirmada.
+- Verificações Web finais: 41/41 Vitest, `npm run typecheck`, `npm run build` e `npm audit --audit-level=high` passaram; audit encontrou 0 vulnerabilidades.
+- Verificações Rust: rustfmt 1.94.1 `--check` passou. `cargo test --workspace` baixou dependências, mas permanece `BLOCKED_TOOLING` por ausência local de `link.exe`; CI Linux é o gate executável após publicação.
