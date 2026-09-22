@@ -41,7 +41,11 @@ impl DocumentIr {
         if blocks.iter().all(|block| block.text.trim().is_empty()) {
             return Err(DomainError::EmptyDocument);
         }
-        Ok(Self { id: Uuid::new_v4(), title, blocks })
+        Ok(Self {
+            id: Uuid::new_v4(),
+            title,
+            blocks,
+        })
     }
 }
 
@@ -64,12 +68,20 @@ mod tests {
 
     #[test]
     fn rejects_empty_document() {
-        assert_eq!(DocumentIr::new(None, vec![]), Err(DomainError::EmptyDocument));
+        assert_eq!(
+            DocumentIr::new(None, vec![]),
+            Err(DomainError::EmptyDocument)
+        );
     }
 
     #[test]
     fn accepts_valid_document() {
-        let document = DocumentIr::new(None, vec![DocumentBlock { text: "hello".into() }]);
+        let document = DocumentIr::new(
+            None,
+            vec![DocumentBlock {
+                text: "hello".into(),
+            }],
+        );
         assert!(document.is_ok());
     }
 

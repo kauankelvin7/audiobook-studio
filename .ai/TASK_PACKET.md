@@ -16,5 +16,5 @@
 
 ## Encerramento
 - Verificações executadas e resultado: Web typecheck/build passaram; npm audit retornou 0 vulnerabilidades. Cargo fmt indisponível e cargo test bloqueado por falta de `link.exe`. Staging revisado; commit `48c79cc` publicado e hash conferido em `origin/main`.
-- Pendências: conferir CI remota; instalar rustfmt/linker no ambiente local.
+- Pendências: publicar a correção e conferir CI remota; instalar linker MSVC no ambiente local para executar `cargo test` fora do CI.
 - Próximo passo: após publicação, iniciar Milestone 1 com fixtures reais de DocumentIR.

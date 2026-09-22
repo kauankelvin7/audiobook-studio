@@ -12,6 +12,8 @@ Base do projeto para um compilador de documentos em audiolivros, com execução 
 
 ## Desenvolvimento
 
+Requer Node.js 22.12+ para a versão atual do Vite.
+
 ```text
 cd apps/web
 npm ci
