@@ -5,7 +5,7 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 | Área | Estado | Maturidade atual | Evidência e principal pendência |
 |---|---|---|---|
 | Requisitos e governança | PARTIAL | IMPLEMENTED | Relatório, ADRs, task packet e worklog existem; rastreabilidade automatizada ainda falta. |
-| Arquitetura local-first | PARTIAL | SCAFFOLDED | Workspace, Ports & Adapters e PWA existem; persistência completa não. |
+| Arquitetura local-first | PARTIAL | IMPLEMENTED | Workspace, Ports & Adapters, PWA e checkpoints IndexedDB existem; binários OPFS e integração completa não. |
 | DocumentIR v1 | PARTIAL | TESTED | Contrato Rust/TS e fixture testados; corpus real amplo ausente. |
 | DocumentIR v2/migração | PARTIAL | TESTED | Schema e migração TS testados; paridade Rust e migração persistida faltam. |
 | PDF nativo/layout | PARTIAL | TESTED | Extração, agrupamento e margens conservadoras testados; PDFs reais complexos/matriz de browsers faltam. |
@@ -16,12 +16,12 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 | TTS e áudio | NOT STARTED | DESIGNED | Requisitos e fronteiras documentados; engine, player e export ausentes. |
 | Performance adaptativa | PARTIAL | SCAFFOLDED | Schemas/ADRs testados; profiler/router/benchmarks não implementados. |
 | Execução em background | PARTIAL | DESIGNED | Limites Web documentados; retomada durável não implementada. |
-| Storage e lifecycle | PARTIAL | TESTED | Seleção de eviction testada; IndexedDB/OPFS, quota e proteção física faltam. |
+| Storage e lifecycle | PARTIAL | TESTED | Checkpoints IndexedDB, checksum, recovery, quota e eviction foram testados; OPFS, locks e limpeza física faltam. |
 | Cache/modelos | PARTIAL | DESIGNED | Chaves/invalidação descritas; cache real de modelos não existe. |
 | Segurança | PARTIAL | IMPLEMENTED | Limites de arquivo/páginas e trust boundaries existem; fuzz/adversarial/CSP hardening faltam. |
 | Privacidade | PARTIAL | DESIGNED | Local-first é regra; auditoria de fluxos e controles de export/telemetria faltam. |
 | Acessibilidade | PARTIAL | IMPLEMENTED | Semântica inicial e microcopy existem; auditoria WCAG/teclado/screen reader ampla falta. |
-| Erros e recuperação | PARTIAL | TESTED | Erros tipados e protocolo Worker testados; checkpoints/resume persistente faltam. |
+| Erros e recuperação | PARTIAL | TESTED | Erros tipados, protocolo Worker e recuperação de checkpoint válido foram testados; integração runtime com job/WASM falta. |
 | Observabilidade/auditoria | PARTIAL | SCAFFOLDED | Worklog e schemas de relatório existem; geração automática e métricas runtime faltam. |
 | Testes | PARTIAL | TESTED | Unit/contract/browser smoke existem; golden real, fuzz, fault injection, soak e E2E CI faltam. |
 | CI/CD | PARTIAL | IMPLEMENTED | Gates Rust/Web no GitHub Actions; releases, matrizes e nightly ausentes. |
@@ -32,6 +32,6 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 ## Ordem recomendada
 
 1. Fechar M2 com corpus PDF real e regressões de layout.
-2. Implementar M3: storage físico, checkpoints, quota, retomada e migração versionada.
+2. Concluir M3.2: OPFS, locks entre abas, retenção/limpeza e integração runtime de retomada.
 3. Implementar adapter OCR seletivo atrás de port, começando por fixtures autorizadas e métricas.
 4. Só então integrar Narrative Compiler, TTS/player e performance adaptativa com benchmarks.

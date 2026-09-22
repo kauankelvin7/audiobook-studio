@@ -4,6 +4,7 @@ use audiobook_core::{
 };
 
 const FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
+const CHECKPOINT_FIXTURE: &str = include_str!("../../../tests/fixtures/checkpoint_input_v1.json");
 
 fn fixture() -> DocumentIr {
     DocumentIr::from_json(FIXTURE).expect("checked-in fixture must be valid")
@@ -159,6 +160,16 @@ fn pause_and_resume_preserve_the_prior_stage() {
     assert_eq!(job.resume_state(), None);
     job.transition(JobState::Extracting)
         .expect("advance after resume");
+}
+
+#[test]
+fn checkpoint_fixture_uses_the_rust_job_wire_format() {
+    let checkpoint: serde_json::Value =
+        serde_json::from_str(CHECKPOINT_FIXTURE).expect("checkpoint fixture is valid JSON");
+    let job_json = serde_json::to_string(&checkpoint["job"]).expect("job fixture serializes");
+    let job = GenerationJob::from_json(&job_json).expect("job fixture matches the Rust contract");
+    assert_eq!(job.state(), JobState::Paused);
+    assert_eq!(job.resume_state(), Some(JobState::Extracting));
 }
 
 #[test]

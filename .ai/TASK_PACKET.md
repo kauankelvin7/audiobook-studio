@@ -1,4 +1,25 @@
-# TASK PACKET — Milestone 2: PDF sem IA
+# TASK PACKET — Milestone 3: persistência e retomada local
+
+## PRE-FLIGHT atual — M3.1 persistence core (2026-09-22)
+- Objective: persistir projetos e checkpoints versionados em IndexedDB, restaurar o último checkpoint válido e expor quota sem backend; manter OPFS/binários para uma fatia seguinte.
+- Evidence: ADR 0009 aceita storage local e eviction segura; `GenerationJob` Rust já serializa snapshots; GAP_ANALYSIS marca IndexedDB/OPFS e retomada durável como pendentes; Web ainda não possui storage adapter.
+- Constraints: local-first; um único writer; conteúdo persistido é não confiável e deve passar por schema; sem exclusão silenciosa; sem migração destrutiva; APIs Web injetáveis para teste; nenhum backend obrigatório.
+- Unknowns: comportamento real de quota por navegador, persistência do site negada pelo usuário, atomicidade entre IndexedDB e OPFS e estratégia final de binários grandes.
+- Risks: checkpoint corrompido, upgrade parcial, perda de dados, uso excessivo de quota, concorrência entre abas e testes que apenas simulam IndexedDB.
+- Plan: (1) definir schemas/erros/ports; (2) implementar adapter IndexedDB versionado e repository de checkpoint; (3) quota/persistência best-effort; (4) testes com implementação IndexedDB compatível; (5) QA independente, gates e ADR/worklog; (6) OPFS e locks ficam na M3.2.
+- Verification: contract tests de round-trip, idempotência/conflito, corrupção, migração/upgrade, retomada e quota indisponível; typecheck/build/audit; rustfmt e CI Rust; revisão de diff.
+
+## Controle de execução M3.1
+- Task Risk: HIGH
+- Writer: Lead/Orchestrator
+- Subagents: Explorer e QA Reviewer, ambos read-only.
+- Model: Lead definido pelo host; Explorer/QA em `gpt-5.6-terra` medium.
+- Reasoning: HIGH para desenho transacional; MEDIUM para exploração e revisão.
+- Allowed Files: `.ai/`, `apps/web/src/schemas/`, `apps/web/src/adapters/`, testes, ADR 0009, quality/security/gap docs e lockfile se dependência de teste for necessária.
+- Do not touch: relatório mestre preservado, UI, OCR/TTS, backend/microserviços e schemas centrais fora da persistência.
+- Parallelizable: YES, somente exploração e revisão sem escrita.
+- Independent Review Required: YES.
+- Verification: testes Web, typecheck, build, audit, Rust gates disponíveis, diff e CI.
 
 ## Controle de execução
 - Task Risk: HIGH

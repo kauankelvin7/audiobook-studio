@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "projectId": "project_fixture",
+  "sequence": 7,
+  "createdAtMs": 1700000000007,
+  "pipelineVersion": "m3.1",
+  "sourceHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "job": {
+    "state": "PAUSED",
+    "resumeState": "EXTRACTING"
+  },
+  "artifactKeys": ["source_pdf", "document_ir_v2"]
+}

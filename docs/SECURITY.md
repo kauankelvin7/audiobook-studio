@@ -9,3 +9,4 @@
 - Não renderizar texto importado como HTML. Não executar JavaScript, anexos, ações ou URLs incorporadas ao documento.
 - Formatos compactados futuros exigem limite de expansão, validação de caminhos e bloqueio de path traversal antes da extração.
 - Quota insuficiente falha explicitamente. Eviction automática considera somente caches regeneráveis fora do projeto atual; nunca remove fonte, edição humana ou artefato final.
+- Checkpoints passam por schema estrito, versão e checksum antes da retomada. O checksum detecta corrupção acidental, não adulteração por código com acesso ao mesmo origin. Corrupção ou versão desconhecida gera erro/recovery report e nunca causa exclusão automática.

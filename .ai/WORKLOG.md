@@ -83,3 +83,14 @@
 - Verificações Rust: rustfmt 1.94.1 `--check` passou. `cargo test --workspace` baixou dependências, mas permanece `BLOCKED_TOOLING` por ausência local de `link.exe`; CI Linux é o gate executável após publicação.
 - Publicação: commits `fb204ee`, `c7ab1dc` e `61c8d8e` enviados para `origin/main`; `git ls-remote` confirmou `61c8d8e3d2b60db9bcb78fb72ca34fe185442730` no remoto.
 - CI: workflow `quality` run `35742455205` concluiu com `success` para `61c8d8e`, cobrindo os gates Rust e Web definidos no repositório.
+
+## 2026-09-22 — M3.1 checkpoints IndexedDB e quota
+- PRE-FLIGHT M3.1 registrado no TASK_PACKET. Lead foi o único writer; Explorer e QA atuaram read-only.
+- Dependência de teste: `fake-indexeddb` 6.2.5 adicionada com versão exata; `npm audit --audit-level=high` retornou 0 vulnerabilidades.
+- Contrato: schema v1 de checkpoint valida IDs, sequence, timestamps, pipeline, source hash, estados do `GenerationJob` e artifact keys. Fixture compartilhada confirma o wire format Web/Rust.
+- Adapter: `IndexedDbCheckpointRepository` persiste por chave composta `projectId + sequence`, calcula checksum SHA-256, isola projetos, aceita repetição idempotente e rejeita conflito com conteúdo diferente.
+- Recovery: `loadLatest` é estrito; `recoverLatest` devolve o checkpoint válido mais recente e lista registros rejeitados sem apagá-los. Busca é limitada a 1.000 candidatos; o limite só falha quando toda a janela é inválida e há histórico mais antigo.
+- Resiliência: falha transitória de abertura limpa a conexão em cache e permite retry; `versionchange` fecha/invalida a conexão. Quota e pedido de persistência degradam para `unavailable`/`denied` sem bloquear leitura.
+- Revisão independente encontrou dois P1: recovery bloqueava histórico grande e conexão rejeitada/fechada ficava cacheada. Ambos foram corrigidos. Last-write-wins também foi substituído por `CHECKPOINT_CONFLICT`.
+- Limites: sem OPFS, lock/lease entre abas, retenção/limpeza física, integração runtime Rust/WASM, UI ou matriz real de browsers. Checksum detecta corrupção acidental, não adulteração same-origin.
+- Verificações finais: 54/54 testes Web, typecheck, build, audit e rustfmt passaram. `cargo test --workspace` local continua `BLOCKED_TOOLING` por `link.exe`; CI Linux validará o fixture Rust após publicação.
