@@ -401,7 +401,6 @@ impl DocumentRegionV2 {
     }
 }
 
-
 fn map_block_type(kind: BlockType) -> RegionType {
     match kind {
         BlockType::Heading => RegionType::Heading,

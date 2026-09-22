@@ -607,7 +607,6 @@ fn unique(values: Vec<String>) -> Vec<String> {
         .collect()
 }
 
-
 fn fold_latin_char(ch: char) -> char {
     match ch {
         'á' | 'à' | 'â' | 'ã' | 'ä' => 'a',
