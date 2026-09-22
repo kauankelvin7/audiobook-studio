@@ -7,6 +7,10 @@ use crate::document_v2::{DocumentIrV2, QualityStatus, RegionContent, RegionType,
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ContentError {
+    #[error("unsupported content schema version: {0}")]
+    UnsupportedSchemaVersion(u32),
+    #[error("invalid content model: {0}")]
+    InvalidContent(String),
     #[error("content model has no source units")]
     EmptyContentModel,
     #[error("duplicate source unit ID: {0}")]
@@ -164,8 +168,18 @@ impl ContentModel {
     }
 
     pub fn validate(&self) -> Result<(), ContentError> {
+        if self.schema_version != 1 {
+            return Err(ContentError::UnsupportedSchemaVersion(self.schema_version));
+        }
+        if self.document_id.trim().is_empty() || !is_sha256(&self.source_hash) {
+            return Err(ContentError::InvalidContent("invalid document identity".into()));
+        }
+
         let mut source_ids = HashSet::new();
         for unit in &self.source_units {
+            if unit.id.trim().is_empty() || unit.source_refs.is_empty() || unit.source_refs.iter().any(|value| value.trim().is_empty()) {
+                return Err(ContentError::InvalidContent("invalid source unit".into()));
+            }
             if !source_ids.insert(unit.id.as_str()) {
                 return Err(ContentError::DuplicateSourceUnit(unit.id.clone()));
             }
@@ -173,11 +187,24 @@ impl ContentModel {
 
         let mut concept_ids = HashSet::new();
         for concept in &self.concepts {
+            if concept.id.trim().is_empty()
+                || concept.label.trim().is_empty()
+                || concept.source_refs.is_empty()
+                || concept.source_refs.iter().any(|value| value.trim().is_empty())
+            {
+                return Err(ContentError::InvalidContent("invalid concept".into()));
+            }
             if !concept_ids.insert(concept.id.as_str()) {
                 return Err(ContentError::DuplicateConcept(concept.id.clone()));
             }
         }
         for relation in &self.relations {
+            if relation.id.trim().is_empty()
+                || relation.source_refs.is_empty()
+                || relation.source_refs.iter().any(|value| value.trim().is_empty())
+            {
+                return Err(ContentError::InvalidContent("invalid relation".into()));
+            }
             if !concept_ids.contains(relation.from_concept_id.as_str()) {
                 return Err(ContentError::UnknownConcept(
                     relation.from_concept_id.clone(),
@@ -249,6 +276,13 @@ impl SemanticOutline {
     }
 
     pub fn validate(&self, model: &ContentModel) -> Result<(), ContentError> {
+        if self.schema_version != 1 {
+            return Err(ContentError::UnsupportedSchemaVersion(self.schema_version));
+        }
+        if self.document_id != model.document_id || self.sections.is_empty() {
+            return Err(ContentError::InvalidContent("invalid semantic outline identity".into()));
+        }
+
         let source_ids: HashSet<&str> = model
             .source_units
             .iter()
@@ -263,12 +297,22 @@ impl SemanticOutline {
         let mut ownership = HashSet::new();
 
         for section in &self.sections {
+            if section.id.trim().is_empty() || section.source_unit_ids.is_empty() {
+                return Err(ContentError::InvalidOutlineMembership(section.id.clone()));
+            }
             if !section_ids.insert(section.id.as_str()) {
                 return Err(ContentError::DuplicateOutlineSection(section.id.clone()));
             }
             let section_source_ids: HashSet<&str> =
                 section.source_unit_ids.iter().map(String::as_str).collect();
-            if section_source_ids.len() != section.source_unit_ids.len() {
+            let candidate_ids: HashSet<&str> = section
+                .candidate_narration_unit_ids
+                .iter()
+                .map(String::as_str)
+                .collect();
+            if section_source_ids.len() != section.source_unit_ids.len()
+                || candidate_ids.len() != section.candidate_narration_unit_ids.len()
+            {
                 return Err(ContentError::InvalidOutlineMembership(section.id.clone()));
             }
             if let Some(heading) = section.heading_unit_id.as_deref() {
@@ -361,6 +405,18 @@ fn new_section(index: usize, heading: Option<&ContentSourceUnit>) -> SemanticOut
         candidate_narration_unit_ids,
         concept_ids: Vec::new(),
         requires_review: heading
-            .is_some_and(|unit| unit.narration_eligibility == NarrationEligibility::ReviewRequired),
+            .is_some_and(|unit| unit.narration_eligibility != NarrationEligibility::Eligible),
     }
+}
+
+
+fn is_sha256(value: &str) -> bool {
+    value
+        .strip_prefix("sha256:")
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
 }

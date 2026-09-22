@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -9,6 +9,10 @@ use crate::content::{ContentModel, SemanticOutline};
 pub enum NarrativeError {
     #[error("invalid narrative JSON: {0}")]
     InvalidJson(String),
+    #[error("unsupported narrative schema version: {0}")]
+    UnsupportedSchemaVersion(u32),
+    #[error("invalid narrative data: {0}")]
+    InvalidNarrative(String),
     #[error("duplicate narrative section ID: {0}")]
     DuplicateSection(String),
     #[error("duplicate spoken chapter ID: {0}")]
@@ -185,8 +189,37 @@ const STOP_WORDS: [&str; 20] = [
 
 impl NarrativePlan {
     pub fn validate(&self) -> Result<(), NarrativeError> {
+        if self.schema_version != 1 {
+            return Err(NarrativeError::UnsupportedSchemaVersion(self.schema_version));
+        }
+        if self.document_id.trim().is_empty() || self.sections.is_empty() || self.spoken_chapters.is_empty() {
+            return Err(NarrativeError::InvalidNarrative("missing narrative identity or sections".into()));
+        }
+
         let mut sections = HashSet::new();
         for section in &self.sections {
+            if section.id.trim().is_empty()
+                || section.source_refs.is_empty()
+                || section.source_refs.iter().any(|value| value.trim().is_empty())
+                || section.spoken_chapter_id.trim().is_empty()
+                || section.estimated_seconds.is_some_and(|value| !value.is_finite() || value <= 0.0)
+            {
+                return Err(NarrativeError::InvalidNarrative(section.id.clone()));
+            }
+            if let Some(heading) = &section.heading {
+                if heading.display_text.trim().is_empty() || heading.reason.trim().is_empty() {
+                    return Err(NarrativeError::InvalidNarrative(section.id.clone()));
+                }
+            }
+            if let Some(transition) = &section.transition {
+                if transition.text.trim().is_empty()
+                    || transition.relation.trim().is_empty()
+                    || transition.source_refs.is_empty()
+                    || transition.source_refs.iter().any(|value| value.trim().is_empty())
+                {
+                    return Err(NarrativeError::InvalidNarrative(section.id.clone()));
+                }
+            }
             if !sections.insert(section.id.as_str()) {
                 return Err(NarrativeError::DuplicateSection(section.id.clone()));
             }
@@ -194,6 +227,9 @@ impl NarrativePlan {
 
         let mut chapters = HashSet::new();
         for chapter in &self.spoken_chapters {
+            if chapter.id.trim().is_empty() || chapter.display_title.trim().is_empty() || chapter.section_ids.is_empty() {
+                return Err(NarrativeError::InvalidNarrative(chapter.id.clone()));
+            }
             if !chapters.insert(chapter.id.as_str()) {
                 return Err(NarrativeError::DuplicateChapter(chapter.id.clone()));
             }
@@ -246,6 +282,9 @@ impl NarrativePlan {
         if self.document_id != content.document_id || outline.document_id != content.document_id {
             return Err(NarrativeError::DocumentMismatch);
         }
+        outline
+            .validate(content)
+            .map_err(|error| NarrativeError::InvalidNarrative(error.to_string()))?;
 
         let source_units: HashSet<&str> = content
             .source_units
@@ -507,7 +546,7 @@ pub fn build_narration_qa(
         .filter(|finding| finding.overlap.status == HeadingOverlapStatus::Duplicate)
         .count();
 
-    let mut invalid_refs = HashSet::<String>::new();
+    let mut invalid_refs = BTreeSet::<String>::new();
     for section in &plan.sections {
         for source_ref in section.source_refs.iter().chain(
             section

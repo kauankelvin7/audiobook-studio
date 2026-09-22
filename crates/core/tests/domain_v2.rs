@@ -69,6 +69,12 @@ fn document_v2_round_trip_preserves_uncertainty_and_code() {
 }
 
 #[test]
+fn content_model_rejects_wrong_schema_version() {
+    let changed = CONTENT_MODEL_FIXTURE.replace("\"schemaVersion\": 1", "\"schemaVersion\": 2");
+    assert!(ContentModel::from_json(&changed).is_err());
+}
+
+#[test]
 fn content_model_preserves_every_region_without_inventing_concepts() {
     let document = document_v2();
     let content = ContentModel::from_document(&document).expect("valid content model");
@@ -165,6 +171,13 @@ fn narration_qa_fails_duplicated_announced_heading() {
     let report = build_narration_qa("plan_1", 1, &plan, &speech, &valid_refs, 0).expect("QA runs");
     assert_eq!(report.status, QaStatus::Fail);
     assert_eq!(report.duplicated_spoken_headings, 1);
+}
+
+#[test]
+fn narrative_plan_requires_nonempty_provenance() {
+    let mut invalid = plan(SpokenHeadingPolicy::Integrate);
+    invalid.sections[0].source_refs.clear();
+    assert!(invalid.validate().is_err());
 }
 
 #[test]

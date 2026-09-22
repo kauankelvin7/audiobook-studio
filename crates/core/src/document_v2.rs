@@ -368,6 +368,18 @@ impl DocumentRegionV2 {
         if !content_matches {
             return Err(DocumentV2Error::InvalidRegionContent(self.id.clone()));
         }
+        match &self.content {
+            RegionContent::LegacyText {
+                source_schema_version,
+                ..
+            } if *source_schema_version != 1 => {
+                return Err(DocumentV2Error::InvalidRegionContent(self.id.clone()));
+            }
+            RegionContent::Visual { image_hash, .. } if !is_sha256(image_hash) => {
+                return Err(DocumentV2Error::InvalidRegionContent(self.id.clone()));
+            }
+            _ => {}
+        }
 
         if self.uncertainty == Uncertainty::Unsupported
             && self.quality_status == QualityStatus::Accepted
@@ -422,4 +434,16 @@ fn map_block_type(kind: BlockType) -> RegionType {
         BlockType::Corrupted => RegionType::Corrupted,
         BlockType::Unknown => RegionType::Unknown,
     }
+}
+
+
+fn is_sha256(value: &str) -> bool {
+    value
+        .strip_prefix("sha256:")
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
 }
