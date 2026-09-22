@@ -172,3 +172,10 @@
 - Removido do TypeScript: implementação canônica de Narrative Quality e migração v1→v2. `content_model.ts` permanece somente como schema Zod de fronteira, com fixtures compartilhadas/paridade estrutural.
 - Rust local: toolchain não está no PATH deste PC; validação Rust será feita no GitHub Actions, sem afirmar PASS antes da CI.
 - Web STANDARD: typecheck + 74/74 testes + build PASS em 17,73 s.
+
+## RESULT — Rust core ownership
+- Status: IMPLEMENTED/TESTED para a fatia de domínio portada.
+- CI branch `5807e79`: Rust SUCCESS; Web SUCCESS.
+- Fonte canônica: `crates/core` para domínio determinístico; `apps/web` para Web APIs/adapters/UI.
+- Regra persistente: AGENTS.md + ADR 0010.
+- Próximo passo: wiring real do `audiobook-wasm` no Web e paridade automática Rust↔TS; depois continuar M4 planner/model adapter sem mover lógica canônica de volta ao TypeScript.

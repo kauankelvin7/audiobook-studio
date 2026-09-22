@@ -127,3 +127,10 @@
 - Fixtures `content_model_v1.json` e `semantic_outline_v1.json` são compartilhadas por Rust e schemas TS para reduzir drift de contrato.
 - A fachada WASM agora expõe operações finas do core; wiring JS gerado ainda é etapa posterior.
 - Web STANDARD passou: 74/74 testes, typecheck e build. Rust local não foi executado porque rustc/cargo não estão no PATH; CI é o gate real desta fatia.
+
+## 2026-09-22 — M4 Rust ownership validado
+- Branch `codex/m4-content-model` passou no GitHub Actions no commit `5807e79`: Rust format/test/clippy = success; Web audit/typecheck/test/build = success.
+- O core Rust agora possui DocumentIR v2 e migração v1→v2, ContentModel, SemanticOutline, validação de NarrativePlan, memória/QA narrativos e source/provenance validation.
+- Implementações canônicas equivalentes foram removidas do TypeScript; buscas por `migrateDocumentV1ToV2`, `buildNarrationQa`, `compareHeadingToBody` e `reduceNarrativeMemory` em `apps/web/src` retornaram vazio.
+- TypeScript mantém schemas Zod de fronteira e adapters de browser; fixtures compartilhadas verificam compatibilidade estrutural.
+- A fachada `audiobook-wasm` expõe funções finas do Rust, mas o bundle WASM ainda não está ligado ao runtime React; isso permanece próximo passo antes de ampliar planner/IA.
