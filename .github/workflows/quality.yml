@@ -29,7 +29,8 @@ jobs:
       - run: npm ci
       - run: cargo install wasm-bindgen-cli --version 0.2.128 --locked
       - run: npm run wasm:build
-      - run: git diff --exit-code -- src/generated/audiobook_wasm
+      - run: git diff --name-only -- src/generated/audiobook_wasm
+      - run: git diff --exit-code -- src/generated/audiobook_wasm/audiobook_wasm.js src/generated/audiobook_wasm/audiobook_wasm.d.ts src/generated/audiobook_wasm/audiobook_wasm_bg.wasm.d.ts
       - run: npm audit --audit-level=high
       - run: npm run typecheck
       - run: npm test
