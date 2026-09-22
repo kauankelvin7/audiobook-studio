@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "documentId": "doc_0000000000000000000000000000000000000000000000000000000000000000",
+  "sourceHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "language": null,
+  "pages": [
+    {
+      "number": 1,
+      "rawText": "Olá mundo\nTrecho incerto",
+      "textQuality": "extracted",
+      "blocks": [
+        {
+          "id": "b_1_1",
+          "type": "paragraph",
+          "language": null,
+          "text": "Olá mundo",
+          "confidence": 1,
+          "bbox": [10, 20, 100, 40],
+          "flags": []
+        },
+        {
+          "id": "b_1_2",
+          "type": "unknown",
+          "language": null,
+          "text": "Trecho incerto",
+          "confidence": 0.5,
+          "bbox": null,
+          "flags": ["review"]
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "rawText": "",
+      "textQuality": "needs_ocr",
+      "blocks": []
+    }
+  ]
+}

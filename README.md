@@ -10,6 +10,8 @@ Base do projeto para um compilador de documentos em audiolivros, com execução 
 - `apps/web/`: interface e fronteiras de adapters/worker.
 - `docs/`, `.ai/`: decisões, contexto e registro de trabalho.
 
+O contrato `DocumentIR` v1 está descrito em `docs/adr/0004-document-ir-v1.md`. O fixture em `tests/fixtures/` valida a serialização Rust e o schema TypeScript. Páginas sem camada textual são mantidas com `needs_ocr`.
+
 ## Desenvolvimento
 
 Requer Node.js 22.12+ para a versão atual do Vite.
@@ -18,6 +20,7 @@ Requer Node.js 22.12+ para a versão atual do Vite.
 cd apps/web
 npm ci
 npm run typecheck
+npm test
 npm run build
 ```
 

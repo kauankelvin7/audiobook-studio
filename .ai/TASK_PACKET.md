@@ -1,20 +1,20 @@
-# TASK PACKET
+# TASK PACKET — M1 e entrada controlada no M2
 
 ## PRE-FLIGHT
-- Objetivo verificável: criar o primeiro commit da etapa inicial e publicar no remoto GitHub informado.
-- Evidências consultadas: `docs/CONTEXT_INDEX.md`, este packet, `git status`, branch local, `git ls-remote`, três anexos originais e seus hashes SHA-256.
-- Restrições e não-objetivos: não alterar escopo do bootstrap; não criar backend/microserviços; não sobrescrever histórico remoto.
-- Desconhecidos/bloqueios: remoto consultado e sem refs; Cargo/Rust ausentes no ambiente; autenticação do push ainda não verificada.
-- Riscos: remoto pode conter histórico divergente; publicação é uma alteração externa e requer validação antes do push.
-- Plano mínimo: preservar fontes originais, revisar arquivos, executar gates disponíveis, configurar remoto, criar commit Conventional Commits e publicar a branch inicial.
-- Verificação prevista: typecheck, build, audit, status limpo, hash do commit e confirmação do push.
+- Objetivo verificável: concluir o domínio Rust de DocumentIR (M1) e, após gates verdes, importar PDF com texto no navegador sem IA (M2).
+- Evidências: `git status` limpo em `main`; `docs/CONTEXT_INDEX.md`; relatório mestre §§4.1–4.3, 10–13, 23, 28, 62; ADRs 0001–0003; código e schema existentes.
+- Restrições: MVP local-first, sem backend ou IA; conteúdo PDF é dado não confiável; não descartar blocos incertos; preservar o relatório mestre original; usar a skill `humanizer` ao criar textos da interface.
+- Desconhecidos: versão/API de PDF.js a confirmar em fonte oficial antes do M2; testes Rust locais bloqueados pela ausência do linker MSVC.
+- Riscos: divergência Rust↔TypeScript; PDF sem camada textual; documentos grandes; estados inválidos; hashes/cache incorretos.
+- Plano: (1) contratos/validações M1 e fixtures compartilhadas; (2) testes Rust e TypeScript, revisão, CI verde; (3) adapter PDF.js em Worker, viewer simples e testes com PDFs reais; (4) gates e revisão final.
+- Verificação: rustfmt, testes workspace no CI, teste de schema/contratos, typecheck, build, npm audit, smoke de importação M2 e diff review.
 
-## Execução
-- Alterações realizadas: fontes originais copiadas para `audiobook_studio_engineering/`; índice e CI atualizados.
-- APIs/contratos afetados: nenhum contrato de produto alterado.
-- Compatibilidade/migração: nenhuma.
+## Critérios de aceitação
+- M1: JSON versionado com páginas e blocos, IDs únicos, ordem e proveniência; validação de hash/caixa/confiança; transições explícitas; erros tipados; manifest e cache key determinística; round-trip testado.
+- M2: PDF válido extrai texto por página sem rede/backend; PDF inválido retorna erro claro; página sem camada textual permanece representada e sinaliza OCR; usuário vê resultado e origem por página.
 
-## Encerramento
-- Verificações executadas e resultado: Web typecheck/build passaram; npm audit retornou 0 vulnerabilidades. Cargo fmt indisponível e cargo test bloqueado por falta de `link.exe`. Staging revisado; commit `48c79cc` publicado e hash conferido em `origin/main`.
-- Pendências: publicar a correção e conferir CI remota; instalar linker MSVC no ambiente local para executar `cargo test` fora do CI.
-- Próximo passo: após publicação, iniciar Milestone 1 com fixtures reais de DocumentIR.
+## Resultados
+- Alterações: M1 implementado; contrato DocumentIR v1, validações, manifest/cache key, máquina de estados, fixture e testes; M2 aguarda CI verde.
+- Verificações: rustfmt check, 4 testes TypeScript, typecheck, build e npm audit (0 vulnerabilidades) passaram localmente; Rust test/clippy aguardam CI.
+- Pendências: em andamento.
+- Próximo passo: começar pelo contrato M1.
