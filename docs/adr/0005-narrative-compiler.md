@@ -18,4 +18,4 @@ Cada estágio terá schema/version, IDs, input/output tipados, validador, erros 
 
 O roadmap M4 passa a incluir planejamento, memória, coesão, deduplicação e QA local/global antes de M5. Alterações de pronúncia invalidam áudio dependente, não DocumentIR. O primeiro contrato em `apps/web/src/schemas/narrative.ts` é de fronteira/fixtures; domínio Rust e execução dos estágios serão implementados em M4, com testes de paridade antes de uso em produção.
 
-O relatório mestre original permanece preservado como fonte histórica; `docs/NARRATIVE_AND_PERFORMANCE.md` é o adendo normativo para estas decisões.
+O relatório mestre original permanece preservado como fonte histórica; `docs/NARRATIVE_AND_PERFORMANCE.md` é o adendo normativo para estas decisões. Conforme ADR 0010, memória, deduplicação, source validation, QA e demais regras determinísticas do compilador pertencem ao `audiobook-core` em Rust; adapters de modelo permanecem fora do core.

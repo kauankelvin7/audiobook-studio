@@ -1,13 +1,34 @@
 #![forbid(unsafe_code)]
 
+mod content;
 mod document;
+mod document_v2;
 mod job;
+mod narrative;
 
+pub use content::{
+    ConceptImportance, ContentConcept, ContentError, ContentModel, ContentRelation,
+    ContentSourceUnit, NarrationEligibility, RelationType, SemanticOutline,
+    SemanticOutlineSection,
+};
 pub use document::{
     sha256_source, BlockType, DocumentBlock, DocumentIr, DocumentManifest, DocumentPage,
     TextQuality, DOCUMENT_IR_SCHEMA_VERSION,
 };
+pub use document_v2::{
+    DocumentIrV2, DocumentPageV2, DocumentRegionV2, DocumentV2Error, ExtractionQuality,
+    QualityStatus, RegionContent, RegionType, SourceLayers, Uncertainty, VisualDisposition,
+    VisualType, DOCUMENT_IR_V2_SCHEMA_VERSION,
+};
 pub use job::{GenerationJob, JobState};
+pub use narrative::{
+    build_narration_qa, compare_heading_to_body, find_duplicated_spoken_headings,
+    find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
+    FormulaicFinding, HeadingFinding, HeadingOverlap, HeadingOverlapMethod,
+    HeadingOverlapStatus, NarrationQa, NarrationWarning, NarrativeError, NarrativeHeading,
+    NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeSection,
+    NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
+};
 
 use thiserror::Error;
 

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import v1 from "../../../../tests/fixtures/document_ir_v1.json";
 import v2 from "../../../../tests/fixtures/document_ir_v2.json";
-import { documentIrSchema } from "./document";
-import { documentIrV2Schema, documentQualityReportSchema, migrateDocumentV1ToV2, projectManifestSchema } from "./ingestion";
+import { documentIrV2Schema, documentQualityReportSchema, projectManifestSchema } from "./ingestion";
 
 describe("DocumentIR v2 ingestion contract", () => {
   it("preserves native, OCR and reconstructed layers", () => {
@@ -44,15 +42,6 @@ describe("DocumentIR v2 ingestion contract", () => {
     const mismatched = documentIrV2Schema.parse(structuredClone(v2));
     mismatched.pages[0].regions[0].type = "table";
     expect(documentIrV2Schema.safeParse(mismatched).success).toBe(false);
-  });
-
-  it("migrates v1 losslessly and marks missing provenance for review", () => {
-    const migrated = migrateDocumentV1ToV2(documentIrSchema.parse(v1));
-    expect(migrated.schemaVersion).toBe(2);
-    expect(migrated.pages[0].rawText).toBe(v1.pages[0].rawText);
-    expect(migrated.pages[0].regions.map(region => region.content.kind)).toEqual(["legacy_text", "legacy_text"]);
-    expect(migrated.pages[0].regions.every(region => region.uncertainty === "uncertain" && region.qualityStatus === "review_required")).toBe(true);
-    expect(migrated.pages[1]).toMatchObject({ extractionQuality: "no_text", regions: [] });
   });
 
   it("versions project/audit manifests and rejects impossible page counts", () => {

@@ -118,3 +118,12 @@
 - STANDARD final: typecheck + 83/83 testes Web + build passaram em 16,94 s.
 - Sem dependências novas e sem TTS/OCR/modelo externo.
 - Próxima fatia M4: ContentModel/SemanticOutline + planner adapter estruturado e golden real quando o manual estiver disponível.
+
+## 2026-09-22 — Correção de ownership Rust antes de ampliar M4
+- Detectado desvio arquitetural: Rust continha principalmente DocumentIR v1/JobState, enquanto regras determinísticas de M4 estavam sendo implementadas em TypeScript.
+- Criado ADR 0010 e regra persistente no AGENTS.md: domínio/invariantes canônicos em Rust; TypeScript para UI, browser APIs e adapters.
+- Novos módulos Rust: `document_v2.rs`, `content.rs`, `narrative.rs`; novos testes de contrato em `crates/core/tests/domain_v2.rs`.
+- DocumentIR v1→v2 foi retirado do schema TS e portado ao core Rust. Narrative Quality TS foi removido como implementação canônica.
+- Fixtures `content_model_v1.json` e `semantic_outline_v1.json` são compartilhadas por Rust e schemas TS para reduzir drift de contrato.
+- A fachada WASM agora expõe operações finas do core; wiring JS gerado ainda é etapa posterior.
+- Web STANDARD passou: 74/74 testes, typecheck e build. Rust local não foi executado porque rustc/cargo não estão no PATH; CI é o gate real desta fatia.

@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 import narrativeFixture from "../../../../tests/fixtures/narrative_plan_v1.json";
 import engineFixture from "../../../../tests/fixtures/engine_plan_v1.json";
+import contentModelFixture from "../../../../tests/fixtures/content_model_v1.json";
+import semanticOutlineFixture from "../../../../tests/fixtures/semantic_outline_v1.json";
+import { contentModelSchema, semanticOutlineSchema } from "./content_model";
 import { narrationQaSchema, narrativeMemorySchema, narrativePlanSchema, speechUnitSchema } from "./narrative";
 import { deviceCapabilityProfileSchema, enginePlanSchema, fullArtifactStatusSchema, playbackAvailabilitySchema, ttsBenchmarkSchema } from "./performance";
 
 describe("future narrative boundary contracts", () => {
+  it("keeps TypeScript boundary mirrors compatible with Rust-owned content fixtures", () => {
+    expect(contentModelSchema.safeParse(contentModelFixture).success).toBe(true);
+    expect(semanticOutlineSchema.safeParse(semanticOutlineFixture).success).toBe(true);
+  });
+
   it("keeps visual sections separate from spoken chapters", () => {
     const plan = narrativePlanSchema.parse(narrativeFixture);
     expect(plan.sections).toHaveLength(2);

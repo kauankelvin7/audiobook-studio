@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "documentId": "doc_0000000000000000000000000000000000000000000000000000000000000000",
+  "sections": [{
+    "id": "outline_section_1",
+    "headingUnitId": null,
+    "topicLabel": null,
+    "sourceUnitIds": ["unit_r_1_1"],
+    "candidateNarrationUnitIds": ["unit_r_1_1"],
+    "conceptIds": [],
+    "requiresReview": true
+  }]
+}

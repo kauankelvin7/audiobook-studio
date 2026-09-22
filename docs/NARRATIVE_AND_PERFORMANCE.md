@@ -8,7 +8,7 @@ Fonte: feedback do primeiro audiobook descrito pelo usuário em 2026-09-22. O ar
 
 ContentModel registra conceitos, relações, definições, código, exemplos, tabelas, notas, pré-requisitos, importância, confiança/incerteza e source references; não decide o que será falado. NarrativeModel descreve ordem pedagógica, transições baseadas em relações, seções narrativas e capítulos falados. `displayText` preserva fidelidade técnica; `speechText` é otimizado para síntese e versionado separadamente. Não criar introdução automática para cada heading.
 
-Todo estágio futuro declara `schemaVersion`, `stageId`, versão de implementação, input/output tipados, validator, erro tipado, auditoria, chave de cache/dependências e política de checkpoint/idempotência/fallback. A invalidação é granular: correção em DocumentIR afeta descendentes; mudança em política de heading afeta plano/roteiro/áudio; mudança em pronúncia afeta SpeechModel/áudio, não extração PDF. Persistir manifests com versões e hashes, sem documento completo em logs.
+Todo estágio futuro declara `schemaVersion`, `stageId`, versão de implementação, input/output tipados, validator, erro tipado, auditoria, chave de cache/dependências e política de checkpoint/idempotência/fallback. A invalidação é granular: correção em DocumentIR afeta descendentes; mudança em política de heading afeta plano/roteiro/áudio; mudança em pronúncia afeta SpeechModel/áudio, não extração PDF. Persistir manifests com versões e hashes, sem documento completo em logs. Conforme ADR 0010, os modelos canônicos e transforms determinísticos desta cadeia pertencem ao `audiobook-core` em Rust; TypeScript conserva adapters/browser APIs e schemas de fronteira com paridade testada.
 
 ## Gates narrativos
 

@@ -154,3 +154,21 @@
 - STANDARD: 83/83 + typecheck + build PASS (16,94 s).
 - Deferred: semantic similarity/model judge, ContentModel, SemanticOutline, planner/model adapter, golden mainframe real.
 - Próximo passo: M4.2 ContentModel/SemanticOutline e adapter de planner com structured output, sem TTS.
+
+## PRE-FLIGHT M4.2 — ContentModel, SemanticOutline e Planner Port (2026-09-22)
+- Objective: criar a ponte tipada e executável DocumentIR v2 → ContentModel → SemanticOutline, preservando toda região/proveniência, e definir a fronteira do futuro Narrative Planner sem integrar LLM.
+- Evidence: M4.1 está em `main` no commit `8bbf505`; ADR 0005 exige ContentModel/SemanticOutline antes do planner; DocumentIR v2 já representa incerteza, qualidade e conteúdo complexo.
+- Constraints: nenhuma inferência conceitual inventada; regiões uncertain/review/unsupported permanecem representadas; planner externo só entra por port e saída será validada por schema; sem TTS/OCR engine.
+- Unknowns: ontologia de conceitos e relações será calibrada com golden real; o manual mainframe ainda não está disponível neste repo.
+- Risks: transformar layout em semântica cedo demais, omitir regiões não narráveis, duplicar IDs ou perder source refs.
+- Plan: (1) schemas ContentModel/Outline; (2) builder determinístico source-safe; (3) outline skeleton por headings sem inferir conceitos; (4) PlannerPort + boundary validator; (5) testes focados; (6) STANDARD e docs.
+- Verification: novos testes de preservação 1:1, incerteza, seções, schema e saída inválida do planner; typecheck; STANDARD ao fechar.
+
+## CORREÇÃO ARQUITETURAL M4.2 — Rust core ownership (2026-09-22)
+- Motivo: revisão confirmou que regras canônicas estavam crescendo em TypeScript apesar dos ADRs 0002/0003 definirem domínio Rust.
+- Decisão persistente: ADR 0010 + AGENTS.md. Rust passa a possuir DocumentIR/migrações, ContentModel, SemanticOutline, memória/QA narrativos, provenance/source validation, state machines e transforms determinísticos. TypeScript fica com UI/Web APIs/adapters e schemas espelho de fronteira.
+- Portado nesta fatia: DocumentIR v2 + v1→v2, ContentModel, SemanticOutline, NarrativePlan validation, heading overlap, memória narrativa, formulaic opener signal e narration QA para `audiobook-core`.
+- `audiobook-wasm` virou fachada fina para validar DocumentIR v2, construir ContentModel/Outline e validar NarrativePlan.
+- Removido do TypeScript: implementação canônica de Narrative Quality e migração v1→v2. `content_model.ts` permanece somente como schema Zod de fronteira, com fixtures compartilhadas/paridade estrutural.
+- Rust local: toolchain não está no PATH deste PC; validação Rust será feita no GitHub Actions, sem afirmar PASS antes da CI.
+- Web STANDARD: typecheck + 74/74 testes + build PASS em 17,73 s.

@@ -1,0 +1,176 @@
+use std::collections::{BTreeMap, HashSet};
+
+use audiobook_core::{
+    build_narration_qa, compare_heading_to_body, find_repeated_formulaic_openers,
+    normalize_narrative_text, reduce_narrative_memory, ContentModel, DocumentIr, DocumentIrV2,
+    HeadingOverlapMethod, HeadingOverlapStatus, NarrativeHeading, NarrativeMemory,
+    NarrativeMemoryDelta, NarrativePlan, NarrativeSection, QaStatus, SemanticOutline,
+    SpokenChapter, SpokenHeadingPolicy,
+};
+
+const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
+const DOCUMENT_V2_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v2.json");
+const CONTENT_MODEL_FIXTURE: &str = include_str!("../../../tests/fixtures/content_model_v1.json");
+const SEMANTIC_OUTLINE_FIXTURE: &str = include_str!("../../../tests/fixtures/semantic_outline_v1.json");
+
+fn document_v2() -> DocumentIrV2 {
+    DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
+}
+
+fn plan(policy: SpokenHeadingPolicy) -> NarrativePlan {
+    NarrativePlan {
+        schema_version: 1,
+        document_id: document_v2().document_id,
+        sections: vec![NarrativeSection {
+            id: "section_1".into(),
+            source_refs: vec!["r_1_1".into()],
+            concept_ids: vec![],
+            heading: Some(NarrativeHeading {
+                display_text: "Procedure Division".into(),
+                policy,
+                reason: "topic boundary".into(),
+            }),
+            transition: None,
+            spoken_chapter_id: "chapter_1".into(),
+            estimated_seconds: Some(60.0),
+        }],
+        spoken_chapters: vec![SpokenChapter {
+            id: "chapter_1".into(),
+            section_ids: vec!["section_1".into()],
+            display_title: "COBOL".into(),
+        }],
+    }
+}
+
+#[test]
+fn rust_owns_document_v1_to_v2_migration() {
+    let v1 = DocumentIr::from_json(DOCUMENT_V1_FIXTURE).expect("v1 fixture");
+    let migrated = DocumentIrV2::migrate_from_v1(&v1).expect("migration succeeds");
+    assert_eq!(migrated.schema_version, 2);
+    assert_eq!(migrated.pages[0].raw_text, v1.pages[0].raw_text);
+    assert!(migrated.pages[0]
+        .regions
+        .iter()
+        .all(|region| region.quality_status == audiobook_core::QualityStatus::ReviewRequired));
+    assert_eq!(
+        migrated.pages[1].extraction_quality,
+        audiobook_core::ExtractionQuality::NoText
+    );
+}
+
+#[test]
+fn document_v2_round_trip_preserves_uncertainty_and_code() {
+    let document = document_v2();
+    let json = document.to_json().expect("v2 document serializes");
+    let restored = DocumentIrV2::from_json(&json).expect("serialized v2 document parses");
+    assert_eq!(restored, document);
+    assert_eq!(restored.pages[0].regions[0].id, "r_1_1");
+}
+
+#[test]
+fn content_model_preserves_every_region_without_inventing_concepts() {
+    let document = document_v2();
+    let content = ContentModel::from_document(&document).expect("valid content model");
+    assert_eq!(content.source_units.len(), 1);
+    assert_eq!(content.source_units[0].source_refs, vec!["r_1_1"]);
+    assert!(content.concepts.is_empty());
+    assert!(content.relations.is_empty());
+}
+
+#[test]
+fn content_and_outline_match_checked_in_cross_language_fixtures() {
+    let document = document_v2();
+    let content = ContentModel::from_document(&document).expect("valid content model");
+    let expected_content: serde_json::Value =
+        serde_json::from_str(CONTENT_MODEL_FIXTURE).expect("content fixture JSON");
+    let actual_content: serde_json::Value =
+        serde_json::from_str(&content.to_json().expect("content serializes")).expect("content JSON");
+    assert_eq!(actual_content, expected_content);
+
+    let outline = SemanticOutline::skeleton(&content).expect("outline skeleton");
+    let expected_outline: serde_json::Value =
+        serde_json::from_str(SEMANTIC_OUTLINE_FIXTURE).expect("outline fixture JSON");
+    let actual_outline: serde_json::Value =
+        serde_json::from_str(&outline.to_json(&content).expect("outline serializes")).expect("outline JSON");
+    assert_eq!(actual_outline, expected_outline);
+    assert!(outline.sections[0].requires_review);
+}
+
+#[test]
+fn narrative_normalization_and_heading_overlap_are_core_rules() {
+    assert_eq!(
+        normalize_narrative_text("  SQLCODE -911: Introdução! "),
+        "sqlcode 911 introducao"
+    );
+    let overlap = compare_heading_to_body(
+        "Arquivos indexados",
+        "Arquivos indexados permitem acesso por chave.",
+    );
+    assert_eq!(overlap.status, HeadingOverlapStatus::Duplicate);
+    assert_eq!(overlap.method, HeadingOverlapMethod::Prefix);
+}
+
+#[test]
+fn narrative_memory_does_not_reintroduce_covered_or_resolved_items() {
+    let memory = NarrativeMemory {
+        schema_version: 1,
+        concepts_covered: vec!["PIC".into()],
+        terms_defined: vec!["PIC".into()],
+        open_threads: vec!["loops".into()],
+        current_goal: Some("data".into()),
+        next_concepts: vec!["OCCURS".into()],
+        source_refs: vec!["r_1_1".into()],
+    };
+    let reduced = reduce_narrative_memory(
+        &memory,
+        NarrativeMemoryDelta {
+            concepts_covered: vec!["OCCURS".into()],
+            terms_defined: vec!["OCCURS".into()],
+            open_threads: vec!["REDEFINES".into()],
+            resolved_threads: vec!["loops".into()],
+            next_concepts: Some(vec!["OCCURS".into(), "REDEFINES".into()]),
+            source_refs: vec!["r_1_1".into()],
+            ..NarrativeMemoryDelta::default()
+        },
+    );
+    assert_eq!(reduced.concepts_covered, vec!["PIC", "OCCURS"]);
+    assert_eq!(reduced.open_threads, vec!["REDEFINES"]);
+    assert_eq!(reduced.next_concepts, vec!["REDEFINES"]);
+}
+
+#[test]
+fn repeated_formulaic_openers_are_review_signals() {
+    let texts = vec![
+        "Agora vamos entender um.".into(),
+        "Agora vamos entender dois.".into(),
+        "Outro início.".into(),
+        "Agora vamos entender três.".into(),
+    ];
+    let findings = find_repeated_formulaic_openers(&texts, 3).expect("valid threshold");
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].count, 3);
+}
+
+#[test]
+fn narration_qa_fails_duplicated_announced_heading() {
+    let plan = plan(SpokenHeadingPolicy::Announce);
+    let speech = BTreeMap::from([(
+        "section_1".into(),
+        "Procedure Division organiza a lógica executável.".into(),
+    )]);
+    let valid_refs = HashSet::from(["r_1_1".into()]);
+    let report =
+        build_narration_qa("plan_1", 1, &plan, &speech, &valid_refs, 0).expect("QA runs");
+    assert_eq!(report.status, QaStatus::Fail);
+    assert_eq!(report.duplicated_spoken_headings, 1);
+}
+
+#[test]
+fn narrative_plan_rejects_fabricated_source_reference_against_content_model() {
+    let document = document_v2();
+    let content = ContentModel::from_document(&document).expect("valid content model");
+    let outline = SemanticOutline::skeleton(&content).expect("valid outline");
+    let mut plan = plan(SpokenHeadingPolicy::Integrate);
+    plan.sections[0].source_refs = vec!["invented".into()];
+    assert!(plan.validate_against(&content, &outline).is_err());
+}

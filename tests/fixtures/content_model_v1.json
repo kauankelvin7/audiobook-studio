@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "documentId": "doc_0000000000000000000000000000000000000000000000000000000000000000",
+  "sourceHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "language": null,
+  "sourceUnits": [{
+    "id": "unit_r_1_1",
+    "sourceRefs": ["r_1_1"],
+    "regionType": "code",
+    "language": null,
+    "analysisText": "PR0CEDURE DIVISI0N",
+    "structuredSource": true,
+    "uncertainty": "reconstructed",
+    "qualityStatus": "review_required",
+    "narrationEligibility": "review_required",
+    "flags": ["technical_token_review"]
+  }],
+  "concepts": [],
+  "relations": []
+}
