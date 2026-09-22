@@ -93,10 +93,10 @@ function App() {
             schemaVersion: 1,
             projectId: response.document.documentId,
             createdAtMs,
-            pipelineVersion: "m3.2",
+            pipelineVersion: "m4.2",
             sourceHash: response.document.sourceHash,
             job: { state: "STRUCTURING", resumeState: null },
-            artifactKeys: ["source_pdf", "document_ir"],
+            artifactKeys: ["source_pdf", "document_ir", "document_ir_v2", ...(response.contentModel ? ["content_model", "semantic_outline"] : [])],
           };
           const writes: ArtifactWrite[] = [
             {
@@ -123,6 +123,41 @@ function App() {
               finalArtifact: false,
               expiresAtMs: null,
             },
+            {
+              projectId: checkpoint.projectId,
+              artifactKey: "document_ir_v2",
+              kind: "document_ir",
+              value: new Blob([JSON.stringify(response.documentV2)], { type: "application/json" }),
+              mediaType: "application/json",
+              createdAtMs,
+              regenerable: true,
+              pinned: false,
+              finalArtifact: false,
+              expiresAtMs: null,
+            },
+            ...(response.contentModel && response.semanticOutline ? [{
+              projectId: checkpoint.projectId,
+              artifactKey: "content_model",
+              kind: "document_ir",
+              value: new Blob([JSON.stringify(response.contentModel)], { type: "application/json" }),
+              mediaType: "application/json",
+              createdAtMs,
+              regenerable: true,
+              pinned: false,
+              finalArtifact: false,
+              expiresAtMs: null,
+            }, {
+              projectId: checkpoint.projectId,
+              artifactKey: "semantic_outline",
+              kind: "document_ir",
+              value: new Blob([JSON.stringify(response.semanticOutline)], { type: "application/json" }),
+              mediaType: "application/json",
+              createdAtMs,
+              regenerable: true,
+              pinned: false,
+              finalArtifact: false,
+              expiresAtMs: null,
+            }] satisfies ArtifactWrite[] : []),
           ];
           try {
             await persistence.persistNext(checkpoint, writes);

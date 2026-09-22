@@ -2,6 +2,8 @@
 
 Gates obrigatórios quando as ferramentas existirem no ambiente:
 
+M4 Rust/WASM/Web: `npm run wasm:build` em `apps/web` regenera o módulo com Rust 1.94.1 e `wasm-bindgen-cli` 0.2.128. A CI compara os arquivos gerados versionados antes dos testes Web. `rust_content_pipeline.test.ts` carrega o `.wasm` real e verifica as fixtures compartilhadas; typecheck isolado não comprova execução do módulo.
+
 ```text
 FAST
 cd apps/web && npm run test:fast

@@ -1,4 +1,20 @@
-# TASK PACKET — Milestone 3: persistência e retomada local
+# TASK PACKET — Audiobook Studio
+
+## PRE-FLIGHT atual — M4 Rust/WASM/Web runtime (2026-09-22)
+- Objective: ligar a fachada `audiobook-wasm` ao Worker Web para migrar DocumentIR v1, validar DocumentIR v2 e construir ContentModel/SemanticOutline pelo core Rust; comprovar paridade com fixtures compartilhadas e execução real do módulo WASM.
+- Evidence: branch `codex/m4-content-model` limpa em `039b982`; handoff indica este passo; `crates/wasm` expõe v2/content/outline, mas falta migração v1 e bundle gerado; o Worker hoje só extrai v1 via PDF.js. CI de `5807e79` passou Rust e Web segundo handoff/worklog.
+- Constraints: Rust é fonte canônica; TS apenas fronteiras, Web APIs e adapters; preservar local-first, source/provenance e estados de revisão; sem TTS/planner; não declarar execução WASM apenas por teste de mock; sem texto novo de UI nesta fatia.
+- Unknowns: ferramentas `rustup`/`wasm-pack` ausentes neste host; target wasm32 não instalado; build local pode exigir instalação aprovada ou validação pelo CI; comportamento de bundling do Vite Worker deve ser testado de fato.
+- Risks: bundle gerado incompatível com versão `wasm-bindgen`, build Web sem artefato, worker falhar no carregamento, drift de contrato Rust/TS, PDF v1 válido que falha migração e persistência de dados parciais.
+- Plan: (1) expor migração v1→v2 na fachada Rust; (2) build reproduzível e pinado de WASM; (3) adapter TS fino com validação de fronteira; (4) ligar Worker e protocolo à cadeia v1→v2→ContentModel→SemanticOutline; (5) testes de paridade e integração real WASM; (6) gates, revisão, worklog e CI.
+- Verification: Rust fmt/test/clippy quando disponíveis; Web typecheck/test/build; teste que importe o bundle real e compare fixtures; importação PDF via Worker em browser se disponível; diff e CI.
+
+## Controle de execução M4 runtime
+- Task Risk: HIGH
+- Writer: Lead/Orchestrator.
+- Allowed Files: `crates/wasm/`, `apps/web/src/adapters/`, `apps/web/src/workers/`, schemas de fronteira e testes, build scripts/CI/docs M4, `.ai/`; `main.tsx` apenas para consumir resultado sem alterar microcopy.
+- Do not touch: TTS, engines externos, backend, regras canônicas duplicadas em TS, relatório mestre preservado.
+- Independent Review Required: YES, via revisão de diff e contrato; subagente somente se ferramenta disponível.
 
 ## PRE-FLIGHT atual — M3.2 OPFS, coordenação e retenção (2026-09-22)
 - Objective: persistir artefatos binários validados no OPFS, impedir writers concorrentes entre abas, coordenar a publicação do manifest/checkpoint e executar limpeza física somente por plano explícito e seguro.

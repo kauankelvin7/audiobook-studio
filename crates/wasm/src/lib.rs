@@ -1,4 +1,4 @@
-use audiobook_core::{ContentModel, DocumentIrV2, NarrativePlan, SemanticOutline};
+use audiobook_core::{ContentModel, DocumentIr, DocumentIrV2, NarrativePlan, SemanticOutline};
 use wasm_bindgen::prelude::*;
 
 fn js_error(error: impl std::fmt::Display) -> JsValue {
@@ -11,10 +11,24 @@ pub fn core_version() -> String {
 }
 
 #[wasm_bindgen]
+pub fn migrate_document_v1_to_v2_json(input: &str) -> Result<String, JsValue> {
+    let document = DocumentIr::from_json(input).map_err(js_error)?;
+    DocumentIrV2::migrate_from_v1(&document)
+        .and_then(|migrated| migrated.to_json())
+        .map_err(js_error)
+}
+
+#[wasm_bindgen]
 pub fn validate_document_v2_json(input: &str) -> Result<String, JsValue> {
     DocumentIrV2::from_json(input)
         .and_then(|document| document.to_json())
         .map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn document_v2_has_source_units_json(input: &str) -> Result<bool, JsValue> {
+    let document = DocumentIrV2::from_json(input).map_err(js_error)?;
+    Ok(document.pages.iter().any(|page| !page.regions.is_empty()))
 }
 
 #[wasm_bindgen]

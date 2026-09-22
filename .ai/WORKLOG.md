@@ -134,3 +134,12 @@
 - Implementações canônicas equivalentes foram removidas do TypeScript; buscas por `migrateDocumentV1ToV2`, `buildNarrationQa`, `compareHeadingToBody` e `reduceNarrativeMemory` em `apps/web/src` retornaram vazio.
 - TypeScript mantém schemas Zod de fronteira e adapters de browser; fixtures compartilhadas verificam compatibilidade estrutural.
 - A fachada `audiobook-wasm` expõe funções finas do Rust, mas o bundle WASM ainda não está ligado ao runtime React; isso permanece próximo passo antes de ampliar planner/IA.
+
+## 2026-09-22 — M4 integração Rust/WASM/Web
+- Estado inicial: `codex/m4-content-model` limpa em `039b982`; handoff e ADR 0010 lidos antes das alterações. PRE-FLIGHT registrado no TASK_PACKET.
+- Fachada Rust: exportadas migração v1→v2 e inspeção de unidades de fonte. O core continua responsável por migração, invariantes, ContentModel e SemanticOutline.
+- Web: adapter TS fino carrega o módulo WASM real no Worker; protocolo valida os quatro contratos e identidade/hash na fronteira. PDF sem texto preserva DocumentIR v2, sem criar ContentModel/Outline fictícios.
+- Persistência: checkpoint M4 referencia PDF, DocumentIR v1/v2 e, quando produzidos, ContentModel/Outline no OPFS. UI mantém a revisão do texto extraído. Nenhum planner, modelo ou TTS foi adicionado.
+- Build: Rust 1.94.1 e `wasm-bindgen` 0.2.128 fixados; script regenera bindings Web versionados. CI recebeu gate de regeneração/paridade.
+- Verificações locais: `npm run wasm:build` passou com toolchain GNU; `cargo fmt --all -- --check`, `cargo test --workspace --locked` (24 testes Rust) e `cargo clippy --workspace --all-targets -- -D warnings` passaram; `npm run test:standard` passou com 78/78 testes, typecheck e build; `npm audit --audit-level=high` encontrou 0 vulnerabilidades. O build incluiu asset WASM de aproximadamente 450 KB.
+- Limite: teste visual não executado por orientação explícita. Browser integrado não acessou o servidor local durante tentativa anterior. CI e publicação aguardam commit/push.
