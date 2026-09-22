@@ -145,3 +145,4 @@
 - Limite: teste visual não executado por orientação explícita. Browser integrado não acessou o servidor local durante tentativa anterior.
 - Publicação: commit `ce48c3a` enviado para `origin/codex/m4-content-model`; `git ls-remote` confirmou o mesmo hash do HEAD local. CI remota ainda não verificada.
 - CI dos commits `ce48c3a` e `d202bf8`: job Rust passou; job Web falhou na comparação byte a byte dos artefatos WASM regenerados em Linux com os versionados em Windows. O log público não expôs o arquivo divergente. Ajustado gate para comparar bindings JS/TypeScript, manter compilação e executar testes Web contra o WASM real gerado na CI; o binário permanece sem checagem de reprodutibilidade entre hosts.
+- CI do commit `6b91326`: workflow `quality` run `35776236399` concluiu com sucesso após o ajuste. Todos os gates Rust/Web do workflow passaram.
