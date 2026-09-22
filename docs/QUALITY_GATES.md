@@ -3,13 +3,22 @@
 Gates obrigatórios quando as ferramentas existirem no ambiente:
 
 ```text
+FAST
+cd apps/web && npm run test:fast
+
+STANDARD
+cd apps/web && npm run test:standard
+
+FULL WEB
+cd apps/web && npm run test:full
+
+RUST / CI
 cargo fmt --all -- --check
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cd apps/web && npm run typecheck
-cd apps/web && npm test
-cd apps/web && npm run build
 ```
+
+FAST é usado durante batches relacionados; STANDARD fecha mudanças comuns; FULL WEB adiciona audit de dependências e não substitui futuros fuzz, browser matrix, soak ou performance/nightly. Mudança pequena não dispara automaticamente todos os gates.
 
 Falhas de ferramenta ausente devem ser registradas como `BLOCKED_TOOLING`, não convertidas em sucesso.
 

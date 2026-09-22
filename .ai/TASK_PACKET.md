@@ -1,5 +1,26 @@
 # TASK PACKET — Milestone 3: persistência e retomada local
 
+## PRE-FLIGHT atual — M3.2 OPFS, coordenação e retenção (2026-09-22)
+- Objective: persistir artefatos binários validados no OPFS, impedir writers concorrentes entre abas, coordenar a publicação do manifest/checkpoint e executar limpeza física somente por plano explícito e seguro.
+- Evidence: M3.1 está publicado e testado; `docs/PERSISTENCE.md` e ADR 0009 deixam OPFS, locks, órfãos e limpeza física pendentes; `ArtifactStore` ainda é apenas um port mínimo; OPFS e Web Locks estão disponíveis em contextos seguros e workers nos navegadores-alvo atuais.
+- Constraints: local-first; sem backend/microserviços; um único writer; APIs Web injetáveis; nomes derivados apenas de IDs/hash validados; nunca sobrescrever corrupção; nenhum dado não regenerável, fixado, final ou do projeto atual é removido automaticamente; metadata só é publicada após escrita e verificação do arquivo.
+- Unknowns: quota real e persistência por navegador; falhas de energia entre OPFS e IndexedDB; suporte em browsers embarcados/antigos; matriz E2E real ainda não configurada.
+- Risks: arquivo parcial, manifest sem arquivo, órfão após falha de transação, corrida entre abas, remoção indevida, hash de blobs grandes pressionando memória e testes unitários divergirem do browser real.
+- Plan: (1) contratos tipados para artefato/lock; (2) adapter Web Locks fail-closed; (3) OPFS com nome imutável, hash e verificação pós-escrita; (4) manifest e checkpoint publicados juntos em uma transação IndexedDB após OPFS; (5) reconciliação/retention explícita; (6) testes unitários, gates, revisão independente, documentação e CI.
+- Verification: testes de lock ocupado/indisponível/liberação; OPFS round-trip/idempotência/corrupção/falha parcial; commit e rollback lógico; órfãos e proteção de retention; typecheck, build, audit, Rust gates disponíveis, revisão do diff e CI.
+
+## Controle de execução M3.2
+- Task Risk: HIGH
+- Writer: Lead/Orchestrator
+- Subagents: Explorer e QA Reviewer, ambos read-only.
+- Model: Lead definido pelo host; papéis conforme `.codex/agents/`.
+- Reasoning: HIGH para consistência entre stores; MEDIUM para exploração e QA.
+- Allowed Files: `.ai/`, `apps/web/src/schemas/`, `apps/web/src/adapters/`, testes, `docs/PERSISTENCE.md`, ADR 0009, quality/security/gap docs e workflow apenas se um gate novo for necessário.
+- Do not touch: relatório mestre preservado, UI, OCR/TTS, backend/microserviços e domínio Rust fora de fixtures/contratos já existentes.
+- Parallelizable: YES, somente exploração e revisão sem escrita.
+- Independent Review Required: YES.
+- Verification: testes Web, typecheck, build, audit, Rust gates disponíveis, diff e CI.
+
 ## PRE-FLIGHT atual — M3.1 persistence core (2026-09-22)
 - Objective: persistir projetos e checkpoints versionados em IndexedDB, restaurar o último checkpoint válido e expor quota sem backend; manter OPFS/binários para uma fatia seguinte.
 - Evidence: ADR 0009 aceita storage local e eviction segura; `GenerationJob` Rust já serializa snapshots; GAP_ANALYSIS marca IndexedDB/OPFS e retomada durável como pendentes; Web ainda não possui storage adapter.
@@ -101,3 +122,11 @@
 - Risks: conflitar `AUTO` da UI com `balanced` técnico; usar estado único para playback e export; falsa precisão de TTFA; esconder falha de buffer ou trocar voz silenciosamente.
 - Plan: alinhar ADR 0006 com `auto | fast | quality`, criar ADR de estados independentes, requisitos/estratégia de testes e ajustar contratos/fixtures; não implementar profiler/router/producer ainda.
 - Verification: testes de schema, typecheck, build, audit, diff; Rust via CI após push.
+
+## RESULT M3.2 — 2026-09-22
+- Status: IMPLEMENTED/TESTED no escopo Web, incluindo smoke real em Chrome local.
+- Entregue: OPFS, Web Locks, metadata transacional IndexedDB v2, coordenação local, sequência sob lock, retomada validada, reconciliação e eviction física segura, wiring do navegador e test tiers.
+- FAST: 27/27 testes focados, 0,84 s; typecheck final também passou.
+- STANDARD: typecheck + 74/74 testes + build, 14,74 s.
+- Não executado nesta fatia: browser matrix real, fuzz/soak, Rust local (sem mudança Rust; linker MSVC segue ausente).
+- Próximo passo: revisão final de diff, commit/push/CI; depois iniciar M4 Narrative Compiler em fatia pequena, sem integrar TTS real ainda.

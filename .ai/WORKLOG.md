@@ -96,3 +96,15 @@
 - Verificações finais: 54/54 testes Web, typecheck, build, audit e rustfmt passaram. `cargo test --workspace` local continua `BLOCKED_TOOLING` por `link.exe`; CI Linux validará o fixture Rust após publicação.
 - Publicação: commit `53d1418ed27b258601ff9e874d766b3a5da52b28` enviado para `origin/main`.
 - CI: workflow `quality` run `35747894619` concluiu com `success`, incluindo testes Rust do fixture compartilhado e gates Web.
+
+## 2026-09-22 — M3.2 OPFS, locks e retomada Web
+- Retomada local preservou trabalho inacabado da sessão anterior em `codex/m3-persistence-resume`; nenhum reset foi necessário.
+- OPFS: artefatos são nomeados por hash, verificados após escrita, validados na leitura, listados por namespace seguro e removidos explicitamente.
+- Concorrência: `WebLocksProjectLock` usa lock exclusivo por projeto e preserva erros da operação protegida; lock ocupado/indisponível falha de forma tipada.
+- IndexedDB foi elevado para versão 2, preservando `checkpoints` v1 e adicionando `artifacts`; manifests + checkpoint são publicados na mesma transação após OPFS validado.
+- `LocalProjectPersistence` coordena persistência, sequência sob lock, inspeção de retomada, reconciliação de órfãos/ausentes e eviction física somente de artefatos regeneráveis/desprotegidos fora do projeto atual.
+- Runtime Web passou a salvar PDF original + DocumentIR + checkpoint e tenta recuperar o projeto local mais recente com DocumentIR íntegro.
+- Test tiers adicionados: `test:fast`, `test:standard`, `test:full`. FAST final passou 27/27 em 0,84 s; STANDARD final passou typecheck + 74/74 testes + build em 14,74 s.
+- Nenhuma dependência mudou nesta fatia; audit completo não foi repetido localmente por política de risco. CI continua executando `npm audit --audit-level=high`.
+- Browser smoke real: Chrome local importou a fixture PDF, persistiu PDF + DocumentIR, recarregou a página e exibiu “Seu último projeto foi recuperado neste dispositivo.” sem erros de página. O primeiro smoke revelou uma corrida de leitura com Web Locks sob React StrictMode; `inspectResume` foi tornado read-only sem lock exclusivo e o reload passou na repetição.
+- Limites declarados: Edge/Firefox e matriz ampla, UI de seleção de múltiplos projetos, temporários por expiração e atomicidade cross-store sob queda de energia permanecem para hardening posterior.

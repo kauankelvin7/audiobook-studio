@@ -1,37 +1,59 @@
 # Persistência local e retomada
 
-Status: M3.1 `IMPLEMENTED/TESTED`; M3.2 `DESIGNED`.
+Status: M3.1 `IMPLEMENTED/TESTED`; M3.2 `IMPLEMENTED/TESTED` no escopo Web, incluindo smoke real em Chrome local. Edge/Firefox e matriz ampla permanecem pendentes.
 
-## Escopo M3.1
+## Arquitetura atual
 
-`IndexedDbCheckpointRepository` implementa o port `CheckpointRepository`. Cada checkpoint usa chave composta `projectId + sequence`, schema v1 estrito e checksum SHA-256. O snapshot do job replica os estados serializados pelo core Rust, mas ainda não representa integração WASM com `GenerationJob`.
+- `IndexedDbCheckpointRepository`: checkpoints, manifests de artefatos, listagem de projetos e commit transacional de metadata.
+- `OpfsArtifactStore`: blobs imutáveis no OPFS por hash, verificação pós-escrita, leitura com validação e remoção explícita.
+- `WebLocksProjectLock`: exclusão mútua por projeto entre contextos Web; falha fechada quando lock não está disponível.
+- `LocalProjectPersistence`: coordena OPFS -> validação -> metadata/checkpoint, recuperação, reconciliação e eviction física segura.
+- `createBrowserLocalPersistence`: wiring das APIs reais do navegador.
 
-`loadLatest` valida o registro mais recente e falha de forma tipada quando encontra corrupção. `recoverLatest` percorre até 1.000 checkpoints do mais novo para o mais antigo, devolve o primeiro válido e lista cada registro rejeitado. Nenhum registro é apagado durante leitura ou recuperação. Exclusão exige chamada explícita.
+## Ordem de publicação
 
-Escrita repetida do mesmo conteúdo e sequência é idempotente. Conteúdo diferente na mesma sequência retorna `CHECKPOINT_CONFLICT`; o adapter não aplica last-write-wins. Isto reduz perda silenciosa, mas não substitui o lease entre abas planejado para M3.2.
+A publicação durável segue:
 
-O adapter de quota consulta `navigator.storage.estimate()`, `persisted()` e `persist()` por uma interface injetável. APIs ausentes, negação do usuário ou falha do navegador produzem estado `unavailable`/`denied`; leitura local continua possível.
+```text
+artifact bytes -> OPFS write -> OPFS verify -> IndexedDB manifest + checkpoint
+```
 
-## Integridade e limites
+O checkpoint não é publicado quando a escrita do artefato falha. IndexedDB armazena manifest e checkpoint na mesma transação. Como não existe transação ACID compartilhada entre OPFS e IndexedDB, uma queda de energia entre stores ainda pode deixar órfão ou manifest sem arquivo; `reconcileStorage()` identifica ambos sem apagar silenciosamente.
 
-- IDs aceitam apenas caracteres seguros e têm tamanho máximo.
-- Sequence e timestamps exigem inteiros seguros não negativos.
-- Artifact keys são únicas e limitadas a 10.000 por checkpoint.
-- Recovery processa no máximo 1.000 candidatos por projeto e só retorna `RECOVERY_LIMIT` quando todos forem inválidos e houver histórico mais antigo.
-- Schema desconhecido, estrutura inválida, checksum divergente e conflito de writer têm códigos distintos.
-- Escrita valida e calcula checksum antes de abrir a transação IndexedDB.
+## Recuperação
 
-Checksum detecta corrupção acidental. Não autentica dados contra scripts com acesso ao mesmo origin, que também podem recalcular o hash.
+`recoverLatest` devolve o checkpoint válido mais recente e lista registros rejeitados. `inspectResume` valida também cada artefato referenciado no OPFS; retomada só é marcada como segura quando todos estão disponíveis e íntegros.
 
-## Migração
+A tela inicial tenta recuperar o projeto local mais recente que possua `document_ir` válido. Importações novas persistem o PDF original, o DocumentIR e um checkpoint sequencial.
 
-Banco v1 cria store `checkpoints` e índice composto `by_project_sequence`. Nesta versão não existe formato legado autorizado. Registros com `schemaVersion` desconhecida permanecem intactos e retornam `UNSUPPORTED_SCHEMA`; futura migração exigirá ADR, fixture e teste de rollback.
+## Concorrência
 
-## Pendente para M3.2
+`persistNext` adquire o lock do projeto antes de ler a última sequência e publicar a seguinte. Falhas produzidas pela operação protegida são preservadas; falhas do gerenciador de locks são convertidas em erro tipado.
 
-- OPFS para PDF, modelos e áudio binário.
-- Commit coordenado entre metadata IndexedDB e arquivo OPFS.
-- Lock/lease entre abas e detecção de writer concorrente.
-- Política de retenção, temporários órfãos e limpeza física.
-- Testes em Chrome, Edge e Firefox conforme suporte real.
-- Integração do checkpoint com a máquina de estados Rust/WASM e UI de retomada.
+## Retenção e quota
+
+A política LRU só seleciona artefatos regeneráveis, não fixados, não finais e fora do projeto atual. `cleanupRegenerableArtifacts` materializa esse plano fisicamente e remove metadata somente depois da remoção do arquivo. Se não houver candidatos seguros suficientes, nada é apagado.
+
+PDF original, edição humana, artefato final e dados não regeneráveis nunca são removidos automaticamente. Quota continua best-effort via `navigator.storage`.
+
+## Schema e migração
+
+- IndexedDB v1: store `checkpoints`.
+- IndexedDB v2: adiciona store `artifacts` e índice `by_project`, preservando checkpoints existentes.
+- Checkpoints e manifests mantêm `schemaVersion: 1` no wire format; schema futuro incompatível falha explicitamente.
+
+## Test tiers
+
+- `npm run test:fast`: persistência/OPFS/locks focados.
+- `npm run test:standard`: typecheck + suíte Web + build.
+- `npm run test:full`: standard + audit de dependências.
+
+Fuzz, browser matrix, soak e hardware/performance continuam como gates futuros/nightly; não são simulados como concluídos.
+
+## Pendências pós-M3.2
+
+- browser matrix Chrome/Edge/Firefox conforme suporte real;
+- UI específica para escolha/retomada de múltiplos projetos;
+- integração do checkpoint com a máquina de estados Rust/WASM;
+- política de temporários por expiração;
+- hardening de falha de energia entre OPFS e IndexedDB.

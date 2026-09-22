@@ -1,6 +1,6 @@
 import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
-import type { CheckpointInput } from "../schemas/persistence";
+import type { ArtifactManifestRecord, CheckpointInput } from "../schemas/persistence";
 import { IndexedDbCheckpointRepository } from "./indexeddb_checkpoint_repository";
 
 function checkpoint(sequence: number, state: CheckpointInput["job"]["state"] = "EXTRACTING", projectId = "project_1"): CheckpointInput {
@@ -16,6 +16,25 @@ function checkpoint(sequence: number, state: CheckpointInput["job"]["state"] = "
   };
 }
 
+function artifactRecord(artifactKey = "source_pdf", content = "b"): ArtifactManifestRecord {
+  return {
+    schemaVersion: 1,
+    projectId: "project_1",
+    artifactKey,
+    kind: artifactKey === "source_pdf" ? "source_pdf" : "audio_chunk",
+    contentHash: `sha256:${content.repeat(64).slice(0, 64)}`,
+    fileName: `v1_${content.repeat(64).slice(0, 64)}.bin`,
+    mediaType: artifactKey === "source_pdf" ? "application/pdf" : "audio/mpeg",
+    sizeBytes: 128,
+    createdAtMs: 1_700_000_000_000,
+    lastAccessedAtMs: 1_700_000_000_000,
+    regenerable: artifactKey !== "source_pdf",
+    pinned: artifactKey === "source_pdf",
+    finalArtifact: false,
+    expiresAtMs: null,
+  };
+}
+
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -28,7 +47,7 @@ async function putRaw(indexedDb: IDBFactory, databaseName: string, value: unknow
 }
 
 async function putRawMany(indexedDb: IDBFactory, databaseName: string, values: unknown[]): Promise<void> {
-  const database = await requestResult(indexedDb.open(databaseName, 1));
+  const database = await requestResult(indexedDb.open(databaseName));
   const transaction = database.transaction("checkpoints", "readwrite");
   const completed = new Promise<void>((resolve, reject) => {
     transaction.oncomplete = () => resolve();
@@ -119,6 +138,54 @@ describe("IndexedDB checkpoint repository", () => {
       sequence: index + 1,
     })));
     await expect(store.recoverLatest("project_1")).resolves.toEqual({ checkpoint: recent, rejected: [] });
+    store.close();
+  });
+
+  it("commits artifact manifests and checkpoint metadata in one IndexedDB transaction", async () => {
+    const indexedDb = new IDBFactory();
+    const store = repository(indexedDb, "artifact-commit");
+    const record = artifactRecord();
+
+    await expect(store.commit({ checkpoint: checkpoint(1), artifacts: [record] })).resolves.toMatchObject({ sequence: 1 });
+    await expect(store.commit({ checkpoint: checkpoint(1), artifacts: [record] })).resolves.toMatchObject({ sequence: 1 });
+    await expect(store.listProjectIds()).resolves.toEqual(["project_1"]);
+    await expect(store.listArtifacts("project_1")).resolves.toEqual([record]);
+    await expect(store.listAllArtifacts()).resolves.toEqual([record]);
+    store.close();
+  });
+
+  it("rejects checkpoints that reference missing or conflicting artifact metadata", async () => {
+    const indexedDb = new IDBFactory();
+    const store = repository(indexedDb, "artifact-conflict");
+
+    await expect(store.commit({ checkpoint: checkpoint(1), artifacts: [] }))
+      .rejects.toMatchObject({ code: "MISSING_ARTIFACT_MANIFEST" });
+    await expect(store.loadLatest("project_1")).resolves.toBeNull();
+
+    const original = artifactRecord();
+    await store.commit({ checkpoint: checkpoint(1), artifacts: [original] });
+    const changed = { ...artifactRecord("source_pdf", "c"), createdAtMs: original.createdAtMs + 1, lastAccessedAtMs: original.lastAccessedAtMs + 1 };
+    await expect(store.commit({ checkpoint: checkpoint(2), artifacts: [changed] }))
+      .rejects.toMatchObject({ code: "ARTIFACT_CONFLICT" });
+    await expect(store.loadLatest("project_1")).resolves.toMatchObject({ sequence: 1 });
+    store.close();
+  });
+
+  it("upgrades a version 1 checkpoint database before publishing artifact metadata", async () => {
+    const indexedDb = new IDBFactory();
+    const databaseName = "upgrade-v1";
+    const request = indexedDb.open(databaseName, 1);
+    request.onupgradeneeded = () => {
+      const checkpointStore = request.result.createObjectStore("checkpoints", { keyPath: ["projectId", "sequence"] });
+      checkpointStore.createIndex("by_project_sequence", ["projectId", "sequence"], { unique: true });
+    };
+    const legacyDatabase = await requestResult(request);
+    legacyDatabase.close();
+
+    const store = repository(indexedDb, databaseName);
+    const record = artifactRecord();
+    await expect(store.commit({ checkpoint: checkpoint(1), artifacts: [record] })).resolves.toMatchObject({ sequence: 1 });
+    await expect(store.listArtifacts("project_1")).resolves.toEqual([record]);
     store.close();
   });
 

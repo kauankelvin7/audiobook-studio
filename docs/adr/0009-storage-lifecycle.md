@@ -1,6 +1,6 @@
 # ADR 0009 — Ciclo de vida de storage local
 
-Status: accepted (IndexedDB/checkpoints e quota implementados; OPFS/locks pendentes)
+Status: accepted (IndexedDB/checkpoints, quota, OPFS, locks e eviction física implementados no Web; hardening multi-browser pendente)
 
 ## Decisão
 
@@ -10,4 +10,4 @@ PDF original, edição humana, artefato final e qualquer dado não regenerável 
 
 ## Consequências
 
-A função pura de candidatos à eviction está implementada e testada. M3.1 adiciona checkpoints versionados em IndexedDB, checksum SHA-256, recuperação explícita do último registro válido e consulta best-effort de quota/persistência. Registros inválidos não são removidos automaticamente. OPFS, locks entre abas, limpeza física, UI e atomicidade IndexedDB/OPFS ficam para M3.2; M5 adicionará modelos e áudio.
+A função pura de candidatos à eviction está implementada e testada. M3.1 adicionou checkpoints versionados em IndexedDB, checksum SHA-256, recuperação explícita do último registro válido e consulta best-effort de quota/persistência. M3.2 adiciona OPFS imutável por hash, Web Locks fail-closed, commit de metadata/checkpoint em uma única transação IndexedDB após validação do arquivo, reconciliação de órfãos/ausentes e eviction física apenas de artefatos seguros. Não existe transação ACID entre OPFS e IndexedDB; falhas de energia podem deixar inconsistências detectáveis e recuperáveis. M5 adicionará modelos e áudio.
