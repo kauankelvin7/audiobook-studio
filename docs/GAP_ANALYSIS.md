@@ -7,7 +7,7 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 | Requisitos e governança | PARTIAL | IMPLEMENTED | Relatório, ADRs, task packet e worklog existem; rastreabilidade automatizada ainda falta. |
 | Arquitetura local-first | PARTIAL | IMPLEMENTED | Workspace, Ports & Adapters, PWA, IndexedDB e OPFS integrados existem; integração completa com pipeline Rust/IA/TTS ainda não. |
 | DocumentIR v1 | PARTIAL | TESTED | Contrato Rust/TS e fixture testados; corpus real amplo ausente. |
-| DocumentIR v2/migração | PARTIAL | IMPLEMENTED | Contrato e migração canônicos foram portados para Rust; schemas TS permanecem apenas na fronteira. CI/paridade e integração persistida ainda precisam fechar nesta branch. |
+| DocumentIR v2/migração | PARTIAL | TESTED | Contrato/migração canônicos em Rust, schemas TS de fronteira e integração Rust/WASM/Web passaram no workflow `quality`; corpus real amplo e migrações futuras ainda faltam. |
 | PDF nativo/layout | PARTIAL | TESTED | Extração, agrupamento e margens conservadoras testados; PDFs reais complexos/matriz de browsers faltam. |
 | OCR seletivo | PARTIAL | SCAFFOLDED | Policy pura testada; engine, adapter, benchmarks e reconciliação real não iniciados. |
 | Conteúdo visual | PARTIAL | SCAFFOLDED | Contratos de disposition/proveniência existem; adapter visual não existe. |
@@ -21,7 +21,7 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 | Segurança | PARTIAL | IMPLEMENTED | Limites de arquivo/páginas e trust boundaries existem; fuzz/adversarial/CSP hardening faltam. |
 | Privacidade | PARTIAL | DESIGNED | Local-first é regra; auditoria de fluxos e controles de export/telemetria faltam. |
 | Acessibilidade | PARTIAL | IMPLEMENTED | Semântica inicial e microcopy existem; auditoria WCAG/teclado/screen reader ampla falta. |
-| Erros e recuperação | PARTIAL | TESTED | Erros tipados, protocolo Worker e recuperação de checkpoint válido foram testados; fachada WASM começou a expor o core, mas wiring runtime completo ainda falta. |
+| Erros e recuperação | PARTIAL | TESTED | Erros tipados, Worker, checkpoint recovery e wiring Rust/WASM do pipeline de conteúdo foram testados; recuperação de estágios narrativos/modelos ainda falta. |
 | Observabilidade/auditoria | PARTIAL | SCAFFOLDED | Worklog e schemas de relatório existem; geração automática e métricas runtime faltam. |
 | Testes | PARTIAL | TESTED | Unit/contract/browser smoke existem; golden real, fuzz, fault injection, soak e E2E CI faltam. |
 | CI/CD | PARTIAL | IMPLEMENTED | Gates Rust/Web no GitHub Actions; releases, matrizes e nightly ausentes. |
@@ -31,7 +31,7 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 
 ## Ordem recomendada
 
-1. Fechar M2 com corpus PDF real e regressões de layout.
-2. Concluir M3.2: OPFS, locks entre abas, retenção/limpeza e integração runtime de retomada.
-3. Implementar adapter OCR seletivo atrás de port, começando por fixtures autorizadas e métricas.
-4. Só então integrar Narrative Compiler, TTS/player e performance adaptativa com benchmarks.
+1. Fechar M4.3: fronteira NarrativePlan/NarrationQA pelo Rust/WASM, com fixtures/paridade e sem modelo externo.
+2. Integrar `NarrativePlannerPort` com fake determinístico + structured output e só depois avaliar modelo local/golden real.
+3. Retomar OCR seletivo real com adapter/benchmarks sem bloquear o fluxo narrativo determinístico.
+4. TTS/player só entra após planner, source mapping e QA crítico estarem verdes; performance adaptativa entra junto dos benchmarks TTS.
