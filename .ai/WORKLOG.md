@@ -142,4 +142,5 @@
 - Persistência: checkpoint M4 referencia PDF, DocumentIR v1/v2 e, quando produzidos, ContentModel/Outline no OPFS. UI mantém a revisão do texto extraído. Nenhum planner, modelo ou TTS foi adicionado.
 - Build: Rust 1.94.1 e `wasm-bindgen` 0.2.128 fixados; script regenera bindings Web versionados. CI recebeu gate de regeneração/paridade.
 - Verificações locais: `npm run wasm:build` passou com toolchain GNU; `cargo fmt --all -- --check`, `cargo test --workspace --locked` (24 testes Rust) e `cargo clippy --workspace --all-targets -- -D warnings` passaram; `npm run test:standard` passou com 78/78 testes, typecheck e build; `npm audit --audit-level=high` encontrou 0 vulnerabilidades. O build incluiu asset WASM de aproximadamente 450 KB.
-- Limite: teste visual não executado por orientação explícita. Browser integrado não acessou o servidor local durante tentativa anterior. CI e publicação aguardam commit/push.
+- Limite: teste visual não executado por orientação explícita. Browser integrado não acessou o servidor local durante tentativa anterior.
+- Publicação: commit `ce48c3a` enviado para `origin/codex/m4-content-model`; `git ls-remote` confirmou o mesmo hash do HEAD local. CI remota ainda não verificada.
