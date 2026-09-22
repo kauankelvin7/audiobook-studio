@@ -94,3 +94,5 @@
 - Revisão independente encontrou dois P1: recovery bloqueava histórico grande e conexão rejeitada/fechada ficava cacheada. Ambos foram corrigidos. Last-write-wins também foi substituído por `CHECKPOINT_CONFLICT`.
 - Limites: sem OPFS, lock/lease entre abas, retenção/limpeza física, integração runtime Rust/WASM, UI ou matriz real de browsers. Checksum detecta corrupção acidental, não adulteração same-origin.
 - Verificações finais: 54/54 testes Web, typecheck, build, audit e rustfmt passaram. `cargo test --workspace` local continua `BLOCKED_TOOLING` por `link.exe`; CI Linux validará o fixture Rust após publicação.
+- Publicação: commit `53d1418ed27b258601ff9e874d766b3a5da52b28` enviado para `origin/main`.
+- CI: workflow `quality` run `35747894619` concluiu com `success`, incluindo testes Rust do fixture compartilhado e gates Web.
