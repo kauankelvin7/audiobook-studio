@@ -1,8 +1,8 @@
 import { StrictMode, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { MAX_PDF_BYTES } from "./adapters/pdf_limits";
-import { documentIrSchema, type DocumentIr } from "./schemas/document";
-import type { PipelineResponse } from "./workers/pipeline.worker";
+import type { DocumentIr } from "./schemas/document";
+import { decodePipelineResponse } from "./workers/protocol";
 import "./styles/tokens.css";
 
 function App() {
@@ -32,18 +32,16 @@ function App() {
     setStatus("Lendo o PDF neste dispositivo…");
     const worker = new Worker(new URL("./workers/pipeline.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
-    worker.onmessage = (message: MessageEvent<PipelineResponse>) => {
+    worker.onmessage = (message: MessageEvent<unknown>) => {
       if (workerRef.current !== worker) return;
-      if (message.data.type === "result") {
-        const parsed = documentIrSchema.safeParse(message.data.document);
-        if (parsed.success) {
-          setDocument(parsed.data);
-          setStatus(`${parsed.data.pages.length} página(s) importada(s). Confira o texto antes de continuar.`);
-        } else {
-          setStatus("A extração terminou, mas o resultado não passou na validação.");
-        }
+      const response = decodePipelineResponse(message.data);
+      if (!response) return;
+      if (response.type === "result") {
+        setDocument(response.document);
+        const pageCount = response.document.pages.length;
+        setStatus(`${pageCount} ${pageCount === 1 ? "página importada" : "páginas importadas"}. Confira o texto antes de continuar.`);
       } else {
-        setStatus(message.data.message);
+        setStatus(response.message);
       }
       setBusy(false);
       worker.terminate();

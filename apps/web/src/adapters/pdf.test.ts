@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { extractPdf, PdfImportError } from "./pdf";
-import { MAX_PDF_BYTES } from "./pdf_limits";
+import { assertPdfTextLimits, extractPdf, PdfImportError } from "./pdf";
+import { MAX_PDF_BYTES, MAX_TEXT_ITEMS_PER_PAGE } from "./pdf_limits";
 
 const fixture = new URL("../../../../tests/fixtures/text_and_blank.pdf", import.meta.url);
 
@@ -28,5 +28,17 @@ describe("local PDF adapter", () => {
     const malformed = new TextEncoder().encode("%PDF-1.7\ninvalid");
     await expect(extractPdf(malformed)).rejects.toBeInstanceOf(PdfImportError);
     await expect(extractPdf(malformed)).rejects.toMatchObject({ code: "PARSER_ERROR" });
+  });
+
+  it("honors cancellation before parsing", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const bytes = new Uint8Array(await readFile(fixture));
+    await expect(extractPdf(bytes, controller.signal)).rejects.toMatchObject({ code: "CANCELLED" });
+  });
+
+  it("rejects excessive expanded text content", () => {
+    expect(() => assertPdfTextLimits(MAX_TEXT_ITEMS_PER_PAGE + 1, 1, 1)).toThrowError(PdfImportError);
+    expect(() => assertPdfTextLimits(MAX_TEXT_ITEMS_PER_PAGE + 1, 1, 1)).toThrow("O PDF contém texto demais");
   });
 });

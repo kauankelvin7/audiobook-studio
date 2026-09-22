@@ -1,14 +1,9 @@
 import { GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { extractPdf, PdfImportError } from "../adapters/pdf";
-import type { DocumentIr } from "../schemas/document";
+import type { PipelineMessage, PipelineResponse } from "./protocol";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-
-export type PipelineMessage = { type: "extract"; file: File };
-export type PipelineResponse =
-  | { type: "result"; document: DocumentIr }
-  | { type: "error"; code: string; message: string };
 
 self.onmessage = async (event: MessageEvent<PipelineMessage>) => {
   if (event.data.type !== "extract") return;
