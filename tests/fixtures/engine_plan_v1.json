@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "requestedMode": "auto",
+  "selectedTier": "fast",
+  "engineId": "engine_example",
+  "modelId": "model_example",
+  "modelVersion": "1",
+  "quantization": "example",
+  "executionProvider": "wasm",
+  "inferenceConcurrency": 1,
+  "renderAheadSeconds": 180,
+  "fallbacks": [{ "engineId": "engine_fallback_example", "voiceCompatibility": "same", "activation": "automatic" }],
+  "estimatedPerformanceClass": "unmeasured",
+  "reason": "Fixture de contrato, não seleção real",
+  "benchmarkId": null
+}

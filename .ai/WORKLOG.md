@@ -44,3 +44,19 @@
 - M1 implementado: DocumentIR v1 com páginas/blocos/unknown/OCR, SHA-256 e ID de documento derivados da fonte, validação de integridade, manifest/cache key, job com transições e retomada explícitas, fixture compartilhado e ADR 0004.
 - Verificações locais M1: rustfmt `--check`, `npm test` (4 testes), `npm run typecheck`, `npm run build` e `npm audit --audit-level=high` (0 vulnerabilidades) passaram. Testes Rust e clippy aguardam CI por falta de `link.exe` local.
 - Revisão: confiança é `null` quando não medida, `documentId` usa o digest SHA-256 completo e páginas com blocos exigem texto bruto para auditoria.
+- CI M1: workflow `quality` do commit `a0de960` concluiu com sucesso, incluindo os gates Rust em Linux.
+
+## 2026-09-22 — M2 inicial e adendo de narração/performance
+- Evidência M2: PDF.js oficial `getDocument`/`getTextContent`; npm registry confirmou versões/engines. A 6.3.289 falhou no teste Node local por `Uint8Array.toHex`; 5.4.296 com build legacy passou em fixture real de duas páginas. A correção foi escolher versão compatível, sem polyfill artificial.
+- Decisão M2: manter extração local em Worker, limite 32 MB/500 páginas, hash fonte, blocos `unknown` e confiança `null`; página sem texto permanece `needs_ocr`. Heurísticas de layout/noise e OCR ainda pendentes.
+- Fixture PDF sintético foi gerado com reportlab, inspecionado via `pdfinfo`/render; primeira página contém texto legível e segunda é vazia. Renderização teve avisos de fontes opcionais Symbol/ArialUnicode, sem defeito visível na página 1.
+- Diretriz humanizer aplicada à microcopy da tela de importação; o conteúdo PDF é mostrado como texto React, não HTML.
+- Pedido complementar do usuário: problemas narrativos/performance reportados do primeiro audiobook, sem áudio/mainframe anexado. PRE-FLIGHT em TASK_PACKET; identificados gaps entre DocumentIR→ScriptAdapter e seleção fixa de TTS.
+- Decisão: ADRs 0005/0006 e adendo normativo formalizam planner, memória, políticas de heading, QA pré-TTS, engine router, TTFA, geração progressiva/lazy e limites reais de background Web. Contratos/fixtures iniciais testam fronteiras, não funcionalidades ainda inexistentes.
+- Pendências: teste de browser end-to-end, heurísticas PDF M2, golden mainframe real (arquivo não recebido), implementação M3–M5 e benchmarks/dispositivos.
+- Browser smoke tentado: servidor Vite subiu em `localhost:5173`, mas `agent-browser` não está instalado e a aba do navegador integrado não anexou (timeout). Não há evidência de importação end-to-end no browser; servidor local foi encerrado.
+- Verificações finais: `npm test` (14/14), `npm run typecheck`, `npm run build`, `npm audit --audit-level=high` (0 vulnerabilidades) e `git diff --cached --check` passaram. PDF fixture foi marcado binário em `.gitattributes` para impedir conversão CRLF.
+- Commit da importação inicial: `827056a` (`feat(pdf)`). O M2 ainda não está concluído; classificação layout/noise e smoke de navegador faltam.
+- Segundo pedido de performance: especificou `auto | fast | quality` na UI, tier técnico `balanced` interno, RTF com convenção geração/duração, TTFA cold/warm, estados independentes playback/export, política de voz para fallback, JIT/backpressure e fases. A arquitetura staged foi alinhada; ADR 0006 atualizado e ADR 0007 criado sem alterar snapshots Rust v1.
+- `docs/PERFORMANCE_REQUIREMENTS.md` enumera requisitos PERF-01..12, estratégia de fakes/benchmark/matriz e o que ainda é apenas designed. Contratos `EnginePlan`/benchmark/estados foram ampliados; profiler/router/TTS/player não foram implementados nesta execução.
+- Gates após o segundo pedido: `npm test` 16/16, `npm run typecheck`, `npm run build` e `npm audit --audit-level=high` (0 vulnerabilidades) passaram. Rust não mudou e seguirá validado no CI Linux; teste local ainda depende de linker MSVC ausente.

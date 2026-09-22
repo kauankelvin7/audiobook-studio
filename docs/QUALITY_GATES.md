@@ -12,3 +12,5 @@ cd apps/web && npm run build
 ```
 
 Falhas de ferramenta ausente devem ser registradas como `BLOCKED_TOOLING`, não convertidas em sucesso.
+
+Contratos narrativos/performance v1 possuem fixtures e testes de schema em `apps/web/src/schemas/architecture.test.ts`; isto não comprova planner, QA ou TTS funcional. Quando implementados em M4/M5, os gates adicionais incluem `duplicated_spoken_heading_count = 0`, source mapping e claims críticos, relatório QA local/global, fallback testado, resume/cache e TTFA/RTF medidos em perfis de dispositivo. Limiares de performance só serão fixados com benchmarks reproduzíveis; não usar score subjetivo como prova.

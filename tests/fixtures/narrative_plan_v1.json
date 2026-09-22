@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "documentId": "doc_test",
+  "sections": [
+    { "id": "ns_1", "sourceRefs": ["p1-t1"], "conceptIds": ["COBOL"], "heading": { "displayText": "COBOL", "policy": "announce", "reason": "Mudança principal de assunto" }, "transition": null, "spokenChapterId": "sc_1", "estimatedSeconds": 90 },
+    { "id": "ns_2", "sourceRefs": ["p2-t1"], "conceptIds": ["PIC"], "heading": { "displayText": "PIC", "policy": "integrate", "reason": "Explicação breve no mesmo assunto" }, "transition": { "text": "Depois da estrutura geral, PIC define o formato de cada campo.", "relation": "estrutura para campo", "sourceRefs": ["p2-t1"] }, "spokenChapterId": "sc_1", "estimatedSeconds": 120 }
+  ],
+  "spokenChapters": [{ "id": "sc_1", "sectionIds": ["ns_1", "ns_2"], "displayTitle": "Estruturas de dados em COBOL" }]
+}
