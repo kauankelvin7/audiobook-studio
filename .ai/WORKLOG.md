@@ -27,4 +27,4 @@
 - Verificação: `npm run build` passou em 2026-09-22.
 - Verificação: `npm audit --audit-level=high` retornou 0 vulnerabilidades.
 - Verificação Rust: `cargo fmt` indisponível (componente rustfmt ausente); `cargo test --workspace` parou antes dos testes por falta do linker MSVC `link.exe`. O lockfile Rust foi gerado e deve ser versionado.
-- Publicação: commit inicial preparado para `main`; hash e confirmação remota devem ser conferidos após o push.
+- Publicação: commit inicial `48c79cc54d74681e2523308537c6f9e490fde461` enviado para `origin/main`; `git ls-remote` confirmou o mesmo hash no remoto.
