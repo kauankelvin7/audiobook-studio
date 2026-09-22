@@ -195,3 +195,13 @@
 - Fonte canônica: `crates/core` para domínio determinístico; `apps/web` para Web APIs/adapters/UI.
 - Regra persistente: AGENTS.md + ADR 0010.
 - Próximo passo: wiring real do `audiobook-wasm` no Web e paridade automática Rust↔TS; depois continuar M4 planner/model adapter sem mover lógica canônica de volta ao TypeScript.
+
+## PRE-FLIGHT seguinte — M4.3 fronteira narrativa Rust/WASM (planejado em 2026-09-22)
+- Objective: fechar a execução determinística NarrativePlan → validação de provenance → NarrationQA pelo core Rust/WASM, sem integrar LLM/TTS.
+- Evidence: integração Rust/WASM/Web já está verde; `validate_narrative_plan_json` existe na fachada WASM; `build_narration_qa` existe no core Rust mas ainda não está exposto/consumido pelo Web.
+- Constraints: Rust permanece fonte canônica; TS só adapter/fronteira; usar WASM real nos testes; nenhuma regra de heading/QA em TS; sem modelo externo e sem TTS; generated WASM deve ser regenerado pela toolchain pinada.
+- Unknowns: formato mínimo do input de section speech para QA e fixture narrativa compatível com o ContentModel atual; resolver antes de escrever adapter público.
+- Risks: drift de bindings gerados, fixture incompatível com sourceRefs, duplicação involuntária de validação no TS, CI host-specific.
+- Plan: (1) definir contrato de entrada QA no Rust/WASM; (2) exportar função; (3) regenerar bindings; (4) adapter TS fino; (5) fixtures/parity; (6) focused tests; (7) STANDARD + Rust gates + CI; (8) registrar handoff.
+- Verification: cargo fmt/test/clippy; npm wasm:build; teste real do bundle WASM; npm test:standard; npm audit quando dependências mudarem; CI quality.
+- Stop condition: se bindings não puderem ser regenerados, toolchain estiver indisponível ou qualquer gate falhar, registrar BLOCKED e não avançar para planner/modelo.
