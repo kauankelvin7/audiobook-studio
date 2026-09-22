@@ -3,9 +3,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::document_v2::{
-    DocumentIrV2, QualityStatus, RegionContent, RegionType, Uncertainty,
-};
+use crate::document_v2::{DocumentIrV2, QualityStatus, RegionContent, RegionType, Uncertainty};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ContentError {
@@ -144,7 +142,10 @@ impl ContentModel {
                 ),
                 uncertainty: region.uncertainty,
                 quality_status: region.quality_status,
-                narration_eligibility: narration_eligibility(region.uncertainty, region.quality_status),
+                narration_eligibility: narration_eligibility(
+                    region.uncertainty,
+                    region.quality_status,
+                ),
                 flags: region.flags.clone(),
             })
             .collect();
@@ -178,7 +179,9 @@ impl ContentModel {
         }
         for relation in &self.relations {
             if !concept_ids.contains(relation.from_concept_id.as_str()) {
-                return Err(ContentError::UnknownConcept(relation.from_concept_id.clone()));
+                return Err(ContentError::UnknownConcept(
+                    relation.from_concept_id.clone(),
+                ));
             }
             if !concept_ids.contains(relation.to_concept_id.as_str()) {
                 return Err(ContentError::UnknownConcept(relation.to_concept_id.clone()));
@@ -226,9 +229,7 @@ impl SemanticOutline {
                 sections.push(new_section(1, None));
             }
 
-            let current = sections
-                .last_mut()
-                .ok_or(ContentError::EmptyContentModel)?;
+            let current = sections.last_mut().ok_or(ContentError::EmptyContentModel)?;
             current.source_unit_ids.push(unit.id.clone());
             if unit.narration_eligibility != NarrationEligibility::Blocked {
                 current.candidate_narration_unit_ids.push(unit.id.clone());
@@ -248,8 +249,16 @@ impl SemanticOutline {
     }
 
     pub fn validate(&self, model: &ContentModel) -> Result<(), ContentError> {
-        let source_ids: HashSet<&str> = model.source_units.iter().map(|unit| unit.id.as_str()).collect();
-        let concept_ids: HashSet<&str> = model.concepts.iter().map(|concept| concept.id.as_str()).collect();
+        let source_ids: HashSet<&str> = model
+            .source_units
+            .iter()
+            .map(|unit| unit.id.as_str())
+            .collect();
+        let concept_ids: HashSet<&str> = model
+            .concepts
+            .iter()
+            .map(|concept| concept.id.as_str())
+            .collect();
         let mut section_ids = HashSet::new();
         let mut ownership = HashSet::new();
 

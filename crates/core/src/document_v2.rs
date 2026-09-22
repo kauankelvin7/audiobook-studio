@@ -132,7 +132,11 @@ pub struct DocumentRegionV2 {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum RegionContent {
     Text {
         display_text: String,
@@ -266,7 +270,9 @@ impl DocumentIrV2 {
 
     pub fn validate(&self) -> Result<(), DocumentV2Error> {
         if self.schema_version != DOCUMENT_IR_V2_SCHEMA_VERSION {
-            return Err(DocumentV2Error::UnsupportedSchemaVersion(self.schema_version));
+            return Err(DocumentV2Error::UnsupportedSchemaVersion(
+                self.schema_version,
+            ));
         }
         let digest = self
             .source_hash
@@ -339,7 +345,10 @@ impl DocumentRegionV2 {
                 | (RegionType::Code, RegionContent::Code { .. })
                 | (RegionType::Table, RegionContent::Table { .. })
                 | (RegionType::Formula, RegionContent::Formula { .. })
-                | (RegionType::Figure | RegionType::Diagram | RegionType::Chart, RegionContent::Visual { .. })
+                | (
+                    RegionType::Figure | RegionType::Diagram | RegionType::Chart,
+                    RegionContent::Visual { .. }
+                )
                 | (
                     RegionType::Heading
                         | RegionType::Paragraph
@@ -360,7 +369,9 @@ impl DocumentRegionV2 {
             return Err(DocumentV2Error::InvalidRegionContent(self.id.clone()));
         }
 
-        if self.uncertainty == Uncertainty::Unsupported && self.quality_status == QualityStatus::Accepted {
+        if self.uncertainty == Uncertainty::Unsupported
+            && self.quality_status == QualityStatus::Accepted
+        {
             return Err(DocumentV2Error::UnsupportedAccepted(self.id.clone()));
         }
 
@@ -371,9 +382,18 @@ impl DocumentRegionV2 {
             }
         }
 
-        if let RegionContent::Visual { disposition: VisualDisposition::Interpret, .. } = &self.content {
-            if !matches!(self.uncertainty, Uncertainty::SourceConfirmed | Uncertainty::OcrConfirmed) {
-                return Err(DocumentV2Error::UnconfirmedVisualInterpretation(self.id.clone()));
+        if let RegionContent::Visual {
+            disposition: VisualDisposition::Interpret,
+            ..
+        } = &self.content
+        {
+            if !matches!(
+                self.uncertainty,
+                Uncertainty::SourceConfirmed | Uncertainty::OcrConfirmed
+            ) {
+                return Err(DocumentV2Error::UnconfirmedVisualInterpretation(
+                    self.id.clone(),
+                ));
             }
         }
 

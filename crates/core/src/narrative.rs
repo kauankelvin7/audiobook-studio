@@ -179,8 +179,8 @@ const FORMULAIC_OPENERS: [&str; 5] = [
 ];
 
 const STOP_WORDS: [&str; 20] = [
-    "a", "as", "o", "os", "um", "uma", "de", "da", "das", "do", "dos", "e", "em", "para",
-    "por", "que", "como", "no", "na", "nos",
+    "a", "as", "o", "os", "um", "uma", "de", "da", "das", "do", "dos", "e", "em", "para", "por",
+    "que", "como", "no", "na", "nos",
 ];
 
 impl NarrativePlan {
@@ -202,10 +202,15 @@ impl NarrativePlan {
         let mut ownership = HashSet::new();
         for chapter in &self.spoken_chapters {
             for section_id in &chapter.section_ids {
-                let Some(section) = self.sections.iter().find(|section| section.id == *section_id) else {
+                let Some(section) = self
+                    .sections
+                    .iter()
+                    .find(|section| section.id == *section_id)
+                else {
                     return Err(NarrativeError::InvalidChapterMapping(section_id.clone()));
                 };
-                if section.spoken_chapter_id != chapter.id || !ownership.insert(section_id.as_str()) {
+                if section.spoken_chapter_id != chapter.id || !ownership.insert(section_id.as_str())
+                {
                     return Err(NarrativeError::InvalidChapterMapping(section_id.clone()));
                 }
             }
@@ -242,15 +247,21 @@ impl NarrativePlan {
             return Err(NarrativeError::DocumentMismatch);
         }
 
-        let source_units: HashSet<&str> =
-            content.source_units.iter().map(|unit| unit.id.as_str()).collect();
+        let source_units: HashSet<&str> = content
+            .source_units
+            .iter()
+            .map(|unit| unit.id.as_str())
+            .collect();
         let source_refs: HashSet<&str> = content
             .source_units
             .iter()
             .flat_map(|unit| unit.source_refs.iter().map(String::as_str))
             .collect();
-        let concepts: HashSet<&str> =
-            content.concepts.iter().map(|concept| concept.id.as_str()).collect();
+        let concepts: HashSet<&str> = content
+            .concepts
+            .iter()
+            .map(|concept| concept.id.as_str())
+            .collect();
 
         for section in &outline.sections {
             for unit_id in &section.source_unit_ids {
@@ -266,11 +277,12 @@ impl NarrativePlan {
         }
 
         for section in &self.sections {
-            for source_ref in section
-                .source_refs
-                .iter()
-                .chain(section.transition.iter().flat_map(|transition| transition.source_refs.iter()))
-            {
+            for source_ref in section.source_refs.iter().chain(
+                section
+                    .transition
+                    .iter()
+                    .flat_map(|transition| transition.source_refs.iter()),
+            ) {
                 if !source_refs.contains(source_ref.as_str()) {
                     return Err(NarrativeError::UnknownSourceRef(source_ref.clone()));
                 }
@@ -497,11 +509,12 @@ pub fn build_narration_qa(
 
     let mut invalid_refs = HashSet::<String>::new();
     for section in &plan.sections {
-        for source_ref in section
-            .source_refs
-            .iter()
-            .chain(section.transition.iter().flat_map(|transition| transition.source_refs.iter()))
-        {
+        for source_ref in section.source_refs.iter().chain(
+            section
+                .transition
+                .iter()
+                .flat_map(|transition| transition.source_refs.iter()),
+        ) {
             if !valid_source_refs.contains(source_ref) {
                 invalid_refs.insert(source_ref.clone());
             }

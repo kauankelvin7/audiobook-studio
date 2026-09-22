@@ -11,7 +11,8 @@ use audiobook_core::{
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
 const DOCUMENT_V2_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v2.json");
 const CONTENT_MODEL_FIXTURE: &str = include_str!("../../../tests/fixtures/content_model_v1.json");
-const SEMANTIC_OUTLINE_FIXTURE: &str = include_str!("../../../tests/fixtures/semantic_outline_v1.json");
+const SEMANTIC_OUTLINE_FIXTURE: &str =
+    include_str!("../../../tests/fixtures/semantic_outline_v1.json");
 
 fn document_v2() -> DocumentIrV2 {
     DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
@@ -84,14 +85,16 @@ fn content_and_outline_match_checked_in_cross_language_fixtures() {
     let expected_content: serde_json::Value =
         serde_json::from_str(CONTENT_MODEL_FIXTURE).expect("content fixture JSON");
     let actual_content: serde_json::Value =
-        serde_json::from_str(&content.to_json().expect("content serializes")).expect("content JSON");
+        serde_json::from_str(&content.to_json().expect("content serializes"))
+            .expect("content JSON");
     assert_eq!(actual_content, expected_content);
 
     let outline = SemanticOutline::skeleton(&content).expect("outline skeleton");
     let expected_outline: serde_json::Value =
         serde_json::from_str(SEMANTIC_OUTLINE_FIXTURE).expect("outline fixture JSON");
     let actual_outline: serde_json::Value =
-        serde_json::from_str(&outline.to_json(&content).expect("outline serializes")).expect("outline JSON");
+        serde_json::from_str(&outline.to_json(&content).expect("outline serializes"))
+            .expect("outline JSON");
     assert_eq!(actual_outline, expected_outline);
     assert!(outline.sections[0].requires_review);
 }
@@ -159,8 +162,7 @@ fn narration_qa_fails_duplicated_announced_heading() {
         "Procedure Division organiza a lógica executável.".into(),
     )]);
     let valid_refs = HashSet::from(["r_1_1".into()]);
-    let report =
-        build_narration_qa("plan_1", 1, &plan, &speech, &valid_refs, 0).expect("QA runs");
+    let report = build_narration_qa("plan_1", 1, &plan, &speech, &valid_refs, 0).expect("QA runs");
     assert_eq!(report.status, QaStatus::Fail);
     assert_eq!(report.duplicated_spoken_headings, 1);
 }
