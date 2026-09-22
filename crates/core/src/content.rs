@@ -172,12 +172,17 @@ impl ContentModel {
             return Err(ContentError::UnsupportedSchemaVersion(self.schema_version));
         }
         if self.document_id.trim().is_empty() || !is_sha256(&self.source_hash) {
-            return Err(ContentError::InvalidContent("invalid document identity".into()));
+            return Err(ContentError::InvalidContent(
+                "invalid document identity".into(),
+            ));
         }
 
         let mut source_ids = HashSet::new();
         for unit in &self.source_units {
-            if unit.id.trim().is_empty() || unit.source_refs.is_empty() || unit.source_refs.iter().any(|value| value.trim().is_empty()) {
+            if unit.id.trim().is_empty()
+                || unit.source_refs.is_empty()
+                || unit.source_refs.iter().any(|value| value.trim().is_empty())
+            {
                 return Err(ContentError::InvalidContent("invalid source unit".into()));
             }
             if !source_ids.insert(unit.id.as_str()) {
@@ -190,7 +195,10 @@ impl ContentModel {
             if concept.id.trim().is_empty()
                 || concept.label.trim().is_empty()
                 || concept.source_refs.is_empty()
-                || concept.source_refs.iter().any(|value| value.trim().is_empty())
+                || concept
+                    .source_refs
+                    .iter()
+                    .any(|value| value.trim().is_empty())
             {
                 return Err(ContentError::InvalidContent("invalid concept".into()));
             }
@@ -201,7 +209,10 @@ impl ContentModel {
         for relation in &self.relations {
             if relation.id.trim().is_empty()
                 || relation.source_refs.is_empty()
-                || relation.source_refs.iter().any(|value| value.trim().is_empty())
+                || relation
+                    .source_refs
+                    .iter()
+                    .any(|value| value.trim().is_empty())
             {
                 return Err(ContentError::InvalidContent("invalid relation".into()));
             }
@@ -280,7 +291,9 @@ impl SemanticOutline {
             return Err(ContentError::UnsupportedSchemaVersion(self.schema_version));
         }
         if self.document_id != model.document_id || self.sections.is_empty() {
-            return Err(ContentError::InvalidContent("invalid semantic outline identity".into()));
+            return Err(ContentError::InvalidContent(
+                "invalid semantic outline identity".into(),
+            ));
         }
 
         let source_ids: HashSet<&str> = model
@@ -409,14 +422,11 @@ fn new_section(index: usize, heading: Option<&ContentSourceUnit>) -> SemanticOut
     }
 }
 
-
 fn is_sha256(value: &str) -> bool {
-    value
-        .strip_prefix("sha256:")
-        .is_some_and(|digest| {
-            digest.len() == 64
-                && digest
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        })
+    value.strip_prefix("sha256:").is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
 }

@@ -436,14 +436,11 @@ fn map_block_type(kind: BlockType) -> RegionType {
     }
 }
 
-
 fn is_sha256(value: &str) -> bool {
-    value
-        .strip_prefix("sha256:")
-        .is_some_and(|digest| {
-            digest.len() == 64
-                && digest
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        })
+    value.strip_prefix("sha256:").is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
 }

@@ -190,19 +190,31 @@ const STOP_WORDS: [&str; 20] = [
 impl NarrativePlan {
     pub fn validate(&self) -> Result<(), NarrativeError> {
         if self.schema_version != 1 {
-            return Err(NarrativeError::UnsupportedSchemaVersion(self.schema_version));
+            return Err(NarrativeError::UnsupportedSchemaVersion(
+                self.schema_version,
+            ));
         }
-        if self.document_id.trim().is_empty() || self.sections.is_empty() || self.spoken_chapters.is_empty() {
-            return Err(NarrativeError::InvalidNarrative("missing narrative identity or sections".into()));
+        if self.document_id.trim().is_empty()
+            || self.sections.is_empty()
+            || self.spoken_chapters.is_empty()
+        {
+            return Err(NarrativeError::InvalidNarrative(
+                "missing narrative identity or sections".into(),
+            ));
         }
 
         let mut sections = HashSet::new();
         for section in &self.sections {
             if section.id.trim().is_empty()
                 || section.source_refs.is_empty()
-                || section.source_refs.iter().any(|value| value.trim().is_empty())
+                || section
+                    .source_refs
+                    .iter()
+                    .any(|value| value.trim().is_empty())
                 || section.spoken_chapter_id.trim().is_empty()
-                || section.estimated_seconds.is_some_and(|value| !value.is_finite() || value <= 0.0)
+                || section
+                    .estimated_seconds
+                    .is_some_and(|value| !value.is_finite() || value <= 0.0)
             {
                 return Err(NarrativeError::InvalidNarrative(section.id.clone()));
             }
@@ -215,7 +227,10 @@ impl NarrativePlan {
                 if transition.text.trim().is_empty()
                     || transition.relation.trim().is_empty()
                     || transition.source_refs.is_empty()
-                    || transition.source_refs.iter().any(|value| value.trim().is_empty())
+                    || transition
+                        .source_refs
+                        .iter()
+                        .any(|value| value.trim().is_empty())
                 {
                     return Err(NarrativeError::InvalidNarrative(section.id.clone()));
                 }
@@ -227,7 +242,10 @@ impl NarrativePlan {
 
         let mut chapters = HashSet::new();
         for chapter in &self.spoken_chapters {
-            if chapter.id.trim().is_empty() || chapter.display_title.trim().is_empty() || chapter.section_ids.is_empty() {
+            if chapter.id.trim().is_empty()
+                || chapter.display_title.trim().is_empty()
+                || chapter.section_ids.is_empty()
+            {
                 return Err(NarrativeError::InvalidNarrative(chapter.id.clone()));
             }
             if !chapters.insert(chapter.id.as_str()) {
