@@ -1,0 +1,4 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #172033; background: #f7f8fb; --color-surface: #fff; --color-accent: #5b4bdb; --space-3: 1rem; }
+body { margin: 0; }
+.shell { max-width: 60rem; margin: 0 auto; padding: 4rem var(--space-3); }
+:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
