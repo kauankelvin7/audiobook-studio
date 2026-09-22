@@ -1,6 +1,6 @@
 # ADR 0005 — Compilador narrativo antes do TTS
 
-Status: accepted (contrato arquitetural; implementação pendente)
+Status: accepted (contrato arquitetural; M4.1 determinístico implementado/testado, planner/modelo IA ainda pendentes)
 
 ## Contexto
 

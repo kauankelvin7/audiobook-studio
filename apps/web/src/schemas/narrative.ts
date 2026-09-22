@@ -74,3 +74,6 @@ export const narrationQaSchema = z.object({
 });
 
 export type NarrativePlan = z.infer<typeof narrativePlanSchema>;
+export type SpeechUnit = z.infer<typeof speechUnitSchema>;
+export type NarrativeMemory = z.infer<typeof narrativeMemorySchema>;
+export type NarrationQa = z.infer<typeof narrationQaSchema>;

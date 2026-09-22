@@ -5,18 +5,18 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 | Área | Estado | Maturidade atual | Evidência e principal pendência |
 |---|---|---|---|
 | Requisitos e governança | PARTIAL | IMPLEMENTED | Relatório, ADRs, task packet e worklog existem; rastreabilidade automatizada ainda falta. |
-| Arquitetura local-first | PARTIAL | IMPLEMENTED | Workspace, Ports & Adapters, PWA e checkpoints IndexedDB existem; binários OPFS e integração completa não. |
+| Arquitetura local-first | PARTIAL | IMPLEMENTED | Workspace, Ports & Adapters, PWA, IndexedDB e OPFS integrados existem; integração completa com pipeline Rust/IA/TTS ainda não. |
 | DocumentIR v1 | PARTIAL | TESTED | Contrato Rust/TS e fixture testados; corpus real amplo ausente. |
 | DocumentIR v2/migração | PARTIAL | TESTED | Schema e migração TS testados; paridade Rust e migração persistida faltam. |
 | PDF nativo/layout | PARTIAL | TESTED | Extração, agrupamento e margens conservadoras testados; PDFs reais complexos/matriz de browsers faltam. |
 | OCR seletivo | PARTIAL | SCAFFOLDED | Policy pura testada; engine, adapter, benchmarks e reconciliação real não iniciados. |
 | Conteúdo visual | PARTIAL | SCAFFOLDED | Contratos de disposition/proveniência existem; adapter visual não existe. |
 | Código/tabelas/fórmulas | PARTIAL | SCAFFOLDED | Schemas validam forma; extração e validadores reais faltam. |
-| Narrative Compiler/IA | PARTIAL | SCAFFOLDED | Contratos, ADR e governança existem; planner/modelo/evals reais não. |
+| Narrative Compiler/IA | PARTIAL | IMPLEMENTED | M4.1 adiciona guards determinísticos de heading, memória compacta, source refs e QA básico; planner/modelo IA, coesão semântica e evals reais ainda faltam. |
 | TTS e áudio | NOT STARTED | DESIGNED | Requisitos e fronteiras documentados; engine, player e export ausentes. |
 | Performance adaptativa | PARTIAL | SCAFFOLDED | Schemas/ADRs testados; profiler/router/benchmarks não implementados. |
-| Execução em background | PARTIAL | DESIGNED | Limites Web documentados; retomada durável não implementada. |
-| Storage e lifecycle | PARTIAL | TESTED | Checkpoints IndexedDB, checksum, recovery, quota e eviction foram testados; OPFS, locks e limpeza física faltam. |
+| Execução em background | PARTIAL | IMPLEMENTED | Web persiste e retoma estado após reload; aba fechada continua sem garantia de execução e desktop/Tauri durável ainda não existe. |
+| Storage e lifecycle | PARTIAL | TESTED | IndexedDB v2, OPFS, locks, recovery, quota, reconciliação e eviction física foram testados; matriz multi-browser e hardening de queda de energia faltam. |
 | Cache/modelos | PARTIAL | DESIGNED | Chaves/invalidação descritas; cache real de modelos não existe. |
 | Segurança | PARTIAL | IMPLEMENTED | Limites de arquivo/páginas e trust boundaries existem; fuzz/adversarial/CSP hardening faltam. |
 | Privacidade | PARTIAL | DESIGNED | Local-first é regra; auditoria de fluxos e controles de export/telemetria faltam. |

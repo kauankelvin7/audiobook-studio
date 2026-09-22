@@ -130,3 +130,27 @@
 - STANDARD: typecheck + 74/74 testes + build, 14,74 s.
 - Não executado nesta fatia: browser matrix real, fuzz/soak, Rust local (sem mudança Rust; linker MSVC segue ausente).
 - Próximo passo: revisão final de diff, commit/push/CI; depois iniciar M4 Narrative Compiler em fatia pequena, sem integrar TTS real ainda.
+
+## PRE-FLIGHT M4.1 — Narrative Quality determinístico (2026-09-22)
+- Objective: implementar a primeira fatia executável do Narrative Compiler sem LLM/TTS: deduplicação de heading falado, memória narrativa compacta e detector de aberturas formulaicas.
+- Evidence: ADR 0005 e `docs/NARRATIVE_AND_PERFORMANCE.md`; schemas narrativos v1 já existem e são testados; o problema prioritário reportado pelo usuário é repetição de títulos/subtítulos e frases de abertura.
+- Constraints: sem modelo externo nesta fatia; nenhuma remoção silenciosa; source refs continuam obrigatórias; heurísticas devem retornar sinal/review, não fingir semântica perfeita; golden mainframe real ainda não está disponível.
+- Unknowns: limiares ideais de similaridade e lista final de bordões serão calibrados com corpus real.
+- Risks: falso positivo em headings curtos, normalização apagar distinção técnica, regras linguísticas rígidas demais.
+- Plan: (1) funções puras de normalização/overlap; (2) guard de heading anunciado vs início do corpo; (3) reducer de memória narrativa; (4) detector de aberturas repetidas; (5) testes focused; (6) docs/status.
+- Verification: `npm run test:fast` não cobre M4, então executar teste focado novo + typecheck; STANDARD apenas ao fechar a fatia.
+
+## Controle de execução M4.1
+- Task Risk: MEDIUM.
+- Writer: Lead/Orchestrator.
+- Allowed Files: `.ai/`, `apps/web/src/schemas/`, novo módulo/testes narrativos, docs narrativos/gap.
+- Do not touch: TTS, OCR engine, backend, modelos reais.
+- Independent Review Required: YES antes de merge; nesta sessão o review será diff/test evidence, sem alegar subagente se não houver ferramenta disponível.
+
+## RESULT M4.1 — 2026-09-22
+- Status: IMPLEMENTED/TESTED para guards determinísticos e QA básico.
+- Entregue: heading dedup/prefix/token overlap, memória narrativa, formulaic opener frequency, source-ref validation e `buildNarrationQa`.
+- Focused: 9/9 + typecheck PASS.
+- STANDARD: 83/83 + typecheck + build PASS (16,94 s).
+- Deferred: semantic similarity/model judge, ContentModel, SemanticOutline, planner/model adapter, golden mainframe real.
+- Próximo passo: M4.2 ContentModel/SemanticOutline e adapter de planner com structured output, sem TTS.

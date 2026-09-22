@@ -108,3 +108,13 @@
 - Nenhuma dependência mudou nesta fatia; audit completo não foi repetido localmente por política de risco. CI continua executando `npm audit --audit-level=high`.
 - Browser smoke real: Chrome local importou a fixture PDF, persistiu PDF + DocumentIR, recarregou a página e exibiu “Seu último projeto foi recuperado neste dispositivo.” sem erros de página. O primeiro smoke revelou uma corrida de leitura com Web Locks sob React StrictMode; `inspectResume` foi tornado read-only sem lock exclusivo e o reload passou na repetição.
 - Limites declarados: Edge/Firefox e matriz ampla, UI de seleção de múltiplos projetos, temporários por expiração e atomicidade cross-store sob queda de energia permanecem para hardening posterior.
+
+## 2026-09-22 — M4.1 Narrative Quality determinístico
+- Base confirmada: M3.2 foi fast-forward para `main` no commit `915ad6a`; o workflow `quality` em `main` concluiu Web e Rust com sucesso.
+- Implementado `narrative_quality.ts` com normalização auditável, comparação heading↔corpo, detecção apenas para headings `announce`, reducer de memória narrativa compacta, detecção por frequência de aberturas formulaicas, validação de source refs e geração de QA determinístico.
+- Política: overlap forte vira finding; overlap intermediário vira review; bordão repetido gera warning, não proibição automática; source ref ausente e heading anunciado duplicado impedem `pass`.
+- Não foi implementada similaridade semântica por modelo nesta fatia; token overlap é sinal determinístico e casos incertos permanecem para review.
+- Teste focado: 9/9 testes do novo módulo passaram; typecheck passou.
+- STANDARD final: typecheck + 83/83 testes Web + build passaram em 16,94 s.
+- Sem dependências novas e sem TTS/OCR/modelo externo.
+- Próxima fatia M4: ContentModel/SemanticOutline + planner adapter estruturado e golden real quando o manual estiver disponível.
