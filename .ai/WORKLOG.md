@@ -146,3 +146,10 @@
 - Publicação: commit `ce48c3a` enviado para `origin/codex/m4-content-model`; `git ls-remote` confirmou o mesmo hash do HEAD local. CI remota ainda não verificada.
 - CI dos commits `ce48c3a` e `d202bf8`: job Rust passou; job Web falhou na comparação byte a byte dos artefatos WASM regenerados em Linux com os versionados em Windows. O log público não expôs o arquivo divergente. Ajustado gate para comparar bindings JS/TypeScript, manter compilação e executar testes Web contra o WASM real gerado na CI; o binário permanece sem checagem de reprodutibilidade entre hosts.
 - CI do commit `6b91326`: workflow `quality` run `35776236399` concluiu com sucesso após o ajuste. Todos os gates Rust/Web do workflow passaram.
+
+## 2026-09-22 — checkpoint de retomada após revisão do estado remoto
+- Fonte de verdade revisada pelo GitHub porque o Remote Desktop Commander estava offline nesta sessão.
+- Branch `codex/m4-content-model` estava em `4fbb971`, com workflow `quality` verde; M4 Rust/WASM/Web já estava mais avançado do que o checkpoint local anterior.
+- Confirmado: Worker usa o WASM real para migrar DocumentIR v1→v2 e produzir ContentModel/SemanticOutline; CI cobre Rust/Web e integração do bundle.
+- Nenhum código de domínio foi alterado nesta sessão. Foi atualizado o handoff, o task packet seguinte e a gap analysis para impedir retrabalho/reexecução de M3/M4 runtime já concluídos.
+- Próximo batch autorizado: M4.3 NarrativePlan/NarrationQA via Rust/WASM, sem LLM/TTS. Regeneração do WASM e todos os gates são obrigatórios antes de avançar.
