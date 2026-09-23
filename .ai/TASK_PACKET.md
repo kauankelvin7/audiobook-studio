@@ -1,5 +1,15 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5B medição integral PDF.js do corpus (2026-09-23)
+- Objetivo: medir todas as páginas dos dois PDFs locais com a versão de PDF.js do app, registrar apenas métricas e selecionar páginas candidatas a goldens de fidelidade. Não implementar OCR sem transcrição esperada.
+- Base e evidência: branch `codex/m4-content-model` limpa, HEAD `6f1870f`; M4.5A passou testes e foi publicado. Handoff pede medição integral antes de OCR. Amostras anteriores detectaram glifos privados no manual COBOL/CICS.
+- Restrições: PDFs permanecem fora do repositório; não registrar texto integral nem nomes locais em logs públicos; Rust mantém regras canônicas. Sem UI, TTS, modelo ou QA automático.
+- Desconhecidos: contagens integrais PDF.js, distribuição por página, trechos de código e texto visual correto para goldens. Métricas não equivalem a fidelidade.
+- Riscos: confundir caracteres retornados por PDF.js com resultado da segmentação, afirmar recuperação sem OCR, consumir memória com PDF inteiro, copiar conteúdo do usuário para docs.
+- Plano: executar análise local página a página com PDF.js; agregar contagens, páginas sem texto, PUA e limites; comparar amostras de controle; documentar seleção de páginas para revisão manual posterior e limitações; rodar gates e revisar diff.
+- Verificação: script de análise read-only, hashes/contagem de páginas, testes/gates disponíveis, diff check. Registrar resultados factuais no worklog.
+- Risco: médio; writer único.
+
 ## PRE-FLIGHT — M4.5A camada de texto PDF suspeita (2026-09-23)
 - Objetivo: classificar no Rust a camada nativa com glifos Unicode privados durante a migração DocumentIR v1→v2, preservar texto bruto e exigir recuperação/revisão antes de narração.
 - Evidência: HEAD `2143378` limpo em `codex/m4-content-model`; segundo PDF local tem 36.111 caracteres privados entre 488.556 extraídos; hoje `migrate_from_v1` transforma toda página `extracted` em `good`. O conteúdo migrado já é `review_required`, mas não sinaliza defeito nem impede reaproveitamento como análise textual.

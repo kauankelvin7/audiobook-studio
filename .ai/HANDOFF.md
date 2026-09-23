@@ -179,3 +179,9 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Rust sinaliza caracteres de área privada Unicode na migração v1→v2, conserva fonte e bloqueia apenas regiões afetadas. Teste Rust e integração WASM/Web real passaram. PDF.js local confirmou sinal em amostras do manual COBOL/CICS, sem publicar PDF.
 - Gates locais verdes: 37 testes Rust, fmt/clippy, build WASM, 108 testes Web/typecheck/build, audit sem vulnerabilidades, diff check. Revisão independente não ocorreu por limite de uso; diff revisado pelo Lead. Commit/push/CI deste batch ainda pendentes neste checkpoint.
 - Próximo passo: medir PDF.js no corpus local inteiro, definir goldens de fidelidade (prosa e código), implementar OCR/reconciliação verificável; em paralelo, especificar identidade/atestação confiável de revisão sem confundir vínculo criptográfico com aprovação semântica. Sem TTS, UI ou QA pass automático.
+
+## M4.5B — medição integral PDF.js (2026-09-23)
+- M4.5A publicado no commit `6f1870f`; workflow `quality` run `35872207447` concluiu com sucesso. Base limpa antes da medição.
+- PDF.js do projeto mediu todas as páginas dos dois PDFs locais: apostila 75 páginas/0 PUA; manual COBOL/CICS 105 páginas/36.774 PUA, presente em todas. Métricas, método, hashes, avisos e páginas candidatas estão em `docs/INGESTION_TEST_STRATEGY.md`. PDFs e texto não foram publicados.
+- Rust fmt/test (37) e Web STANDARD (108/typecheck/build) passaram. Primeira tentativa de build no sandbox falhou com `spawn EPERM`, repetição permitida passou. Diff/commit/push/CI desta etapa ainda pendentes neste checkpoint.
+- Próximo batch: criar goldens locais de prosa e código para páginas selecionadas, com revisão humana do visual; só então medir OCR/reconciliação por região. Alternativamente avançar em contrato de atestação confiável independente. TTS e QA semântico `pass` permanecem bloqueados; não interpretar contagens PUA como recuperação de texto.
