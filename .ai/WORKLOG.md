@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-09-23 — modo de leitura local de PDF nativo
+- Base limpa `2e28a7e` em `codex/m4-content-model`. PRE-FLIGHT em `.ai/TASK_PACKET.md`. Sem mudança de backend, OCR ou modelo narrativo.
+- Rust cria sessões atômicas de uma a dez páginas a partir de DocumentIR v2. Bloqueia páginas sem texto, suspeitas, regiões inutilizáveis, divergência de fonte, perda/junção detectável de tokens e tamanho excedido. WASM expõe a sessão; Web valida a fronteira e usa Web Speech com `localService=true`.
+- UI permite escolher intervalo, conferir todo o texto, confirmar e ouvir/pausar/retomar/parar. Importação e troca do intervalo cancelam reprodução. Áudio não é salvo/exportado; isto não é aprovação semântica nem audiobook final. ADR 0015 e README descrevem limites.
+- Revisão independente identificou dois P2: cobertura incompleta do texto nativo e corrida na recuperação. Corrigidos por comparação de tokens e separação de geração de importação/requisição de leitura. Segunda revisão identificou junção de palavras ainda possível; corrigida e coberta por teste. Revisão final do trecho não encontrou P0–P2. Revisor não executou testes.
+- Gates finais: Rust fmt/test/clippy passou (43 testes de workspace); `npm run wasm:build` passou; Web STANDARD passou (114 testes, 2 casos opt-in ignorados, typecheck e build). Os dois casos opt-in com PDFs locais passaram: a apostila criou sessão na página 10; o manual com PUA foi recusado. `npm audit --audit-level=high` encontrou 0 vulnerabilidades. Nenhum teste auditivo, visual ou E2E no navegador foi executado. PDFs ficaram fora do Git.
+- Riscos: voz local pode não estar disponível no navegador do usuário; `localService` é declaração da plataforma; fidelidade visual do PDF não foi atestada; sem OCR, export ou roteiro narrativo. Próximo marco: validar reprodução em navegador/dispositivo real e entregar caminho de áudio persistido/exportável com QA apropriado, mantendo trilha de OCR separada.
+
 ## 2026-09-21 — Milestone 0 bootstrap
 - Fato: o repositório de trabalho continha somente `outputs/` e `work/`.
 - Fato: os arquivos `MASTER_ENGINEERING_REPORT.md`, `AGENTS.md`, `PROMPT_MESTRE_CODEX.md` e `Audiobook_Studio_Engineering_Package.zip` não foram encontrados no workspace.

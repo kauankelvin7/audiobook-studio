@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { initSync } from "../generated/audiobook_wasm/audiobook_wasm.js";
 import { extractPdf } from "./pdf";
 import { analyzeDocumentV1 } from "./rust_content_pipeline";
+import { buildReadingSession } from "./rust_reading_preview";
 
 // Opt-in: local PDFs stay outside the repository and CI. Tests assert metadata only.
 const cicsPath = process.env.AUDIOBOOK_CORPUS_CICS_PDF;
@@ -26,6 +27,7 @@ describe("local COBOL corpus (opt-in)", () => {
     expect(analysis.contentModel?.sourceUnits.some(unit => unit.flags.includes("private_use_glyphs_in_native_text"))).toBe(true);
     expect(analysis.contentModel?.sourceUnits.filter(unit => unit.flags.includes("private_use_glyphs_in_native_text"))
       .every(unit => unit.narrationEligibility === "blocked")).toBe(true);
+    await expect(buildReadingSession(analysis.documentV2, 1, 1)).rejects.toMatchObject({ code: "CORE_REJECTED" });
   }, 180_000);
 
   it.skipIf(!apostilaPath)("keeps the control PDF free of private-use text flags", async () => {
@@ -38,5 +40,7 @@ describe("local COBOL corpus (opt-in)", () => {
     expect(analysis.documentV2.pages.every(page => page.extractionQuality === "good")).toBe(true);
     expect(analysis.contentModel?.sourceUnits.length).toBeGreaterThan(0);
     expect(analysis.contentModel?.sourceUnits.some(unit => unit.flags.includes("private_use_glyphs_in_native_text"))).toBe(false);
+    const session = await buildReadingSession(analysis.documentV2, 10, 10);
+    expect(session.pages[0].chunks.length).toBeGreaterThan(0);
   }, 180_000);
 });

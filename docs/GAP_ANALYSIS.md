@@ -13,7 +13,7 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 | Conteúdo visual | PARTIAL | SCAFFOLDED | Contratos de disposition/proveniência existem; adapter visual não existe. |
 | Código/tabelas/fórmulas | PARTIAL | SCAFFOLDED | Schemas validam forma; extração e validadores reais faltam. |
 | Narrative Compiler/IA | PARTIAL | IMPLEMENTED | M4.1/M4.2 movem guards, memória, source validation, ContentModel e SemanticOutline determinísticos para Rust; planner/modelo IA, coesão semântica e evals reais ainda faltam. |
-| TTS e áudio | NOT STARTED | DESIGNED | Requisitos e fronteiras documentados; engine, player e export ausentes. |
+| TTS e áudio | PARTIAL | IMPLEMENTED | Prévia literal de até dez páginas usa voz marcada como local pelo navegador, com revisão explícita e controles de reprodução. Engine neural, arquivo de áudio, export, QA narrativo e player durável continuam ausentes. |
 | Performance adaptativa | PARTIAL | SCAFFOLDED | Schemas/ADRs testados; profiler/router/benchmarks não implementados. |
 | Execução em background | PARTIAL | IMPLEMENTED | Web persiste e retoma estado após reload; aba fechada continua sem garantia de execução e desktop/Tauri durável ainda não existe. |
 | Storage e lifecycle | PARTIAL | TESTED | IndexedDB v2, OPFS, locks, recovery, quota, reconciliação e eviction física foram testados; matriz multi-browser e hardening de queda de energia faltam. |

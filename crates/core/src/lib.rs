@@ -6,6 +6,7 @@ mod document_v2;
 mod job;
 mod narrative;
 mod ocr;
+mod reading;
 mod review;
 mod script;
 
@@ -34,6 +35,10 @@ pub use narrative::{
 pub use ocr::{
     build_ocr_candidate_receipt, OcrCandidate, OcrCandidateError, OcrCandidateReceipt,
     OcrCandidateStatus,
+};
+pub use reading::{
+    build_reading_preview, build_reading_session, ReadingChunk, ReadingError, ReadingPreview,
+    ReadingSession,
 };
 pub use review::{
     build_active_narrative_identity, build_script_review_packet, evaluate_review_against_active,

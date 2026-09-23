@@ -1,16 +1,16 @@
 # Audiobook Studio
 
-Base do projeto para um compilador de documentos em audiolivros, com execução local no navegador. Esta entrega cobre o Milestone 0: governança, workspace Rust, interface React/Vite, contratos iniciais, CI e documentação. A conversão de PDF e a geração de áudio ainda não estão implementadas.
+Projeto local-first para transformar documentos em audiolivros. A interface importa PDFs com texto selecionável, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura usa somente vozes que o navegador declara locais. Não há exportação de áudio, OCR funcional, modelo narrativo real ou audiolivro final nesta versão.
 
 ## Estrutura
 
 - `audiobook_studio_engineering/`: relatório mestre, prompt original e regras originais do pacote.
-- `crates/core/`: domínio determinístico inicial.
-- `crates/wasm/`: fachada preparada para `wasm-bindgen`.
-- `apps/web/`: interface e fronteiras de adapters/worker.
+- `crates/core/`: domínio determinístico, validação de fonte e sessões de leitura.
+- `crates/wasm/`: fachada Rust/WASM usada pelo navegador.
+- `apps/web/`: interface, PDF.js, storage local, Web Worker e adapter de voz.
 - `docs/`, `.ai/`: decisões, contexto e registro de trabalho.
 
-O contrato `DocumentIR` v1 está descrito em `docs/adr/0004-document-ir-v1.md`. O fixture em `tests/fixtures/` valida a serialização Rust e o schema TypeScript. Páginas sem camada textual são mantidas com `needs_ocr`.
+O modo de leitura está delimitado em `docs/adr/0015-native-text-reading-preview.md`. Páginas escaneadas ou com extração suspeita não entram na sessão. O usuário deve conferir todo o texto exibido antes de ouvir. A voz depende das vozes locais expostas pelo navegador ou sistema operacional.
 
 ## Desenvolvimento
 
@@ -22,6 +22,7 @@ npm ci
 npm run typecheck
 npm test
 npm run build
+npm run dev
 ```
 
 Com Rust e os componentes de compilação instalados:
@@ -31,4 +32,4 @@ cargo fmt --all -- --check
 cargo test --workspace
 ```
 
-Consulte `docs/CONTEXT_INDEX.md` antes de iniciar uma tarefa. O próximo milestone define o `DocumentIR` completo e suas invariantes com fixtures reais.
+Após mudar código Rust usado no navegador, rode `npm run wasm:build` em `apps/web` antes dos testes Web. Consulte `docs/CONTEXT_INDEX.md` antes de iniciar uma tarefa.

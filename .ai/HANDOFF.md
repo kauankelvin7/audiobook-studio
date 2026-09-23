@@ -1,5 +1,11 @@
 # HANDOFF — retorno ao Codex Work
 
+## Checkpoint atual — leitura local verificável (2026-09-23)
+- A prioridade passou de microcontratos para fluxo vertical visível. O app importa PDF nativo, mostra texto, prepara sessão Rust/WASM de até dez páginas, exige conferência do usuário e reproduz com Web Speech apenas em voz declarada local. Há controles de pausa/retomada/parada; nada é exportado ou marcado QA `pass`.
+- ADR 0015 delimita esse modo literal. OCR, planner/modelo real, narração editorial e áudio persistente continuam pendentes. O manual COBOL/CICS com PUA é recusado; a apostila de controle gerou sessão na página 10 em teste local opt-in. PDFs seguem fora do Git.
+- Rust fmt/test/clippy (43 testes), WASM build, Web STANDARD (114 testes/typecheck/build), corpus opt-in 2/2 e audit 0 vulnerabilidades passaram. Revisão independente corrigiu cobertura do texto e corrida de recuperação; rechecagem do trecho sem P0–P2. Não houve teste auditivo/visual em navegador real.
+- Próximo marco recomendado: validar voz e controles em navegador/dispositivo real, então planejar áudio persistido/exportável e QA correspondente. Não tratar esta prévia como audiobook final nem permitir que ela aprove roteiro narrativo pendente.
+
 Data: 2026-09-22
 
 ## Estado exato

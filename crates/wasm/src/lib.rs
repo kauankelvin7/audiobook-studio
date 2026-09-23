@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
 use audiobook_core::{
-    build_active_narrative_identity, build_ocr_candidate_receipt, build_script_review_packet,
-    build_validated_narration_qa, evaluate_review_against_active,
-    validate_script_review_submission, ContentModel, DocumentIr, DocumentIrV2, GenerationJob,
-    NarrativePlan, NarrativeScript, OcrCandidate, ReviewBindingReference, ScriptReviewSubmission,
-    SemanticOutline,
+    build_active_narrative_identity, build_ocr_candidate_receipt, build_reading_preview,
+    build_reading_session, build_script_review_packet, build_validated_narration_qa,
+    evaluate_review_against_active, validate_script_review_submission, ContentModel, DocumentIr,
+    DocumentIrV2, GenerationJob, NarrativePlan, NarrativeScript, OcrCandidate,
+    ReviewBindingReference, ScriptReviewSubmission, SemanticOutline,
 };
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
@@ -45,6 +45,27 @@ pub fn validate_document_v2_json(input: &str) -> Result<String, JsValue> {
 pub fn document_v2_has_source_units_json(input: &str) -> Result<bool, JsValue> {
     let document = DocumentIrV2::from_json(input).map_err(js_error)?;
     Ok(document.pages.iter().any(|page| !page.regions.is_empty()))
+}
+
+#[wasm_bindgen]
+pub fn build_reading_preview_json(
+    document_json: &str,
+    page_number: u32,
+) -> Result<String, JsValue> {
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let preview = build_reading_preview(&document, page_number).map_err(js_error)?;
+    serde_json::to_string(&preview).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn build_reading_session_json(
+    document_json: &str,
+    start_page: u32,
+    end_page: u32,
+) -> Result<String, JsValue> {
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let session = build_reading_session(&document, start_page, end_page).map_err(js_error)?;
+    serde_json::to_string(&session).map_err(js_error)
 }
 
 #[wasm_bindgen]

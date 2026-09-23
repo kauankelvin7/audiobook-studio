@@ -1,5 +1,16 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — leitura local verificável de PDF nativo (2026-09-23)
+- Base: `codex/m4-content-model`, HEAD `2e28a7e`, worktree limpa. O app importa PDF e exibe texto, sem reprodução.
+- Objetivo: fechar fluxo visível importar PDF de texto selecionável, selecionar página, conferir texto e ouvir com voz local do navegador; parar/cancelar com segurança.
+- Evidência: DocumentIR v2 vem do Rust/WASM; páginas com PUA são `corrupted` e regiões afetadas `unusable`. `speechSynthesis` ainda não está ligado à UI.
+- Escopo: modo de leitura fiel à extração nativa, distinto do audiobook narrativo. Seleção, limites e chunks canônicos no Rust; TS apenas UI e Web Speech adapter. Sem OCR, modelo, QA `pass`, export ou backend.
+- Desconhecidos: disponibilidade de voz com `localService=true` no navegador do usuário; fidelidade do PDF não pode ser provada por teste automático. Sem voz local, falhar fechado.
+- Riscos: ler fonte corrompida, omitir texto silenciosamente, trocar PDF enquanto áudio toca, divergência WASM/TS, prometer áudio exportável inexistente.
+- Plano: contrato Rust de preview limitado por página com testes; export WASM e adapter Web; UI de revisão/controles acessíveis; testes de adapter e gates completos; ADR e worklog factuais.
+- Verificação: Rust fmt/test/clippy, build WASM, Web typecheck/test/build, teste de fronteira real, diff check. Sem alegar teste auditivo/visual não executado.
+- Risco: alto; um writer e revisão independente se disponível.
+
 ## PRE-FLIGHT — M4.5D candidato OCR vinculado à fonte (2026-09-23)
 - Base: `codex/m4-content-model` limpa em `e185a2f`; CI de M4.5C passou. Handoff pede contrato Rust para OCR sem promoção automática.
 - Objetivo: validar no core um candidato OCR de região contra documento/fonte/página/região e hash do texto nativo; devolver pacote de revisão `pending` com sinais mensurados e hashes, sem alterar DocumentIR ou ContentModel.

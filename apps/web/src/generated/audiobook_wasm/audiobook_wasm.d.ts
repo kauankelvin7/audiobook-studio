@@ -9,6 +9,10 @@ export function build_narration_qa_json(plan_id: string, plan_json: string, cont
 
 export function build_ocr_candidate_receipt_json(document_json: string, candidate_json: string): string;
 
+export function build_reading_preview_json(document_json: string, page_number: number): string;
+
+export function build_reading_session_json(document_json: string, start_page: number, end_page: number): string;
+
 export function build_script_qa_json(expected_plan_id: string, script_json: string, plan_json: string, content_model_json: string, semantic_outline_json: string): string;
 
 export function build_script_review_packet_json(expected_plan_id: string, script_json: string, plan_json: string, content_model_json: string, semantic_outline_json: string): string;
@@ -39,6 +43,8 @@ export interface InitOutput {
     readonly build_content_model_json: (a: number, b: number) => [number, number, number, number];
     readonly build_narration_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly build_ocr_candidate_receipt_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly build_reading_preview_json: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly build_reading_session_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly build_script_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly build_script_review_packet_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];
