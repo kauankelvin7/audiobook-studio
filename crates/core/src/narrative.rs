@@ -13,6 +13,8 @@ pub enum NarrativeError {
     UnsupportedSchemaVersion(u32),
     #[error("invalid narrative data: {0}")]
     InvalidNarrative(String),
+    #[error("invalid narrative script: {0}")]
+    InvalidScript(String),
     #[error("duplicate narrative section ID: {0}")]
     DuplicateSection(String),
     #[error("duplicate spoken chapter ID: {0}")]

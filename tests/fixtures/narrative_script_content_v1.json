@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "planId": "plan_1",
+  "documentId": "doc_0000000000000000000000000000000000000000000000000000000000000000",
+  "sections": [{
+    "id": "section_1",
+    "segments": [{
+      "id": "segment_1",
+      "displayText": "PR0CEDURE DIVISI0N",
+      "speechText": "A seção apresenta a divisão de procedimentos.",
+      "sourceRefs": ["r_1_1"]
+    }]
+  }]
+}

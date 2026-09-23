@@ -46,6 +46,21 @@ export const speechUnitSchema = z.object({
   pronunciationVersion: id,
 }).strict();
 
+export const narrativeScriptSchema = z.object({
+  schemaVersion: z.literal(1),
+  planId: id,
+  documentId: id,
+  sections: z.array(z.object({
+    id,
+    segments: z.array(z.object({
+      id,
+      displayText: z.string().min(1),
+      speechText: z.string().min(1),
+      sourceRefs,
+    }).strict()).min(1),
+  }).strict()).min(1),
+}).strict();
+
 export const narrativeMemorySchema = z.object({
   schemaVersion: z.literal(1),
   conceptsCovered: z.array(id),
@@ -75,5 +90,6 @@ export const narrationQaSchema = z.object({
 
 export type NarrativePlan = z.infer<typeof narrativePlanSchema>;
 export type SpeechUnit = z.infer<typeof speechUnitSchema>;
+export type NarrativeScript = z.infer<typeof narrativeScriptSchema>;
 export type NarrativeMemory = z.infer<typeof narrativeMemorySchema>;
 export type NarrationQa = z.infer<typeof narrationQaSchema>;

@@ -4,8 +4,8 @@ use audiobook_core::{
     build_narration_qa, build_validated_narration_qa, compare_heading_to_body,
     find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
     ContentModel, DocumentIr, DocumentIrV2, HeadingOverlapMethod, HeadingOverlapStatus,
-    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeSection,
-    QaStatus, SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
+    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
+    NarrativeSection, QaStatus, SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -15,6 +15,8 @@ const SEMANTIC_OUTLINE_FIXTURE: &str =
     include_str!("../../../tests/fixtures/semantic_outline_v1.json");
 const NARRATIVE_PLAN_FIXTURE: &str =
     include_str!("../../../tests/fixtures/narrative_plan_content_v1.json");
+const NARRATIVE_SCRIPT_FIXTURE: &str =
+    include_str!("../../../tests/fixtures/narrative_script_content_v1.json");
 
 fn document_v2() -> DocumentIrV2 {
     DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
@@ -102,6 +104,101 @@ fn shared_narrative_plan_fixture_passes_contextual_qa() {
     assert_eq!(qa.document_sections, 1);
     assert_eq!(qa.narrative_sections, 1);
     assert_eq!(qa.duplicated_spoken_headings, 0);
+}
+
+#[test]
+fn script_mapping_requires_plan_coverage_and_keeps_claims_in_review() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let outline =
+        SemanticOutline::from_json(SEMANTIC_OUTLINE_FIXTURE, &content).expect("outline fixture");
+    let plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("narrative fixture");
+    let script = NarrativeScript::from_json(NARRATIVE_SCRIPT_FIXTURE).expect("script fixture");
+
+    let qa = script
+        .build_qa("plan_1", &plan, &content, &outline)
+        .expect("mapped script");
+    assert_eq!(qa.status, QaStatus::Review);
+    assert!(qa
+        .warnings
+        .iter()
+        .any(|warning| warning.code == "CLAIM_GROUNDING_NOT_EVALUATED"));
+    assert!(script
+        .build_qa("another_plan", &plan, &content, &outline)
+        .is_err());
+
+    let mut unmapped = script.clone();
+    unmapped.sections[0].segments[0].source_refs.clear();
+    assert!(
+        NarrativeScript::from_json(&serde_json::to_string(&unmapped).expect("serialize")).is_err()
+    );
+    assert!(unmapped
+        .build_qa("plan_1", &plan, &content, &outline)
+        .is_err());
+
+    let mut invented = script.clone();
+    invented.sections[0].segments[0].source_refs = vec!["fabricated".into()];
+    assert!(invented
+        .build_qa("plan_1", &plan, &content, &outline)
+        .is_err());
+
+    let mut missing_section = script.clone();
+    missing_section.sections.clear();
+    assert!(missing_section
+        .build_qa("plan_1", &plan, &content, &outline)
+        .is_err());
+
+    let mut wrong_document = script.clone();
+    wrong_document.document_id = "other".into();
+    assert!(wrong_document
+        .build_qa("plan_1", &plan, &content, &outline)
+        .is_err());
+
+    let mut duplicate_segment = script.clone();
+    let repeated = duplicate_segment.sections[0].segments[0].clone();
+    duplicate_segment.sections[0].segments.push(repeated);
+    assert!(duplicate_segment
+        .build_qa("plan_1", &plan, &content, &outline)
+        .is_err());
+
+    let mut announced = plan.clone();
+    announced.sections[0].heading = Some(NarrativeHeading {
+        display_text: "Procedure Division".into(),
+        policy: SpokenHeadingPolicy::Announce,
+        reason: "section boundary".into(),
+    });
+    let mut repeated_heading = script;
+    repeated_heading.sections[0].segments[0].speech_text = "Procedure Division begins here.".into();
+    let failed = repeated_heading
+        .build_qa("plan_1", &announced, &content, &outline)
+        .expect("heading overlap is reported");
+    assert_eq!(failed.status, QaStatus::Fail);
+    assert_eq!(failed.duplicated_spoken_headings, 1);
+}
+
+#[test]
+fn script_accepts_a_planned_transition_source_reference() {
+    let mut content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let mut second_unit = content.source_units[0].clone();
+    second_unit.id = "unit_r_1_2".into();
+    second_unit.source_refs = vec!["r_1_2".into()];
+    content.source_units.push(second_unit);
+    let outline = SemanticOutline::skeleton(&content).expect("outline for both source units");
+    let mut plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("narrative fixture");
+    plan.sections[0].transition = Some(audiobook_core::NarrativeTransition {
+        text: "Ligação entre trechos".into(),
+        relation: "sequence".into(),
+        source_refs: vec!["r_1_2".into()],
+    });
+    let mut script = NarrativeScript::from_json(NARRATIVE_SCRIPT_FIXTURE).expect("script fixture");
+    script.sections[0].segments[0].source_refs = vec!["r_1_2".into()];
+    let qa = script
+        .build_qa("plan_1", &plan, &content, &outline)
+        .expect("transition source is valid");
+    assert_eq!(qa.status, QaStatus::Review);
+    script.sections[0].segments[0].source_refs = vec!["unrelated".into()];
+    assert!(script
+        .build_qa("plan_1", &plan, &content, &outline)
+        .is_err());
 }
 
 #[test]

@@ -188,3 +188,12 @@
 - QA independente encontrou P1: plano retornado diretamente poderia parecer aprovado antes do QA. Corrigido com wrapper de candidato/QA pendente. Sugestões P2 de fake reutilizável e teste cross-document também incorporadas.
 - Gates locais finais: Rust fmt/test (26 testes), Web STANDARD (84/84 testes, typecheck, build) e `git diff --check` passaram. CI do M4.4A pendente; nenhum modelo real, prompt, persistência do plano ou TTS foi iniciado.
 - Publicação M4.4A: commit remoto `f74229f42b54f32c4b0e471f66d0ca3e4c847208` na branch; checkout local alinhado e limpo. Workflow `quality` run `35804071973` concluiu com `success` para Rust e Web. O port/fake estruturado está TESTED nesse escopo, sem modelo real.
+
+## 2026-09-22 — M4.4B contrato de roteiro e source mapping
+- Base confirmada antes de editar: `codex/m4-content-model` limpa em `122e9b2`; GitHub Actions `quality` run `35804316448` concluído com `success` nesse HEAD. PRE-FLIGHT registrado no TASK_PACKET.
+- Core Rust recebeu `NarrativeScript`, com seções e trechos ordenados, `displayText`, `speechText` e source refs por trecho. `from_json` valida estrutura; validação contextual exige o `planId` esperado, cobertura/ordem de seções e refs pertencentes à seção ou transição do plano, após validar plano e ContentModel/Outline.
+- QA de roteiro agrega fala por seção e usa o QA determinístico existente. Heading anunciado duplicado resulta em `fail`; source mapping inválido é rejeitado. Claim grounding não foi avaliado e mantém `review` com aviso explícito. Referência estrutural não prova fidelidade semântica.
+- WASM expõe `build_script_qa_json`; adapter TS espelha schema e classifica erros de entrada, inicialização, rejeição do core e saída inválida. Fixture e testes exercitam binário WASM real, incluindo ref de transição, ref fabricada e ID de plano divergente.
+- Primeira revisão QA independente encontrou P1 na rejeição de refs de transição e no `planId` sem vínculo ao ID esperado. Ambos corrigidos. Segunda revisão não encontrou P0/P1; P2 futuro: vincular ID do plano persistido a conteúdo/provenance imutáveis.
+- Gates locais finais: `cargo fmt --all -- --check`, `cargo test --workspace --locked` (28 testes), clippy com `-D warnings`, `npm run wasm:build`, `npm run test:standard` (88 testes, typecheck, build) e `git diff --check` passaram. CI após publicação ainda pendente neste registro.
+- Sem modelo real, verificador semântico, golden mainframe real, geração de roteiro ou TTS. Próximo batch só após CI verde.

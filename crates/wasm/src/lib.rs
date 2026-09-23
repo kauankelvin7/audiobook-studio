@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use audiobook_core::{
     build_validated_narration_qa, ContentModel, DocumentIr, DocumentIrV2, NarrativePlan,
-    SemanticOutline,
+    NarrativeScript, SemanticOutline,
 };
 use wasm_bindgen::prelude::*;
 
@@ -78,6 +78,24 @@ pub fn build_narration_qa_json(
     let section_speech: BTreeMap<String, String> =
         serde_json::from_str(section_speech_json).map_err(js_error)?;
     let qa = build_validated_narration_qa(plan_id, &plan, &content, &outline, &section_speech)
+        .map_err(js_error)?;
+    serde_json::to_string(&qa).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn build_script_qa_json(
+    expected_plan_id: &str,
+    script_json: &str,
+    plan_json: &str,
+    content_model_json: &str,
+    semantic_outline_json: &str,
+) -> Result<String, JsValue> {
+    let content = ContentModel::from_json(content_model_json).map_err(js_error)?;
+    let outline = SemanticOutline::from_json(semantic_outline_json, &content).map_err(js_error)?;
+    let plan = NarrativePlan::from_json(plan_json).map_err(js_error)?;
+    let script = NarrativeScript::from_json(script_json).map_err(js_error)?;
+    let qa = script
+        .build_qa(expected_plan_id, &plan, &content, &outline)
         .map_err(js_error)?;
     serde_json::to_string(&qa).map_err(js_error)
 }

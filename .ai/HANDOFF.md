@@ -117,3 +117,10 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Commit `f74229f42b54f32c4b0e471f66d0ca3e4c847208` publicado; workflow `quality` run `35804071973` concluiu com sucesso nos jobs Rust e Web.
 - Port Web recebe saída estruturada não confiável, valida schema/provenance pelo core Rust e devolve somente candidato com QA pendente. Fake determinístico existe apenas em suporte de testes. Sem modelo real, prompt, persistência de plano ou TTS.
 - Próximo batch seguro: contrato de roteiro/source mapping e QA crítico com estado explícito de revisão; buscar golden mainframe real e avaliar modelo local somente depois. TTS segue bloqueado até planner, source mapping e QA crítico passarem.
+
+## M4.4B validado localmente — 2026-09-22
+- Base: branch `codex/m4-content-model` limpa em `122e9b2`; CI `quality` desse HEAD passou (run `35804316448`). PRE-FLIGHT registrado antes do código.
+- `NarrativeScript` canônico no Rust mapeia cada trecho falado a source refs da seção ou transição do plano; exige cobertura/ordem, `planId` esperado e estrutura válida. WASM exporta QA de roteiro; TS só espelha schema e chama o core. Fixture compartilhada testa WASM real.
+- QA estrutural/heading rejeita mapeamento inválido e falha heading anunciado duplicado. Grounding semântico segue não avaliado: relatório fica em `review`; não liberar TTS com esse estado.
+- Revisão independente encontrou dois P1, ambos corrigidos; segunda revisão sem P0/P1. Gates locais finais: Rust fmt/test (28)/clippy, WASM build, Web STANDARD (88/typecheck/build), diff check passaram.
+- Publicação e CI M4.4B ainda pendentes neste checkpoint. Depois do CI verde: definir evidência e contrato de revisão semântica e avaliar modelo local real em batch separado, com corpus/golden quando disponível. TTS permanece bloqueado. Futuro plano persistido precisa vincular ID a conteúdo/provenance imutáveis.

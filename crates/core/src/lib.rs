@@ -5,6 +5,7 @@ mod document;
 mod document_v2;
 mod job;
 mod narrative;
+mod script;
 
 pub use content::{
     ConceptImportance, ContentConcept, ContentError, ContentModel, ContentRelation,
@@ -28,6 +29,7 @@ pub use narrative::{
     NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeSection,
     NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
 };
+pub use script::{NarrativeScript, ScriptSection, ScriptSegment};
 
 use thiserror::Error;
 

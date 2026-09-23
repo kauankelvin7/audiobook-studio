@@ -245,3 +245,21 @@
 - Status: IMPLEMENTED/TESTED para port estruturado com fake de fixture e validação Rust/WASM; nenhum modelo real ou TTS.
 - Gates: Rust fmt/test (26 testes), Web STANDARD (84/84 testes/typecheck/build) e workflow `quality` run `35804071973` em `f74229f` passaram.
 - Próximo passo: contrato de roteiro/source mapping e QA crítico com revisão explícita antes de avaliar modelo local real. TTS permanece bloqueado.
+
+## PRE-FLIGHT de execução — M4.4B roteiro e source mapping (2026-09-22)
+- Base: branch `codex/m4-content-model` limpa em `122e9b2`; workflow `quality` do HEAD, run `35804316448`, concluído com `success` (GitHub API consultada antes de editar).
+- Objective: definir contrato canônico de roteiro com texto e referências por trecho, validar alinhamento com NarrativePlan/ContentModel no Rust e produzir QA crítico com revisão explícita para claims não avaliados.
+- Evidence: ADR 0005 e adendo narrativo exigem roteiro, source mapping e QA antes de TTS; M4.4A só retorna plano candidato e QA pendente.
+- Constraints: Rust possui invariantes e QA; TypeScript apenas espelha fronteira e chama WASM. Sem modelo real, geração automática, OCR ou TTS. Nenhum status `pass` por source refs estruturalmente válidas; grounding semântico segue pendente.
+- Unknowns: formato de atestação de revisão humana/verificador e corpus mainframe real; ambos permanecem fora deste batch.
+- Risks: aceitar referência válida mas irrelevante como suporte semântico; roteiro omitir seção do plano; heading duplicado; drift Rust/TS/WASM.
+- Plan: contrato Rust para roteiro e validação contextual; QA que inclui checks críticos atuais e força revisão de claims; export WASM e adapter TS fino com teste de integração real; gates locais, revisão independente, push e CI. Atualizar WORKLOG/HANDOFF antes do commit e após CI.
+- Verification: `cargo fmt --all -- --check`, `cargo test --workspace`, clippy, `npm run wasm:build`, `npm run test:standard`, diff check e workflow `quality` do commit publicado. Não avançar se algum gate falhar.
+
+## RESULT M4.4B — validação local (2026-09-22)
+- Status: contrato Rust/WASM/Web implementado e testado localmente; publicação e CI do novo commit ainda pendentes neste registro.
+- Entregue: `NarrativeScript` canônico com texto e source refs por trecho; validação de cobertura, ordem, identidade do plano esperada e refs da seção/transição; QA estrutural/heading com claim grounding em `review`; fixture compartilhada e adapter TS fino.
+- QA independente encontrou P1 em refs de transição e vínculo de `planId`; ambos corrigidos e cobertos em Rust e WASM real. Segunda revisão sem P0/P1.
+- Gates: Rust fmt/test (28 testes)/clippy, `npm run wasm:build`, Web STANDARD (88 testes, typecheck, build) e `git diff --check` passaram.
+- Limites: não há geração automática de roteiro, verificador semântico, golden mainframe real ou TTS. Futuro artefato persistido deve vincular plan ID a conteúdo/provenance imutáveis.
+- Próximo passo: commit/push/CI. Somente com CI verde iniciar próximo batch de avaliação de modelo local e contrato de revisão semântica; TTS permanece bloqueado.
