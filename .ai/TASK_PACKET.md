@@ -1,5 +1,15 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5C goldens locais e ingestão real (2026-09-23)
+- Objetivo: conferir visualmente páginas selecionadas do corpus COBOL/CICS, registrar pequenas expectativas de fidelidade fora do repositório público e testar a importação real PDF.js→Rust/WASM com esses PDFs locais.
+- Base: branch `codex/m4-content-model` limpa, HEAD `8b40de2`; M4.5B mediu todas as páginas, mas não verificou `DocumentIR`/ContentModel. O manual contém PUA em todas as páginas.
+- Restrições: PDFs e transcrições do usuário permanecem locais; Rust é canônico; sem OCR fictício, QA `pass`, TTS ou UI. Não interpretar PUA como transcrição recuperada.
+- Desconhecidos: fidelidade visual de trechos selecionados, tempo/memória do pipeline integral e efeito da segmentação no bloqueio de regiões.
+- Riscos: publicar conteúdo protegido, validar texto errado por OCR visual incerto, falha de importação em arquivo real, testes dependentes do caminho do usuário, limites de memória.
+- Plano: renderizar amostras localmente, inspecionar e registrar expectativas mínimas em arquivo ignorado; executar pipeline real em teste opt-in versionado, sem caminhos fixos ou conteúdo do usuário; agregar métricas e falhas sem publicar texto; documentar fatos/gates e revisar diff.
+- Verificação: hash das fontes, inspeção visual, execução real do pipeline, Rust fmt/test e Web STANDARD se houver mudança de código; diff check. Sem claim de OCR.
+- Risco: alto; um writer, revisão conservadora.
+
 ## PRE-FLIGHT — M4.5B medição integral PDF.js do corpus (2026-09-23)
 - Objetivo: medir todas as páginas dos dois PDFs locais com a versão de PDF.js do app, registrar apenas métricas e selecionar páginas candidatas a goldens de fidelidade. Não implementar OCR sem transcrição esperada.
 - Base e evidência: branch `codex/m4-content-model` limpa, HEAD `6f1870f`; M4.5A passou testes e foi publicado. Handoff pede medição integral antes de OCR. Amostras anteriores detectaram glifos privados no manual COBOL/CICS.
