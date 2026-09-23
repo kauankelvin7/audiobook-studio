@@ -231,3 +231,12 @@
 - Risks: fixture não corresponder aos contratos Rust/TS, inicialização do WASM no teste Node, teste passar sem chamar binário real.
 - Plan: criar fixture NarrativePlan v1 compatível com o ContentModel atual sem substituir a fixture narrativa histórica, validá-la no Rust, executar plano e QA por adapter TS com WASM real, cobrir source ref inválida, rodar Rust fmt/test/clippy + Web STANDARD + CI e revisar diff.
 - Verification: teste Rust da fixture, teste Vitest com binário `.wasm` real, gates completos, revisão independente e CI.
+
+## PRE-FLIGHT de execução — M4.4A Planner Port com fake (2026-09-22)
+- Base: M4.3C publicado em `5b97d1f`; workflow `quality` run `35803514527` verde em Rust e Web.
+- Objective: definir port Web para receber NarrativePlan como objeto estruturado de um planner e validá-lo pelo core Rust/WASM antes de disponibilizá-lo; testar com fake determinístico de fixture, sem modelo real.
+- Evidence: ADR 0005 e `docs/NARRATIVE_AND_PERFORMANCE.md` exigem saída estruturada, schema, source mapping e QA antes de TTS; M4.3 validou a fronteira Rust/WASM.
+- Constraints: nenhuma heurística de plano em TS, nenhuma inferência inventada, entrada do modelo é não confiável; fake usa fixture fixa apenas; sem prompt/modelo/TTS/UI nesta fatia.
+- Risks: fake parecer capacidade real, erro de modelo escapar sem tipo, plano estruturalmente válido burlar provenance, port ser usado antes de QA.
+- Plan: contrato de port de objeto estruturado, adapter de validação com Rust, fake de fixture para teste, casos de falha de port/shape/provenance, gates e revisão. Não adicionar modelo externo.
+- Verification: testes focados e Web STANDARD; Rust gates mínimos; revisão independente; CI antes de ampliar planner.

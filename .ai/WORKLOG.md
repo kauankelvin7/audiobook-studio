@@ -179,3 +179,11 @@
 - Teste Rust valida a fixture e executa QA contextual. Teste Vitest carrega `audiobook_wasm_bg.wasm` real, chama o adapter de plano/QA e confirma `REVIEW` por claim grounding não avaliado. Source ref fabricada atravessa schema TS e é rejeitada pelo core; o teste verifica a causa com o ref.
 - Primeiro STANDARD falhou porque a nova fixture havia substituído a histórica usada por outro teste. Restaurada a original, criado arquivo distinto e repetidos os gates: Rust fmt/test (26 testes)/clippy, `npm run wasm:build`, Web STANDARD (82/82 testes, typecheck, build) e diff check passaram.
 - QA independente não encontrou bloqueio; sugeriu assert da causa Rust, incorporado e verificado. CI do M4.3C ainda pendente. Planner/modelo/TTS não iniciados.
+- Publicação M4.3C: commit remoto `5b97d1fbcfd27df4a522907679afea9c52eabf18` na branch; checkout local alinhado e limpo. Workflow `quality` run `35803514527` concluiu com `success` para Rust e Web. A fronteira NarrativePlan/QA pelo WASM real está TESTED nesse escopo.
+
+## 2026-09-22 — M4.4A Planner Port com fake estruturado
+- Base: M4.3C publicado em `5b97d1f`, workflow `quality` verde. PRE-FLIGHT registrado no TASK_PACKET antes do código.
+- Criado `NarrativePlannerPort` Web com saída `unknown` estruturada. O adapter valida ContentModel/Outline e NarrativePlan na fronteira, chama o Rust/WASM real para provenance e devolve apenas `{kind: "candidate", qa: "pending", plan}`. Não existe caminho de TTS a partir desse retorno.
+- `FixtureNarrativePlanner` em suporte de testes devolve a mesma fixture por chamada, sem implementar planejamento. Testes cobrem sucesso, contexto inválido, falha de port, shape inválido, source ref fabricada e documentos divergentes.
+- QA independente encontrou P1: plano retornado diretamente poderia parecer aprovado antes do QA. Corrigido com wrapper de candidato/QA pendente. Sugestões P2 de fake reutilizável e teste cross-document também incorporadas.
+- Gates locais finais: Rust fmt/test (26 testes), Web STANDARD (84/84 testes, typecheck, build) e `git diff --check` passaram. CI do M4.4A pendente; nenhum modelo real, prompt, persistência do plano ou TTS foi iniciado.

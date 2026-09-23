@@ -31,3 +31,5 @@ TTFA é o indicador primário; medir também carga de modelo, RTF, RAM/VRAM/CPU 
 - M7: browser/device matrix, soak/chaos, benchmarks reproduzíveis e regressões de qualidade/latência.
 
 Artefatos de auditoria planejados: `narrative-plan.json`, `narrative-memory.json`, `narration-qa.json`, `performance-profile.json`, `engine-plan.json`, `tts-benchmark.json`. Nenhum deles é gerado pelo produto neste marco de documentação.
+
+M4.4A introduz apenas o `NarrativePlannerPort` Web: o port devolve objeto estruturado não confiável, o adapter verifica o schema e o core Rust/WASM valida proveniência. O retorno é marcado como candidato com QA pendente. Há um fake de fixture para testes; nenhum modelo, prompt, persistência do plano ou caminho para TTS foi conectado nesta fatia.

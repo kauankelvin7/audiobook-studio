@@ -102,3 +102,13 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Nova fixture `narrative_plan_content_v1.json` preserva a fixture narrativa histórica e referencia o ContentModel atual sem inventar conceitos.
 - Rust fmt/test (26 testes)/clippy e Web STANDARD (82 testes/typecheck/build) passaram. `npm run wasm:build` passou; Vitest executou o WASM real, inclusive rejeição de provenance fabricada. QA independente não encontrou bloqueio.
 - Publicação e CI deste batch ainda pendentes. Somente após CI verde iniciar `NarrativePlannerPort`/fake estruturado; TTS continua bloqueado.
+
+## M4.3C concluído — 2026-09-22
+- Commit `5b97d1fbcfd27df4a522907679afea9c52eabf18` publicado; workflow `quality` run `35803514527` concluiu com sucesso nos jobs Rust e Web.
+- M4.3 A–C fecha plano/QA determinístico via Rust/WASM e adapter TS com fixture compartilhada. Claim grounding ainda requer revisão; QA não aprova claims automaticamente.
+- Próximo passo autorizado: `NarrativePlannerPort` com fake determinístico e structured output validado pelo core; avaliar modelo local/golden real depois. TTS continua bloqueado até planner, source mapping e QA crítico passarem.
+
+## M4.4A localmente validado — 2026-09-22
+- `NarrativePlannerPort` e fake de fixture foram criados. O adapter valida a saída estruturada com schema e Rust/WASM, e retorna candidato com `qa: pending`; nenhum modelo real ou TTS foi conectado.
+- Revisão QA apontou retorno prematuro de plano como P1; wrapper de candidato aplicado. Rust fmt/test (26), Web STANDARD (84 testes/typecheck/build) e diff check passaram.
+- Publicação/CI pendentes. Próxima etapa após CI verde: decidir contrato de geração de roteiro/source mapping e QA crítico antes de avaliar modelo local real. Não iniciar TTS.
