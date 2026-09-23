@@ -307,3 +307,7 @@
 - Revisão independente encontrou P2: uma decisão `supported` podia citar só parte das referências do trecho. Corrigido com cobertura por referência e regressões Rust/WASM real; segunda revisão confirmou correção e não encontrou P0/P1.
 - Gates locais: Rust fmt/test (33 testes)/clippy passaram; `npm run wasm:build` passou; Web STANDARD passou com 93 testes, typecheck e build; `npm audit --audit-level=high` encontrou 0 vulnerabilidades; `git diff --check` passou. CI após publicação ainda pendente.
 - Limites: não há identidade confiável de revisor, atestação, golden mainframe real, persistência de decisão, QA `pass` ou TTS. Próximo batch seguro: definir confiança e assinatura/identidade de revisão antes de qualquer liberação por QA; obter corpus real para avaliar claims.
+
+## RESULT M4.4D — publicação e CI (2026-09-23)
+- Commit de código `28658f67c945ef7b9b450160e04beebd433b5e9f` publicado em `origin/codex/m4-content-model`; `git ls-remote` confirmou o mesmo hash local e remoto, com árvore limpa.
+- Workflow `quality` run `35856262003` desse commit concluiu com sucesso. Contrato estrutural validado; atestação confiável e TTS permanecem fora do escopo.

@@ -1,6 +1,6 @@
 # Runtime Rust/WASM no Web
 
-Status: M4 integração implementada, testada localmente com o módulo WASM real e publicada na branch `codex/m4-content-model`; workflow `quality` verde no commit `6b91326`.
+Status: M4 integração implementada e testada com o módulo WASM real na branch `codex/m4-content-model`; workflow `quality` verde no commit M4.4D `28658f6`.
 
 O Worker extrai DocumentIR v1 com PDF.js. O adapter `rust_content_pipeline.ts` inicializa o módulo `audiobook-wasm` gerado, valida a entrada na fronteira TS e chama, em ordem, `migrate_document_v1_to_v2_json`, `validate_document_v2_json`, `document_v2_has_source_units_json` e, quando há unidades, `build_content_model_json` e `build_semantic_outline_json`. O `audiobook-core` define migração, invariantes e transformações. TS valida o JSON que cruza a fronteira e o protocolo do Worker confere a identidade do documento e o hash da fonte.
 

@@ -147,3 +147,8 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Rust valida submissão de decisões por trecho contra o pacote recalculado, incluindo hashes, cobertura de trechos e evidência textual por referência. Fonte ausente ou bloqueada não sustenta `supported`. WASM/TS preservam apenas a fronteira; recibo usa `attestationStatus: unverified` e hash da submissão. Nenhuma atestação, persistência, aprovação QA ou TTS foi implementada.
 - QA independente encontrou cobertura parcial P2 e a correção passou em Rust/WASM real. Segunda revisão confirmou correção, sem P0/P1. Gates locais: 33 testes Rust, fmt, clippy, build WASM, 93 testes Web, typecheck, build, audit 0 vulnerabilidades e diff check. Publicação e CI ainda pendentes neste checkpoint.
 - Próximo passo imediato: commit/push e CI. Depois definir mecanismo confiável de atestação e corpus real de avaliação; não liberar TTS com recibo `unverified`.
+
+## M4.4D concluído — 2026-09-23
+- Commit de código `28658f67c945ef7b9b450160e04beebd433b5e9f` publicado em `codex/m4-content-model`; workflow `quality` run `35856262003` concluiu com sucesso.
+- O contrato de revisão estrutural está testado no core e no WASM real. `supported` exige evidência textual não bloqueada para todas as source refs do trecho. O recibo continua `unverified`; não há persistência, atestação de revisor, liberação por QA ou TTS.
+- Próximo batch: especificar mecanismo de atestação confiável e vínculo persistente ao hash da submissão. Obter corpus/golden mainframe real para avaliação semântica antes de qualquer claim `pass`. Não usar veredito enviado por modelo como prova de revisão humana.
