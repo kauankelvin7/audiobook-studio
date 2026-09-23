@@ -26,6 +26,45 @@ fn document_v2() -> DocumentIrV2 {
     DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
 }
 
+#[test]
+fn migration_quarantines_private_use_glyphs_without_losing_source_text() {
+    let mut v1 = DocumentIr::from_json(DOCUMENT_V1_FIXTURE).expect("v1 fixture");
+    v1.pages[0].raw_text.push('\u{E000}');
+    v1.pages[0].blocks[0].text.push('\u{E000}');
+    let v2 = DocumentIrV2::migrate_from_v1(&v1).expect("migration");
+    assert_eq!(
+        v2.pages[0].extraction_quality,
+        audiobook_core::ExtractionQuality::Corrupted
+    );
+    assert!(v2.pages[0].raw_text.contains('\u{E000}'));
+    let suspect = &v2.pages[0].regions[0];
+    assert!(suspect
+        .flags
+        .iter()
+        .any(|flag| flag == "private_use_glyphs_in_native_text"));
+    assert_eq!(
+        suspect.quality_status,
+        audiobook_core::QualityStatus::Unusable
+    );
+    assert_eq!(
+        suspect.uncertainty,
+        audiobook_core::Uncertainty::Unsupported
+    );
+    assert_eq!(
+        v2.pages[0].regions[1].quality_status,
+        audiobook_core::QualityStatus::ReviewRequired
+    );
+    let content = ContentModel::from_document(&v2).expect("content model");
+    assert_eq!(
+        content.source_units[0].narration_eligibility,
+        NarrationEligibility::Blocked
+    );
+    assert_eq!(
+        content.source_units[1].narration_eligibility,
+        NarrationEligibility::ReviewRequired
+    );
+}
+
 fn plan(policy: SpokenHeadingPolicy) -> NarrativePlan {
     NarrativePlan {
         schema_version: 1,

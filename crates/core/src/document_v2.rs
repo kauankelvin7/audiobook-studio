@@ -195,6 +195,15 @@ impl DocumentIrV2 {
             .map(|page| DocumentPageV2 {
                 number: page.number,
                 extraction_quality: match page.text_quality {
+                    TextQuality::Extracted
+                        if contains_private_use(&page.raw_text)
+                            || page
+                                .blocks
+                                .iter()
+                                .any(|block| contains_private_use(&block.text)) =>
+                    {
+                        ExtractionQuality::Corrupted
+                    }
                     TextQuality::Extracted => ExtractionQuality::Good,
                     TextQuality::NeedsOcr => ExtractionQuality::NoText,
                 },
@@ -204,31 +213,45 @@ impl DocumentIrV2 {
                 regions: page
                     .blocks
                     .iter()
-                    .map(|block| DocumentRegionV2 {
-                        id: block.id.clone(),
-                        kind: map_block_type(block.kind),
-                        bbox: block.bbox.map(|bbox| bbox.map(f64::from)),
-                        language: block.language.clone(),
-                        sources: SourceLayers {
-                            raw_text: Some(block.text.clone()),
-                            ocr_text: None,
-                            reconstructed_text: None,
-                        },
-                        content: RegionContent::LegacyText {
-                            text: block.text.clone(),
-                            source_schema_version: 1,
-                        },
-                        uncertainty: Uncertainty::Uncertain,
-                        quality_status: QualityStatus::ReviewRequired,
-                        confidence: block.confidence.map(f64::from),
-                        flags: block
-                            .flags
-                            .iter()
-                            .cloned()
-                            .chain(std::iter::once(
-                                "migrated_from_v1_requires_source_review".to_owned(),
-                            ))
-                            .collect(),
+                    .map(|block| {
+                        let suspect = contains_private_use(&block.text);
+                        DocumentRegionV2 {
+                            id: block.id.clone(),
+                            kind: map_block_type(block.kind),
+                            bbox: block.bbox.map(|bbox| bbox.map(f64::from)),
+                            language: block.language.clone(),
+                            sources: SourceLayers {
+                                raw_text: Some(block.text.clone()),
+                                ocr_text: None,
+                                reconstructed_text: None,
+                            },
+                            content: RegionContent::LegacyText {
+                                text: block.text.clone(),
+                                source_schema_version: 1,
+                            },
+                            uncertainty: if suspect {
+                                Uncertainty::Unsupported
+                            } else {
+                                Uncertainty::Uncertain
+                            },
+                            quality_status: if suspect {
+                                QualityStatus::Unusable
+                            } else {
+                                QualityStatus::ReviewRequired
+                            },
+                            confidence: block.confidence.map(f64::from),
+                            flags: block
+                                .flags
+                                .iter()
+                                .cloned()
+                                .chain(std::iter::once(
+                                    "migrated_from_v1_requires_source_review".to_owned(),
+                                ))
+                                .chain(
+                                    suspect.then(|| "private_use_glyphs_in_native_text".to_owned()),
+                                )
+                                .collect(),
+                        }
                     })
                     .collect(),
             })
@@ -310,6 +333,12 @@ impl DocumentIrV2 {
         }
         Ok(())
     }
+}
+
+fn contains_private_use(text: &str) -> bool {
+    text.chars().any(|character| {
+        matches!(character as u32, 0xE000..=0xF8FF | 0xF0000..=0xFFFFD | 0x100000..=0x10FFFD)
+    })
 }
 
 impl DocumentRegionV2 {

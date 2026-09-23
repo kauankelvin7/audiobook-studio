@@ -1,5 +1,15 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5A camada de texto PDF suspeita (2026-09-23)
+- Objetivo: classificar no Rust a camada nativa com glifos Unicode privados durante a migração DocumentIR v1→v2, preservar texto bruto e exigir recuperação/revisão antes de narração.
+- Evidência: HEAD `2143378` limpo em `codex/m4-content-model`; segundo PDF local tem 36.111 caracteres privados entre 488.556 extraídos; hoje `migrate_from_v1` transforma toda página `extracted` em `good`. O conteúdo migrado já é `review_required`, mas não sinaliza defeito nem impede reaproveitamento como análise textual.
+- Restrições: Rust canônico, PDF.js/Worker Web como adapter; sem OCR fictício, TTS, backend ou UI. PDFs do usuário não entram no repositório. Preservar schemas existentes.
+- Desconhecidos: distribuição dos glifos por bloco via PDF.js, limiar quantitativo para outros defeitos e fidelidade de OCR. Sem limiar especulativo: qualquer caractere de área privada Unicode será sinal de suspeita, não prova de corrupção visual.
+- Riscos: falso positivo em fonte iconográfica, texto parcial útil ser bloqueado, divergência Rust/WASM e corpus local não reprodutível em CI.
+- Plano: marcar página como `corrupted` e regiões afetadas com flag estável; bloquear elegibilidade dessas regiões no ContentModel sem descartar texto bruto; testar Rust e integração WASM com fixture sintética; documentar limite, rodar gates, revisar diff, registrar resultado e publicar se verde.
+- Verificação: fmt/test/clippy Rust, build WASM, Web STANDARD/audit, diff check. Sem claim de OCR ou qualidade semântica.
+- Risco: alto; writer único e revisão de diff independente se disponível.
+
 ## PRE-FLIGHT atual — M4 Rust/WASM/Web runtime (2026-09-22)
 - Objective: ligar a fachada `audiobook-wasm` ao Worker Web para migrar DocumentIR v1, validar DocumentIR v2 e construir ContentModel/SemanticOutline pelo core Rust; comprovar paridade com fixtures compartilhadas e execução real do módulo WASM.
 - Evidence: branch `codex/m4-content-model` limpa em `039b982`; handoff indica este passo; `crates/wasm` expõe v2/content/outline, mas falta migração v1 e bundle gerado; o Worker hoje só extrai v1 via PDF.js. CI de `5807e79` passou Rust e Web segundo handoff/worklog.

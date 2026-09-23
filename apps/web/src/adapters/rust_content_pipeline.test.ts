@@ -51,4 +51,21 @@ describe("real audiobook-wasm integration", () => {
     expect(analysis.contentModel).toBeNull();
     expect(analysis.semanticOutline).toBeNull();
   });
+
+  it("quarantines private-use glyphs through the real WASM pipeline", async () => {
+    const source = documentIrSchema.parse(documentV1Fixture);
+    const suspect = "\uE000";
+    source.pages[0].rawText += suspect;
+    source.pages[0].blocks[0].text += suspect;
+    const analysis = await analyzeDocumentV1(source);
+    expect(analysis.documentV2.pages[0].extractionQuality).toBe("corrupted");
+    expect(analysis.documentV2.pages[0].rawText).toContain(suspect);
+    expect(analysis.documentV2.pages[0].regions[0]).toMatchObject({
+      uncertainty: "unsupported",
+      qualityStatus: "unusable",
+      flags: expect.arrayContaining(["private_use_glyphs_in_native_text"]),
+    });
+    expect(analysis.documentV2.pages[0].regions[1].qualityStatus).toBe("review_required");
+    expect(analysis.contentModel?.sourceUnits[0].narrationEligibility).toBe("blocked");
+  });
 });
