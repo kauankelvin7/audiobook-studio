@@ -1,0 +1,149 @@
+import { webcrypto } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
+import { describe, expect, it } from "vitest";
+import content from "../../../../tests/fixtures/content_model_v1.json";
+import outline from "../../../../tests/fixtures/semantic_outline_v1.json";
+import plan from "../../../../tests/fixtures/narrative_plan_content_v1.json";
+import script from "../../../../tests/fixtures/narrative_script_content_v1.json";
+import { initSync } from "../generated/audiobook_wasm/audiobook_wasm.js";
+import { IndexedDbCheckpointRepository } from "./indexeddb_checkpoint_repository";
+import { LocalProjectPersistence } from "./local_project_persistence";
+import { OpfsArtifactStore } from "./opfs_artifact_store";
+import type { ProjectLock } from "./ports";
+import { ReviewSubmissionPersistence } from "./review_submission_persistence";
+import { buildScriptReviewPacket } from "./rust_script_pipeline";
+
+initSync({ module: readFileSync(fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url))) });
+
+const context = { expectedPlanId: "plan_1", script, plan, content, outline };
+const lock: ProjectLock = { runExclusive: async (_projectId, operation) => await operation() };
+
+function setup(name: string) {
+  const state = new IndexedDbCheckpointRepository({ indexedDb: new IDBFactory(), keyRange: IDBKeyRange, databaseName: name });
+  const files = new Map<string, Blob>();
+  const artifacts = new OpfsArtifactStore({
+    subtle: webcrypto.subtle as SubtleCrypto,
+    getRoot: async () => ({
+      getFileHandle: async (fileName: string, options?: { create?: boolean }) => {
+        if (!files.has(fileName) && !options?.create) throw new DOMException("missing", "NotFoundError");
+        if (!files.has(fileName)) files.set(fileName, new Blob());
+        return {
+          getFile: async () => files.get(fileName)!,
+          createWritable: async () => ({
+            write: async (value: Blob) => { files.set(fileName, value); },
+            close: async () => undefined,
+          }),
+        };
+      },
+      removeEntry: async (fileName: string) => { files.delete(fileName); },
+      keys: async function* () { yield* files.keys(); },
+    }),
+  });
+  const persistence = new LocalProjectPersistence(state, artifacts, lock);
+  return { state, files, persistence, review: new ReviewSubmissionPersistence(persistence) };
+}
+
+async function submission() {
+  const packet = await buildScriptReviewPacket("plan_1", script, plan, content, outline);
+  return {
+    schemaVersion: 1 as const,
+    planId: packet.planId,
+    documentId: packet.documentId,
+    sourceHash: packet.sourceHash,
+    contentHash: packet.contentHash,
+    planHash: packet.planHash,
+    scriptHash: packet.scriptHash,
+    decisions: [{
+      segmentId: packet.segments[0].segmentId,
+      verdict: "supported" as const,
+      evidenceSourceUnitIds: [packet.segments[0].sources[0].sourceUnitId],
+      rationale: "Conferido com o trecho indicado.",
+    }],
+  };
+}
+
+describe("review submission persistence", () => {
+  it("stores a pinned review linked to its Rust submission hash and revalidates on read", async () => {
+    const { state, persistence, review } = setup("review-roundtrip");
+    const input = await submission();
+    await persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, []);
+
+    const saved = await review.save("project_1", context, input);
+    await expect(review.save("project_1", context, {})).rejects.toMatchObject({ code: "INVALID_SUBMISSION" });
+    expect(saved.receipt.attestationStatus).toBe("unverified");
+    expect(saved.artifact).toMatchObject({ kind: "review_submission", pinned: true, regenerable: false });
+    expect(saved.artifact.artifactKey).toBe(`review_${saved.receipt.submissionHash.slice(7)}`);
+    expect(saved.currentness).toBe("not_established");
+    await expect(review.readHistoricalAgainstContext("project_1", saved.artifact, context))
+      .resolves.toMatchObject({ receipt: saved.receipt, currentness: "not_established" });
+    await expect(review.readHistoricalAgainstContext("project_1", { ...saved.artifact, lastAccessedAtMs: saved.artifact.lastAccessedAtMs + 1 }, context))
+      .rejects.toMatchObject({ code: "WRONG_ARTIFACT" });
+    await expect(review.readHistoricalAgainstContext("project_1", { ...saved.artifact, createdAtMs: saved.artifact.createdAtMs + 1 }, context))
+      .rejects.toMatchObject({ code: "WRONG_ARTIFACT" });
+    const current = await persistence.loadLatest("project_1");
+    const { sequence: _sequence, checksum: _checksum, ...draft } = current!;
+    await persistence.persistNext({
+      ...draft, createdAtMs: current!.createdAtMs + 1,
+      sourceHash: `sha256:${"a".repeat(64)}`, artifactKeys: [],
+    }, [], current!.checksum);
+    await expect(review.readHistoricalAgainstContext("project_1", saved.artifact, context))
+      .resolves.toMatchObject({ currentness: "not_established" });
+    await expect(persistence.cleanupRegenerableArtifacts(1, "other_project")).resolves.toEqual([]);
+    state.close();
+  });
+
+  it("rejects stale source, changed script and corrupt stored bytes", async () => {
+    const { state, files, persistence, review } = setup("review-stale");
+    const input = await submission();
+    await persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: `sha256:${"a".repeat(64)}`,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, []);
+    await expect(review.save("project_1", context, input)).rejects.toMatchObject({ code: "SOURCE_CHANGED" });
+    const latest = await persistence.loadLatest("project_1");
+    await persistence.persistNext({
+      schemaVersion: 1, projectId: "project_1", createdAtMs: 2,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, [], latest!.checksum);
+    const saved = await review.save("project_1", context, input);
+    await expect(review.readHistoricalAgainstContext("project_1", saved.artifact, {
+      ...context, script: { ...script, sections: [{ ...script.sections[0], segments: [{ ...script.sections[0].segments[0], speechText: "Texto alterado." }] }] },
+    })).rejects.toMatchObject({ code: "CORE_REJECTED" });
+    files.set(saved.artifact.fileName, new Blob(["corrupt"]));
+    await expect(review.readHistoricalAgainstContext("project_1", saved.artifact, context)).rejects.toMatchObject({ code: "INTEGRITY_MISMATCH" });
+    state.close();
+  });
+
+  it("detects a checkpoint change during the historical read", async () => {
+    const { state, persistence, review } = setup("review-read-race");
+    const input = await submission();
+    await persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, []);
+    const saved = await review.save("project_1", context, input);
+    const originalLoad = persistence.loadLatest.bind(persistence);
+    let reads = 0;
+    persistence.loadLatest = async projectId => {
+      reads += 1;
+      if (reads === 2) {
+        const current = await originalLoad(projectId);
+        const { sequence: _sequence, checksum: _checksum, ...draft } = current!;
+        await persistence.persistNext({ ...draft, createdAtMs: current!.createdAtMs + 1 }, [], current!.checksum);
+      }
+      return await originalLoad(projectId);
+    };
+    await expect(review.readHistoricalAgainstContext("project_1", saved.artifact, context))
+      .rejects.toMatchObject({ code: "CHECKPOINT_CHANGED" });
+    state.close();
+  });
+});

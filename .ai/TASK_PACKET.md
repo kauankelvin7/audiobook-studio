@@ -311,3 +311,19 @@
 ## RESULT M4.4D — publicação e CI (2026-09-23)
 - Commit de código `28658f67c945ef7b9b450160e04beebd433b5e9f` publicado em `origin/codex/m4-content-model`; `git ls-remote` confirmou o mesmo hash local e remoto, com árvore limpa.
 - Workflow `quality` run `35856262003` desse commit concluiu com sucesso. Contrato estrutural validado; atestação confiável e TTS permanecem fora do escopo.
+
+## PRE-FLIGHT — M4.4E vínculo persistente de revisão (2026-09-23)
+- Base: `codex/m4-content-model` limpa em `47fbcda6`; handoff M4.4D e ADR 0010 lidos. Sem mudança remota observada neste checkout.
+- Objetivo: persistir submissão e recibo `unverified` como artefato local não regenerável, vinculado ao hash da submissão, e revalidar contra o estado Rust/WASM atual na leitura.
+- Evidência: M4.4D produz recibo canônico, mas não persiste revisão; storage atual usa OPFS + manifest/checkpoint IDB e lock por projeto.
+- Restrições: Rust segue canônico; TS faz só Web storage e validação de fronteira. Não criar atestação, QA `pass`, modelo, UI ou TTS. Checksum local não prova identidade humana nem resiste a código de mesma origem comprometido.
+- Desconhecidos: identidade/credencial confiável do revisor, política de aprovação e corpus mainframe real. Registrar proposta/limites em ADR, sem inventar implementação de WebAuthn.
+- Riscos: revisão obsoleta, troca de submissão/recibo, corrida com checkpoint, perda por limpeza automática, confusão entre persistência e confiança.
+- Plano: acrescentar tipo de artefato de revisão, adapter pequeno de gravação/leitura usando persistência existente e validação WASM, testes de integridade/stale, ADR; rodar gates, revisar diff e registrar resultados.
+- Verificação: testes direcionados, Rust fmt/test, build WASM, Web STANDARD, diff check; CI remoto somente se commit/push efetuados.
+- Risco: alto; um writer e revisão independente após código.
+
+## RESULT — M4.4E validação local (2026-09-23)
+- Artefato de revisão não regenerável e fixado, com submissão e recibo vinculados ao hash calculado pelo Rust. A leitura histórica reconfere integridade e recibo contra o contexto fornecido; `currentness: not_established` preserva o limite de confiança.
+- Revisão independente encontrou risco de contexto antigo com mesma fonte e corrida durante a leitura. API histórica explícita e segunda checagem do checkpoint aplicadas. Segunda revisão apontou bloqueio da leitura histórica após troca de fonte ativa; removida a exigência de vínculo com o checkpoint atual, preservando manifest e integridade. Regressões adicionadas.
+- Gates após correções: Rust fmt/test (33)/clippy; Web STANDARD (97 testes, typecheck, build); audit 0 vulnerabilidades. Publicação/CI pendentes. Sem atestação, QA `pass` ou TTS.

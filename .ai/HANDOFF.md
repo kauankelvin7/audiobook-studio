@@ -152,3 +152,9 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Commit de código `28658f67c945ef7b9b450160e04beebd433b5e9f` publicado em `codex/m4-content-model`; workflow `quality` run `35856262003` concluiu com sucesso.
 - O contrato de revisão estrutural está testado no core e no WASM real. `supported` exige evidência textual não bloqueada para todas as source refs do trecho. O recibo continua `unverified`; não há persistência, atestação de revisor, liberação por QA ou TTS.
 - Próximo batch: especificar mecanismo de atestação confiável e vínculo persistente ao hash da submissão. Obter corpus/golden mainframe real para avaliação semântica antes de qualquer claim `pass`. Não usar veredito enviado por modelo como prova de revisão humana.
+
+## M4.4E validado localmente — 2026-09-23
+- Submissão e recibo Rust/WASM agora podem ser preservados localmente em artefato OPFS fixado e não regenerável, com manifest/checkpoint IndexedDB e chave derivada de `submissionHash`. A leitura reconfere integridade e identidade contra o contexto fornecido, com checagem de mudança concorrente do checkpoint.
+- ADR 0011 explicita a fronteira: o checkpoint não guarda ainda a identidade de plano/roteiro ativos; a API é histórica e retorna `currentness: not_established`. Nenhuma atestação, QA `pass` ou TTS foi habilitada.
+- Rust fmt/test (33)/clippy, Web STANDARD final (97 testes/typecheck/build) e audit 0 vulnerabilidades passaram localmente. Revisão independente inicial teve P1/P2, corrigidos por contrato histórico explícito e rechecagem; segunda revisão apontou inacessibilidade após mudança da fonte ativa, corrigida e coberta no gate rápido (31/31). Publicação e CI ainda pendentes neste checkpoint.
+- Próximo passo após CI verde: persistir identidade canônica de plano/roteiro ativo, estabelecer política e mecanismo de atestação confiável vinculado ao `submissionHash`, e obter golden mainframe real para avaliação semântica. Não avançar para TTS.

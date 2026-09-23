@@ -107,6 +107,17 @@ describe("LocalProjectPersistence", () => {
     state.close();
   });
 
+  it("rejects a review checkpoint if the project changed after validation", async () => {
+    const { state, persistence } = setup("review-checkpoint-race");
+    const first = await persistence.persist(checkpoint(), [artifactWrite()]);
+    const { sequence: _ignored, ...draft } = checkpoint();
+    await persistence.persistNext({ ...draft, createdAtMs: 1_700_000_000_002 }, []);
+    await expect(persistence.persistNext({ ...draft, createdAtMs: 1_700_000_000_003 }, [], first.checkpoint.checksum))
+      .rejects.toMatchObject({ code: "CHECKPOINT_CHANGED" });
+    await expect(persistence.loadLatest("project_1")).resolves.toMatchObject({ sequence: 2 });
+    state.close();
+  });
+
   it("does not publish a checkpoint when artifact persistence fails first", async () => {
     const indexedDb = new IDBFactory();
     const state = new IndexedDbCheckpointRepository({ indexedDb, keyRange: IDBKeyRange, databaseName: "failed-artifact" });

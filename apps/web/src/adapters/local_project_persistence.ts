@@ -31,7 +31,7 @@ export type StorageReconciliation = {
   missingFileNames: string[];
 };
 
-export type LocalProjectPersistenceErrorCode = "PROJECT_MISMATCH";
+export type LocalProjectPersistenceErrorCode = "PROJECT_MISMATCH" | "CHECKPOINT_CHANGED";
 
 export class LocalProjectPersistenceError extends Error {
   constructor(public readonly code: LocalProjectPersistenceErrorCode, message: string) {
@@ -53,13 +53,27 @@ export class LocalProjectPersistence {
       await this.persistLocked(checkpointInput, writes, projectId));
   }
 
-  async persistNext(checkpointDraft: CheckpointDraft, writes: ArtifactWrite[]): Promise<PersistProjectResult> {
+  async persistNext(checkpointDraft: CheckpointDraft, writes: ArtifactWrite[], expectedLatestChecksum?: string): Promise<PersistProjectResult> {
     const projectId = storageIdSchema.parse(checkpointDraft.projectId);
     return await this.lock.runExclusive(projectId, async () => {
       const latest = await this.state.loadLatest(projectId);
+      if (expectedLatestChecksum !== undefined && latest?.checksum !== expectedLatestChecksum) {
+        throw new LocalProjectPersistenceError("CHECKPOINT_CHANGED", "O projeto mudou durante a revisão.");
+      }
       const sequence = (latest?.sequence ?? 0) + 1;
       return await this.persistLocked({ ...checkpointDraft, sequence }, writes, projectId);
     });
+  }
+
+  async loadLatest(projectIdInput: string): Promise<CheckpointRecord | null> {
+    return await this.state.loadLatest(storageIdSchema.parse(projectIdInput));
+  }
+
+  async loadArtifactRecord(projectIdInput: string, artifactKeyInput: string): Promise<ArtifactManifestRecord | null> {
+    const projectId = storageIdSchema.parse(projectIdInput);
+    const artifactKey = storageIdSchema.parse(artifactKeyInput);
+    const records = await this.state.listArtifacts(projectId);
+    return records.find(record => record.artifactKey === artifactKey) ?? null;
   }
 
   async listProjectIds(): Promise<string[]> {
