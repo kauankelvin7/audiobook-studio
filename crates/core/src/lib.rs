@@ -31,10 +31,11 @@ pub use narrative::{
     NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
 };
 pub use review::{
-    build_active_narrative_identity, build_script_review_packet, validate_script_review_submission,
-    ActiveNarrativeIdentity, ReviewAttestationStatus, ReviewDecisionError, ReviewSegment,
-    ReviewSource, ReviewStatus, ReviewVerdict, ScriptReviewPacket, ScriptReviewReceipt,
-    ScriptReviewSubmission, SegmentReviewDecision,
+    build_active_narrative_identity, build_script_review_packet, evaluate_review_against_active,
+    validate_script_review_submission, ActiveNarrativeIdentity, ActiveReviewEvaluation,
+    ActiveReviewStatus, ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError,
+    ReviewSegment, ReviewSource, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
+    ScriptReviewReceipt, ScriptReviewSubmission, SegmentReviewDecision,
 };
 pub use script::{NarrativeScript, ScriptSection, ScriptSegment};
 

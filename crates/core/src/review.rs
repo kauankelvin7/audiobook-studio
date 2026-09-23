@@ -157,6 +157,30 @@ pub struct ScriptReviewReceipt {
     pub method_version: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActiveReviewStatus {
+    NotEstablished,
+    BoundUnverified,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ActiveReviewEvaluation {
+    pub schema_version: u32,
+    pub active_identity_hash: String,
+    pub submission_hash: String,
+    pub binding_hash: String,
+    pub status: ActiveReviewStatus,
+    pub method_version: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReviewBindingReference<'a> {
+    pub active_identity_hash: &'a str,
+    pub stored_binding_hash: Option<&'a str>,
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ReviewDecisionError {
     #[error("invalid review JSON: {0}")]
@@ -165,6 +189,10 @@ pub enum ReviewDecisionError {
     UnsupportedSchemaVersion(u32),
     #[error("review submission does not match current document, plan, content or script")]
     StaleSubmission,
+    #[error("review context does not match the active narrative identity")]
+    InactiveNarrative,
+    #[error("saved review binding does not match the active narrative and submission")]
+    InvalidBinding,
     #[error("review decisions must cover every script segment exactly once")]
     IncompleteCoverage,
     #[error("duplicate review decision for segment: {0}")]
@@ -201,6 +229,56 @@ impl ScriptReviewSubmission {
         serde_json::from_str(input)
             .map_err(|error| ReviewDecisionError::InvalidJson(error.to_string()))
     }
+}
+
+pub fn evaluate_review_against_active(
+    expected_plan_id: &str,
+    script: &NarrativeScript,
+    plan: &NarrativePlan,
+    content: &ContentModel,
+    outline: &SemanticOutline,
+    submission: &ScriptReviewSubmission,
+    binding: ReviewBindingReference<'_>,
+) -> Result<ActiveReviewEvaluation, ReviewDecisionError> {
+    let active = build_active_narrative_identity(expected_plan_id, script, plan, content, outline)?;
+    if active.identity_hash != binding.active_identity_hash {
+        return Err(ReviewDecisionError::InactiveNarrative);
+    }
+    let receipt = validate_script_review_submission(
+        expected_plan_id,
+        script,
+        plan,
+        content,
+        outline,
+        submission,
+    )?;
+    let method_version = "active-review-evaluation-rust-v1";
+    let binding_bytes = serde_json::to_vec(&(
+        1u32,
+        &active.identity_hash,
+        &receipt.submission_hash,
+        method_version,
+    ))
+    .map_err(|error| ReviewDecisionError::Serialization(error.to_string()))?;
+    let binding_hash = sha256_source(&binding_bytes);
+    if binding
+        .stored_binding_hash
+        .is_some_and(|saved| saved != binding_hash)
+    {
+        return Err(ReviewDecisionError::InvalidBinding);
+    }
+    Ok(ActiveReviewEvaluation {
+        schema_version: 1,
+        active_identity_hash: active.identity_hash,
+        submission_hash: receipt.submission_hash,
+        binding_hash,
+        status: if binding.stored_binding_hash.is_some() {
+            ActiveReviewStatus::BoundUnverified
+        } else {
+            ActiveReviewStatus::NotEstablished
+        },
+        method_version: method_version.into(),
+    })
 }
 
 pub fn validate_script_review_submission(

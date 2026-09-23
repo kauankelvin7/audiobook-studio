@@ -16,6 +16,8 @@ O checkpoint ainda não identifica o plano e o roteiro ativos. Assim, mesmo uma 
 
 Atualização: ADR 0012 introduz o ponteiro de identidade narrativa ativa no checkpoint, sem alterar a semântica histórica desta API. Uma integração posterior deverá vincular a submissão ao ponteiro ativo e definir atestação; `currentness` continua `not_established` neste adapter.
 
+Atualização: ADR 0013 adiciona gravação v2 vinculada à identidade ativa e avaliação estrutural. A leitura histórica mantém `currentness: not_established` para as duas versões; somente o avaliador separado distingue vínculo estrutural válido. Atestação continua pendente.
+
 Este registro é durável apenas dentro das garantias do armazenamento do navegador. Checksum e hash detectam corrupção e inconsistência, mas não atestam identidade humana nem protegem contra código malicioso executado na mesma origem. O campo `unverified` permanece inalterado. Nenhuma regra de QA passa para `pass` e nenhum TTS é liberado por este artefato.
 
 ## Próxima decisão necessária

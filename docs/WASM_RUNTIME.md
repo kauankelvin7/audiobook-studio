@@ -18,6 +18,8 @@ Em M4.4C, `build_script_review_packet_json` reúne evidência de fonte por trech
 
 Em M4.4D, `validate_script_review_submission_json` valida no core uma submissão contra o roteiro, plano, conteúdo e outline atuais. A fronteira Web confere o contrato e a identidade dos hashes devolvidos. O recibo inclui o hash da submissão e status `unverified`. O export não autentica o autor, não persiste o resultado e não aprova claims ou TTS.
 
-Em M4.4F, `build_active_narrative_identity_json` expõe hashes canônicos de fonte, conteúdo, plano e roteiro, além de `identityHash`. O adapter Web pode publicar essa identidade no checkpoint local. O ponteiro ativo não aprova a revisão nem altera o estado de QA; a integração ao fluxo de edição segue pendente (ADR 0012).
+Em M4.4F, `build_active_narrative_identity_json` expõe hashes canônicos de fonte, conteúdo, outline, plano e roteiro, além de `identityHash`. O adapter Web pode publicar essa identidade no checkpoint local. O ponteiro ativo não aprova a revisão nem altera o estado de QA; a integração ao fluxo de edição segue pendente (ADR 0012).
+
+Em M4.4G, `evaluate_review_against_active_json` revalida uma submissão no contexto ativo e calcula `bindingHash` no core. A fronteira Web devolve `not_established` para revisão histórica sem vínculo e `bound_unverified` para revisão v2 cujo vínculo salvo confere. Nenhum desses estados é atestação ou `pass` de QA (ADR 0013).
 
 Limites: PDF.js permanece responsável por extração v1; páginas sem texto seguem como `no_text`/revisão. O skeleton de outline não é um planner semântico. Nenhum modelo, TTS ou geração de áudio é iniciado nesta etapa.

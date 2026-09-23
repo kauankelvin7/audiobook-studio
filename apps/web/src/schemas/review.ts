@@ -84,3 +84,14 @@ export const scriptReviewReceiptSchema = z.object({
 
 export type ScriptReviewSubmission = z.infer<typeof scriptReviewSubmissionSchema>;
 export type ScriptReviewReceipt = z.infer<typeof scriptReviewReceiptSchema>;
+
+export const activeReviewEvaluationSchema = z.object({
+  schemaVersion: z.literal(1),
+  activeIdentityHash: hash,
+  submissionHash: hash,
+  bindingHash: hash,
+  status: z.enum(["not_established", "bound_unverified"]),
+  methodVersion: z.literal("active-review-evaluation-rust-v1"),
+}).strict();
+
+export type ActiveReviewEvaluation = z.infer<typeof activeReviewEvaluationSchema>;

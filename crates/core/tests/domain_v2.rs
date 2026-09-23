@@ -2,14 +2,14 @@ use std::collections::{BTreeMap, HashSet};
 
 use audiobook_core::{
     build_active_narrative_identity, build_narration_qa, build_script_review_packet,
-    build_validated_narration_qa, compare_heading_to_body, find_repeated_formulaic_openers,
-    normalize_narrative_text, reduce_narrative_memory, validate_script_review_submission,
-    ContentModel, DocumentIr, DocumentIrV2, GenerationJob, HeadingOverlapMethod,
-    HeadingOverlapStatus, NarrationEligibility, NarrativeHeading, NarrativeMemory,
-    NarrativeMemoryDelta, NarrativePlan, NarrativeScript, NarrativeSection, QaStatus,
-    ReviewAttestationStatus, ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
-    ScriptReviewSubmission, SegmentReviewDecision, SemanticOutline, SpokenChapter,
-    SpokenHeadingPolicy,
+    build_validated_narration_qa, compare_heading_to_body, evaluate_review_against_active,
+    find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
+    validate_script_review_submission, ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2,
+    GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility,
+    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
+    NarrativeSection, QaStatus, ReviewAttestationStatus, ReviewBindingReference,
+    ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission,
+    SegmentReviewDecision, SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -321,6 +321,99 @@ fn active_narrative_publication_requires_verifying_state() {
         let job = GenerationJob::from_json(&json).expect("valid job state");
         assert!(job.ensure_narrative_activation_allowed().is_err());
     }
+}
+
+#[test]
+fn active_review_evaluation_revalidates_without_attesting() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let outline =
+        SemanticOutline::from_json(SEMANTIC_OUTLINE_FIXTURE, &content).expect("outline fixture");
+    let plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("plan fixture");
+    let script = NarrativeScript::from_json(NARRATIVE_SCRIPT_FIXTURE).expect("script fixture");
+    let packet =
+        build_script_review_packet("plan_1", &script, &plan, &content, &outline).expect("packet");
+    let submission = supported_submission(&packet);
+    let active = build_active_narrative_identity("plan_1", &script, &plan, &content, &outline)
+        .expect("active identity");
+    let evaluation = evaluate_review_against_active(
+        "plan_1",
+        &script,
+        &plan,
+        &content,
+        &outline,
+        &submission,
+        ReviewBindingReference {
+            active_identity_hash: &active.identity_hash,
+            stored_binding_hash: None,
+        },
+    )
+    .expect("review revalidated against active context");
+    assert_eq!(evaluation.status, ActiveReviewStatus::NotEstablished);
+    assert_eq!(evaluation.active_identity_hash, active.identity_hash);
+    assert!(evaluation.submission_hash.starts_with("sha256:"));
+    let bound = evaluate_review_against_active(
+        "plan_1",
+        &script,
+        &plan,
+        &content,
+        &outline,
+        &submission,
+        ReviewBindingReference {
+            active_identity_hash: &active.identity_hash,
+            stored_binding_hash: Some(&evaluation.binding_hash),
+        },
+    )
+    .expect("persisted binding matches");
+    assert_eq!(bound.status, ActiveReviewStatus::BoundUnverified);
+    assert_eq!(bound.binding_hash, evaluation.binding_hash);
+    assert_eq!(
+        evaluate_review_against_active(
+            "plan_1",
+            &script,
+            &plan,
+            &content,
+            &outline,
+            &submission,
+            ReviewBindingReference {
+                active_identity_hash: &active.identity_hash,
+                stored_binding_hash: Some(&format!("sha256:{}", "0".repeat(64)))
+            },
+        ),
+        Err(ReviewDecisionError::InvalidBinding)
+    );
+
+    let mut changed_outline = outline.clone();
+    changed_outline.sections[0].requires_review = false;
+    assert_eq!(
+        evaluate_review_against_active(
+            "plan_1",
+            &script,
+            &plan,
+            &content,
+            &changed_outline,
+            &submission,
+            ReviewBindingReference {
+                active_identity_hash: &active.identity_hash,
+                stored_binding_hash: None
+            },
+        ),
+        Err(ReviewDecisionError::InactiveNarrative)
+    );
+    assert_eq!(
+        evaluate_review_against_active(
+            "plan_1",
+            &script,
+            &plan,
+            &content,
+            &outline,
+            &submission,
+            ReviewBindingReference {
+                active_identity_hash: &format!("sha256:{}", "0".repeat(64)),
+                stored_binding_hash: None
+            },
+        ),
+        Err(ReviewDecisionError::InactiveNarrative)
+    );
 }
 
 fn supported_submission(packet: &ScriptReviewPacket) -> ScriptReviewSubmission {

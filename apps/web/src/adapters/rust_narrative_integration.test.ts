@@ -7,7 +7,7 @@ import outlineFixture from "../../../../tests/fixtures/semantic_outline_v1.json"
 import planFixture from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import scriptFixture from "../../../../tests/fixtures/narrative_script_content_v1.json";
 import { buildNarrationQa, validateNarrativePlan } from "./rust_narrative_pipeline";
-import { buildActiveNarrativeIdentity, buildScriptQa, buildScriptReviewPacket, validateActiveNarrativeActivation, validateScriptReviewSubmission } from "./rust_script_pipeline";
+import { buildActiveNarrativeIdentity, buildScriptQa, buildScriptReviewPacket, evaluateReviewAgainstActive, validateActiveNarrativeActivation, validateScriptReviewSubmission } from "./rust_script_pipeline";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -161,6 +161,25 @@ describe("real Rust narrative WASM boundary", () => {
     const receipt = await validateScriptReviewSubmission(
       "plan_1", scriptFixture, planFixture, contentFixture, outlineFixture, submission,
     );
+    const active = await buildActiveNarrativeIdentity("plan_1", scriptFixture, planFixture, contentFixture, outlineFixture);
+    await expect(evaluateReviewAgainstActive(
+      "plan_1", scriptFixture, planFixture, contentFixture, outlineFixture, submission, active.identityHash, null,
+    )).resolves.toMatchObject({
+      activeIdentityHash: active.identityHash,
+      submissionHash: receipt.submissionHash,
+      status: "not_established",
+    });
+    const unbound = await evaluateReviewAgainstActive(
+      "plan_1", scriptFixture, planFixture, contentFixture, outlineFixture, submission, active.identityHash, null,
+    );
+    await expect(evaluateReviewAgainstActive(
+      "plan_1", scriptFixture, planFixture, contentFixture, outlineFixture, submission,
+      active.identityHash, unbound.bindingHash,
+    )).resolves.toMatchObject({ status: "bound_unverified", bindingHash: unbound.bindingHash });
+    await expect(evaluateReviewAgainstActive(
+      "plan_1", scriptFixture, planFixture, contentFixture, outlineFixture, submission,
+      `sha256:${"0".repeat(64)}`, null,
+    )).rejects.toMatchObject({ code: "CORE_REJECTED" });
     expect(receipt).toMatchObject({
       planId: packet.planId,
       documentId: packet.documentId,

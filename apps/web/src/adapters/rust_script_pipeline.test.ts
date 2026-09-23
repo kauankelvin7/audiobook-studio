@@ -3,7 +3,7 @@ import content from "../../../../tests/fixtures/content_model_v1.json";
 import outline from "../../../../tests/fixtures/semantic_outline_v1.json";
 import plan from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import script from "../../../../tests/fixtures/narrative_script_content_v1.json";
-import { buildActiveNarrativeIdentity, buildScriptQa, buildScriptReviewPacket, validateActiveNarrativeActivation, validateScriptReviewSubmission } from "./rust_script_pipeline";
+import { buildActiveNarrativeIdentity, buildScriptQa, buildScriptReviewPacket, evaluateReviewAgainstActive, validateActiveNarrativeActivation, validateScriptReviewSubmission } from "./rust_script_pipeline";
 
 const qa = {
   schemaVersion: 1,
@@ -75,6 +75,33 @@ describe("Rust script boundary", () => {
       .rejects.toMatchObject({ code: "WASM_INIT_FAILED" });
     const rejected = { ...port, validateJob: vi.fn(() => { throw new Error("wrong state"); }) };
     await expect(validateActiveNarrativeActivation({ state: "READY_FOR_AUDIO", resumeState: null }, rejected))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+  });
+
+  it("types active-review boundary failures and rejects fabricated output", async () => {
+    const hash = `sha256:${"0".repeat(64)}`;
+    const input = {
+      schemaVersion: 1, planId: "plan_1", documentId: content.documentId,
+      sourceHash: content.sourceHash, contentHash: hash, planHash: hash, scriptHash: hash,
+      decisions: [{ segmentId: "segment_1", verdict: "supported", evidenceSourceUnitIds: ["unit_r_1_1"], rationale: "Fonte conferida." }],
+    };
+    const port = {
+      initialize: vi.fn(async () => undefined),
+      evaluate: vi.fn(() => JSON.stringify({
+        schemaVersion: 1, activeIdentityHash: hash, submissionHash: hash, bindingHash: hash,
+        status: "verified", methodVersion: "active-review-evaluation-rust-v1",
+      })),
+    };
+    await expect(evaluateReviewAgainstActive("", script, plan, content, outline, input, hash, null, port))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    expect(port.initialize).not.toHaveBeenCalled();
+    await expect(evaluateReviewAgainstActive("plan_1", script, plan, content, outline, input, hash, null, port))
+      .rejects.toMatchObject({ code: "INVALID_CORE_OUTPUT" });
+    const failedInit = { ...port, initialize: vi.fn(async () => { throw new Error("load failed"); }) };
+    await expect(evaluateReviewAgainstActive("plan_1", script, plan, content, outline, input, hash, null, failedInit))
+      .rejects.toMatchObject({ code: "WASM_INIT_FAILED" });
+    const rejected = { ...port, evaluate: vi.fn((): string => { throw new Error("stale"); }) };
+    await expect(evaluateReviewAgainstActive("plan_1", script, plan, content, outline, input, hash, null, rejected))
       .rejects.toMatchObject({ code: "CORE_REJECTED" });
   });
 

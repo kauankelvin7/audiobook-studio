@@ -1,8 +1,8 @@
-import { build_active_narrative_identity_json, build_script_qa_json, build_script_review_packet_json, validate_active_narrative_activation_json, validate_script_review_submission_json } from "../generated/audiobook_wasm/audiobook_wasm.js";
+import { build_active_narrative_identity_json, build_script_qa_json, build_script_review_packet_json, evaluate_review_against_active_json, validate_active_narrative_activation_json, validate_script_review_submission_json } from "../generated/audiobook_wasm/audiobook_wasm.js";
 import { generationJobSnapshotSchema } from "../schemas/persistence";
 import { contentModelSchema, semanticOutlineSchema } from "../schemas/content_model";
 import { narrativePlanSchema, narrativeScriptSchema, narrationQaSchema, type NarrationQa } from "../schemas/narrative";
-import { activeNarrativeIdentitySchema, scriptReviewPacketSchema, scriptReviewReceiptSchema, scriptReviewSubmissionSchema, type ActiveNarrativeIdentity, type ScriptReviewPacket, type ScriptReviewReceipt, type ScriptReviewSubmission } from "../schemas/review";
+import { activeNarrativeIdentitySchema, activeReviewEvaluationSchema, scriptReviewPacketSchema, scriptReviewReceiptSchema, scriptReviewSubmissionSchema, type ActiveNarrativeIdentity, type ActiveReviewEvaluation, type ScriptReviewPacket, type ScriptReviewReceipt, type ScriptReviewSubmission } from "../schemas/review";
 import { RustNarrativeError } from "./rust_narrative_pipeline";
 import { ensureRustWasm } from "./rust_wasm_runtime";
 
@@ -45,6 +45,64 @@ const activationWasmPort: ActivationWasmPort = {
   initialize: ensureRustWasm,
   validateJob: validate_active_narrative_activation_json,
 };
+
+type ActiveReviewWasmPort = {
+  initialize(): Promise<void>;
+  evaluate(expectedPlanId: string, script: string, plan: string, content: string, outline: string, submission: string, binding: string): string;
+};
+
+const activeReviewWasmPort: ActiveReviewWasmPort = {
+  initialize: ensureRustWasm,
+  evaluate: evaluate_review_against_active_json,
+};
+
+export async function evaluateReviewAgainstActive(
+  expectedPlanId: string,
+  script: unknown,
+  plan: unknown,
+  content: unknown,
+  outline: unknown,
+  submission: unknown,
+  activeIdentityHash: string,
+  storedBindingHash: string | null,
+  port: ActiveReviewWasmPort = activeReviewWasmPort,
+): Promise<ActiveReviewEvaluation> {
+  let input: [string, string, string, string, string];
+  try {
+    if (typeof expectedPlanId !== "string" || !expectedPlanId.trim()) throw new Error("invalid plan ID");
+    if (!/^sha256:[0-9a-f]{64}$/.test(activeIdentityHash)) throw new Error("invalid active identity hash");
+    if (storedBindingHash !== null && !/^sha256:[0-9a-f]{64}$/.test(storedBindingHash)) throw new Error("invalid binding hash");
+    input = [
+      JSON.stringify(narrativeScriptSchema.parse(script)),
+      JSON.stringify(narrativePlanSchema.parse(plan)),
+      JSON.stringify(contentModelSchema.parse(content)),
+      JSON.stringify(semanticOutlineSchema.parse(outline)),
+      JSON.stringify(scriptReviewSubmissionSchema.parse(submission)),
+    ];
+  } catch (error) {
+    throw new RustNarrativeError("INVALID_INPUT", "Os dados da revisão ativa estão inválidos.", { cause: error });
+  }
+  try {
+    await port.initialize();
+  } catch (error) {
+    throw new RustNarrativeError("WASM_INIT_FAILED", "O núcleo Rust/WASM não pôde ser carregado.", { cause: error });
+  }
+  let output: string;
+  try {
+    output = port.evaluate(expectedPlanId, ...input, JSON.stringify({ activeIdentityHash, storedBindingHash }));
+  } catch (error) {
+    throw new RustNarrativeError("CORE_REJECTED", "A revisão não corresponde à narrativa ativa.", { cause: error });
+  }
+  try {
+    const evaluation = activeReviewEvaluationSchema.parse(JSON.parse(output));
+    if (evaluation.activeIdentityHash !== activeIdentityHash) throw new Error("active identity mismatch");
+    if (storedBindingHash !== null && evaluation.bindingHash !== storedBindingHash) throw new Error("binding mismatch");
+    if (evaluation.status !== (storedBindingHash === null ? "not_established" : "bound_unverified")) throw new Error("binding status mismatch");
+    return evaluation;
+  } catch (error) {
+    throw new RustNarrativeError("INVALID_CORE_OUTPUT", "A avaliação da revisão ativa está inválida.", { cause: error });
+  }
+}
 
 export async function validateActiveNarrativeActivation(
   job: unknown,

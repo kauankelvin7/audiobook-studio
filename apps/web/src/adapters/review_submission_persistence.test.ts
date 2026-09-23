@@ -9,6 +9,7 @@ import plan from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import script from "../../../../tests/fixtures/narrative_script_content_v1.json";
 import { initSync } from "../generated/audiobook_wasm/audiobook_wasm.js";
 import { ActiveNarrativePersistence } from "./active_narrative_persistence";
+import { ActiveReviewEvaluator } from "./active_review_evaluation";
 import { IndexedDbCheckpointRepository } from "./indexeddb_checkpoint_repository";
 import { LocalProjectPersistence } from "./local_project_persistence";
 import { OpfsArtifactStore } from "./opfs_artifact_store";
@@ -43,7 +44,12 @@ function setup(name: string) {
     }),
   });
   const persistence = new LocalProjectPersistence(state, artifacts, lock);
-  return { state, files, persistence, review: new ReviewSubmissionPersistence(persistence), active: new ActiveNarrativePersistence(persistence) };
+  return {
+    state, files, persistence,
+    review: new ReviewSubmissionPersistence(persistence),
+    active: new ActiveNarrativePersistence(persistence),
+    evaluator: new ActiveReviewEvaluator(persistence),
+  };
 }
 
 async function submission() {
@@ -245,6 +251,110 @@ describe("active narrative persistence", () => {
     };
     await expect(active.loadActiveAgainstContext("project_1", context))
       .rejects.toMatchObject({ code: "CHECKPOINT_CHANGED" });
+    state.close();
+  });
+});
+
+describe("active review evaluation", () => {
+  it("revalidates a historical review only against the active context, without attestation", async () => {
+    const { state, persistence, active, review, evaluator } = setup("active-review-roundtrip");
+    const input = await submission();
+    await persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, []);
+    const historical = await review.save("project_1", context, input);
+    await expect(evaluator.evaluate("project_1", historical.artifact, context))
+      .rejects.toMatchObject({ code: "NO_ACTIVE_NARRATIVE" });
+    const published = await active.activate("project_1", context);
+    const legacyResult = await evaluator.evaluate("project_1", historical.artifact, context);
+    expect(legacyResult.evaluation.status).toBe("not_established");
+    const bound = await review.saveForActive("project_1", context, input);
+    expect(bound.artifact.artifactKey).not.toBe(historical.artifact.artifactKey);
+    const result = await evaluator.evaluate("project_1", bound.artifact, context);
+    expect(result.evaluation).toMatchObject({
+      activeIdentityHash: published.identity.identityHash,
+      submissionHash: historical.receipt.submissionHash,
+      bindingHash: bound.bindingHash,
+      status: "bound_unverified",
+    });
+    expect(result.receipt.attestationStatus).toBe("unverified");
+    expect(result.checkpoint.checksum).not.toBe(published.checkpoint.checksum);
+
+    const changedOutline = {
+      ...context, outline: { ...outline, sections: [{ ...outline.sections[0], requiresReview: false }] },
+    };
+    await active.activate("project_1", changedOutline);
+    await expect(review.readHistoricalAgainstContext("project_1", bound.artifact, context))
+      .resolves.toMatchObject({ bindingHash: bound.bindingHash, currentness: "not_established" });
+    await expect(evaluator.evaluate("project_1", bound.artifact, context))
+      .rejects.toMatchObject({ code: "IDENTITY_MISMATCH" });
+    await expect(evaluator.evaluate("project_1", bound.artifact, changedOutline))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+    const rebound = await review.saveForActive("project_1", changedOutline, input);
+    expect(rebound.bindingHash).not.toBe(bound.bindingHash);
+    expect(rebound.artifact.artifactKey).not.toBe(bound.artifact.artifactKey);
+    await expect(evaluator.evaluate("project_1", rebound.artifact, changedOutline))
+      .resolves.toMatchObject({ evaluation: { status: "bound_unverified" } });
+
+    const changed = {
+      ...context, script: { ...script, sections: [{ ...script.sections[0], segments: [{
+        ...script.sections[0].segments[0], speechText: "Outro texto falado.",
+      }] }] },
+    };
+    await active.activate("project_1", changed);
+    await expect(evaluator.evaluate("project_1", bound.artifact, context))
+      .rejects.toMatchObject({ code: "IDENTITY_MISMATCH" });
+    await expect(evaluator.evaluate("project_1", bound.artifact, changed))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+    state.close();
+  });
+
+  it("rejects a checkpoint change after both artifacts were read", async () => {
+    const { state, persistence, active, review, evaluator } = setup("active-review-race");
+    const input = await submission();
+    await persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, []);
+    await active.activate("project_1", context);
+    const historical = await review.save("project_1", context, input);
+    const originalLoad = persistence.loadLatest.bind(persistence);
+    let reads = 0;
+    persistence.loadLatest = async projectId => {
+      reads += 1;
+      if (reads === 5) {
+        const current = await originalLoad(projectId);
+        const { sequence: _sequence, checksum: _checksum, ...draft } = current!;
+        await persistence.persistNext({ ...draft, createdAtMs: current!.createdAtMs + 1 }, [], current!.checksum);
+      }
+      return await originalLoad(projectId);
+    };
+    await expect(evaluator.evaluate("project_1", historical.artifact, context))
+      .rejects.toMatchObject({ code: "CHECKPOINT_CHANGED" });
+    state.close();
+  });
+
+  it("rejects corruption of either pinned artifact", async () => {
+    const { state, files, persistence, active, review, evaluator } = setup("active-review-corruption");
+    const input = await submission();
+    await persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, []);
+    const published = await active.activate("project_1", context);
+    const bound = await review.saveForActive("project_1", context, input);
+    const originalActive = files.get(published.artifact.fileName)!;
+    files.set(published.artifact.fileName, new Blob(["corrupt active"]));
+    await expect(evaluator.evaluate("project_1", bound.artifact, context))
+      .rejects.toMatchObject({ code: "INTEGRITY_MISMATCH" });
+    files.set(published.artifact.fileName, originalActive);
+    files.set(bound.artifact.fileName, new Blob(["corrupt review"]));
+    await expect(evaluator.evaluate("project_1", bound.artifact, context))
+      .rejects.toMatchObject({ code: "INTEGRITY_MISMATCH" });
     state.close();
   });
 });

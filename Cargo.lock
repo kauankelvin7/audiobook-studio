@@ -17,6 +17,7 @@ name = "audiobook-wasm"
 version = "0.1.0"
 dependencies = [
  "audiobook-core",
+ "serde",
  "serde_json",
  "wasm-bindgen",
 ]

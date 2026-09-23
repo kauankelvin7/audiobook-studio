@@ -9,6 +9,7 @@ export const build_script_review_packet_json: (a: number, b: number, c: number, 
 export const build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];
 export const core_version: () => [number, number];
 export const document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
+export const evaluate_review_against_active_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number, number, number];
 export const migrate_document_v1_to_v2_json: (a: number, b: number) => [number, number, number, number];
 export const validate_active_narrative_activation_json: (a: number, b: number) => [number, number];
 export const validate_document_v2_json: (a: number, b: number) => [number, number, number, number];

@@ -17,6 +17,8 @@ export function core_version(): string;
 
 export function document_v2_has_source_units_json(input: string): boolean;
 
+export function evaluate_review_against_active_json(expected_plan_id: string, script_json: string, plan_json: string, content_model_json: string, semantic_outline_json: string, submission_json: string, binding_json: string): string;
+
 export function migrate_document_v1_to_v2_json(input: string): string;
 
 export function validate_active_narrative_activation_json(job_json: string): void;
@@ -39,6 +41,7 @@ export interface InitOutput {
     readonly build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];
     readonly core_version: () => [number, number];
     readonly document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
+    readonly evaluate_review_against_active_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number, number, number];
     readonly migrate_document_v1_to_v2_json: (a: number, b: number) => [number, number, number, number];
     readonly validate_active_narrative_activation_json: (a: number, b: number) => [number, number];
     readonly validate_document_v2_json: (a: number, b: number) => [number, number, number, number];

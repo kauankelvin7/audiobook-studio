@@ -229,6 +229,49 @@ export function document_v2_has_source_units_json(input) {
 }
 
 /**
+ * @param {string} expected_plan_id
+ * @param {string} script_json
+ * @param {string} plan_json
+ * @param {string} content_model_json
+ * @param {string} semantic_outline_json
+ * @param {string} submission_json
+ * @param {string} binding_json
+ * @returns {string}
+ */
+export function evaluate_review_against_active_json(expected_plan_id, script_json, plan_json, content_model_json, semantic_outline_json, submission_json, binding_json) {
+    let deferred9_0;
+    let deferred9_1;
+    try {
+        const ptr0 = passStringToWasm0(expected_plan_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(script_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(plan_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(content_model_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ptr4 = passStringToWasm0(semantic_outline_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len4 = WASM_VECTOR_LEN;
+        const ptr5 = passStringToWasm0(submission_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len5 = WASM_VECTOR_LEN;
+        const ptr6 = passStringToWasm0(binding_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len6 = WASM_VECTOR_LEN;
+        const ret = wasm.evaluate_review_against_active_json(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, ptr6, len6);
+        var ptr8 = ret[0];
+        var len8 = ret[1];
+        if (ret[3]) {
+            ptr8 = 0; len8 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred9_0 = ptr8;
+        deferred9_1 = len8;
+        return getStringFromWasm0(ptr8, len8);
+    } finally {
+        wasm.__wbindgen_free(deferred9_0, deferred9_1, 1);
+    }
+}
+
+/**
  * @param {string} input
  * @returns {string}
  */

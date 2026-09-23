@@ -2,10 +2,19 @@ use std::collections::BTreeMap;
 
 use audiobook_core::{
     build_active_narrative_identity, build_script_review_packet, build_validated_narration_qa,
-    validate_script_review_submission, ContentModel, DocumentIr, DocumentIrV2, GenerationJob,
-    NarrativePlan, NarrativeScript, ScriptReviewSubmission, SemanticOutline,
+    evaluate_review_against_active, validate_script_review_submission, ContentModel, DocumentIr,
+    DocumentIrV2, GenerationJob, NarrativePlan, NarrativeScript, ReviewBindingReference,
+    ScriptReviewSubmission, SemanticOutline,
 };
+use serde::Deserialize;
 use wasm_bindgen::prelude::*;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReviewBindingInput {
+    active_identity_hash: String,
+    stored_binding_hash: Option<String>,
+}
 
 fn js_error(error: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&error.to_string())
@@ -141,6 +150,38 @@ pub fn validate_active_narrative_activation_json(job_json: &str) -> Result<(), J
     GenerationJob::from_json(job_json)
         .and_then(|job| job.ensure_narrative_activation_allowed())
         .map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn evaluate_review_against_active_json(
+    expected_plan_id: &str,
+    script_json: &str,
+    plan_json: &str,
+    content_model_json: &str,
+    semantic_outline_json: &str,
+    submission_json: &str,
+    binding_json: &str,
+) -> Result<String, JsValue> {
+    let content = ContentModel::from_json(content_model_json).map_err(js_error)?;
+    let outline = SemanticOutline::from_json(semantic_outline_json, &content).map_err(js_error)?;
+    let plan = NarrativePlan::from_json(plan_json).map_err(js_error)?;
+    let script = NarrativeScript::from_json(script_json).map_err(js_error)?;
+    let submission = ScriptReviewSubmission::from_json(submission_json).map_err(js_error)?;
+    let binding: ReviewBindingInput = serde_json::from_str(binding_json).map_err(js_error)?;
+    let evaluation = evaluate_review_against_active(
+        expected_plan_id,
+        &script,
+        &plan,
+        &content,
+        &outline,
+        &submission,
+        ReviewBindingReference {
+            active_identity_hash: &binding.active_identity_hash,
+            stored_binding_hash: binding.stored_binding_hash.as_deref(),
+        },
+    )
+    .map_err(js_error)?;
+    serde_json::to_string(&evaluation).map_err(js_error)
 }
 
 #[wasm_bindgen]
