@@ -3,10 +3,12 @@ use std::collections::{BTreeMap, HashSet};
 use audiobook_core::{
     build_narration_qa, build_script_review_packet, build_validated_narration_qa,
     compare_heading_to_body, find_repeated_formulaic_openers, normalize_narrative_text,
-    reduce_narrative_memory, ContentModel, DocumentIr, DocumentIrV2, HeadingOverlapMethod,
-    HeadingOverlapStatus, NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan,
-    NarrativeScript, NarrativeSection, QaStatus, ReviewStatus, SemanticOutline, SpokenChapter,
-    SpokenHeadingPolicy,
+    reduce_narrative_memory, validate_script_review_submission, ContentModel, DocumentIr,
+    DocumentIrV2, HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility,
+    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
+    NarrativeSection, QaStatus, ReviewAttestationStatus, ReviewDecisionError, ReviewStatus,
+    ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
+    SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -260,6 +262,336 @@ fn review_packet_preserves_all_source_evidence_and_tracks_changes() {
     let mut fabricated = script;
     fabricated.sections[0].segments[0].source_refs = vec!["fabricated".into()];
     assert!(build_script_review_packet("plan_1", &fabricated, &plan, &content, &outline).is_err());
+}
+
+fn supported_submission(packet: &ScriptReviewPacket) -> ScriptReviewSubmission {
+    ScriptReviewSubmission {
+        schema_version: 1,
+        plan_id: packet.plan_id.clone(),
+        document_id: packet.document_id.clone(),
+        source_hash: packet.source_hash.clone(),
+        content_hash: packet.content_hash.clone(),
+        plan_hash: packet.plan_hash.clone(),
+        script_hash: packet.script_hash.clone(),
+        decisions: packet
+            .segments
+            .iter()
+            .map(|segment| SegmentReviewDecision {
+                segment_id: segment.segment_id.clone(),
+                verdict: ReviewVerdict::Supported,
+                evidence_source_unit_ids: vec![segment.sources[0].source_unit_id.clone()],
+                rationale: "Trecho conferido com a fonte indicada.".into(),
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn review_submission_is_bound_to_current_artifacts_and_never_attested() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let outline =
+        SemanticOutline::from_json(SEMANTIC_OUTLINE_FIXTURE, &content).expect("outline fixture");
+    let plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("plan fixture");
+    let script = NarrativeScript::from_json(NARRATIVE_SCRIPT_FIXTURE).expect("script fixture");
+    let packet = build_script_review_packet("plan_1", &script, &plan, &content, &outline)
+        .expect("review packet");
+    let submission = supported_submission(&packet);
+    let receipt = validate_script_review_submission(
+        "plan_1",
+        &script,
+        &plan,
+        &content,
+        &outline,
+        &submission,
+    )
+    .expect("structurally valid submission");
+    assert_eq!(
+        receipt.attestation_status,
+        ReviewAttestationStatus::Unverified
+    );
+    assert_eq!(receipt.reviewed_segments, packet.segments.len());
+    assert_eq!(receipt.script_hash, packet.script_hash);
+    assert_eq!(receipt.plan_id, packet.plan_id);
+    assert_eq!(receipt.document_id, packet.document_id);
+    assert!(receipt.submission_hash.starts_with("sha256:"));
+    let mut unsupported = submission.clone();
+    unsupported.decisions[0].verdict = ReviewVerdict::Unsupported;
+    let unsupported_receipt = validate_script_review_submission(
+        "plan_1",
+        &script,
+        &plan,
+        &content,
+        &outline,
+        &unsupported,
+    )
+    .expect("unsupported decision can be recorded without approval");
+    assert_ne!(receipt.submission_hash, unsupported_receipt.submission_hash);
+    assert_eq!(
+        unsupported_receipt.attestation_status,
+        ReviewAttestationStatus::Unverified
+    );
+    assert_eq!(
+        script
+            .build_qa("plan_1", &plan, &content, &outline)
+            .expect("QA remains separate")
+            .status,
+        QaStatus::Review
+    );
+    let json = serde_json::to_string(&submission).expect("serialize submission");
+    assert_eq!(
+        ScriptReviewSubmission::from_json(&json).unwrap(),
+        submission
+    );
+    assert!(ScriptReviewSubmission::from_json("{bad").is_err());
+
+    let mut stale = submission.clone();
+    stale.script_hash = format!("sha256:{}", "0".repeat(64));
+    assert_eq!(
+        validate_script_review_submission("plan_1", &script, &plan, &content, &outline, &stale),
+        Err(ReviewDecisionError::StaleSubmission)
+    );
+    let mut changed_script = script.clone();
+    changed_script.sections[0].segments[0]
+        .speech_text
+        .push_str(" Alteração.");
+    assert_eq!(
+        validate_script_review_submission(
+            "plan_1",
+            &changed_script,
+            &plan,
+            &content,
+            &outline,
+            &submission
+        ),
+        Err(ReviewDecisionError::StaleSubmission)
+    );
+    for field in [
+        "sourceHash",
+        "contentHash",
+        "planHash",
+        "documentId",
+        "planId",
+    ] {
+        let mut json: serde_json::Value = serde_json::from_str(&json).expect("submission JSON");
+        json[field] = serde_json::Value::String("forged".into());
+        let forged = ScriptReviewSubmission::from_json(&json.to_string()).expect("shape parses");
+        assert_eq!(
+            validate_script_review_submission(
+                "plan_1", &script, &plan, &content, &outline, &forged
+            ),
+            Err(ReviewDecisionError::StaleSubmission),
+            "field: {field}"
+        );
+    }
+}
+
+#[test]
+fn review_submission_requires_complete_unique_segments_and_real_text_evidence() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let outline =
+        SemanticOutline::from_json(SEMANTIC_OUTLINE_FIXTURE, &content).expect("outline fixture");
+    let plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("plan fixture");
+    let mut script = NarrativeScript::from_json(NARRATIVE_SCRIPT_FIXTURE).expect("script fixture");
+    let packet = build_script_review_packet("plan_1", &script, &plan, &content, &outline)
+        .expect("review packet");
+    let submission = supported_submission(&packet);
+    let check = |value: &ScriptReviewSubmission| {
+        validate_script_review_submission("plan_1", &script, &plan, &content, &outline, value)
+    };
+
+    let mut duplicate = submission.clone();
+    duplicate.decisions.push(duplicate.decisions[0].clone());
+    assert!(matches!(
+        check(&duplicate),
+        Err(ReviewDecisionError::DuplicateSegment(_))
+    ));
+    let mut missing = submission.clone();
+    missing.decisions.clear();
+    assert_eq!(
+        check(&missing),
+        Err(ReviewDecisionError::IncompleteCoverage)
+    );
+    let mut unknown = submission.clone();
+    unknown.decisions[0].segment_id = "invented".into();
+    assert!(matches!(
+        check(&unknown),
+        Err(ReviewDecisionError::UnknownSegment(_))
+    ));
+    let mut no_reason = submission.clone();
+    no_reason.decisions[0].rationale = " ".into();
+    assert!(matches!(
+        check(&no_reason),
+        Err(ReviewDecisionError::EmptyRationale(_))
+    ));
+    let mut no_evidence = submission.clone();
+    no_evidence.decisions[0].evidence_source_unit_ids.clear();
+    assert!(matches!(
+        check(&no_evidence),
+        Err(ReviewDecisionError::MissingEvidence(_))
+    ));
+    let mut fake_evidence = submission.clone();
+    fake_evidence.decisions[0].evidence_source_unit_ids = vec!["invented".into()];
+    assert!(matches!(
+        check(&fake_evidence),
+        Err(ReviewDecisionError::UnknownEvidence(_))
+    ));
+    let mut repeated_evidence = submission.clone();
+    let repeated_id = repeated_evidence.decisions[0].evidence_source_unit_ids[0].clone();
+    repeated_evidence.decisions[0]
+        .evidence_source_unit_ids
+        .push(repeated_id);
+    assert!(matches!(
+        check(&repeated_evidence),
+        Err(ReviewDecisionError::DuplicateEvidence(_))
+    ));
+
+    let mut textless_content = content.clone();
+    textless_content.source_units[0].analysis_text = None;
+    let textless_outline = SemanticOutline::skeleton(&textless_content).expect("outline");
+    let textless_packet = build_script_review_packet(
+        "plan_1",
+        &script,
+        &plan,
+        &textless_content,
+        &textless_outline,
+    )
+    .expect("textless source remains reviewable");
+    let mut textless_submission = supported_submission(&textless_packet);
+    assert!(matches!(
+        validate_script_review_submission(
+            "plan_1",
+            &script,
+            &plan,
+            &textless_content,
+            &textless_outline,
+            &textless_submission
+        ),
+        Err(ReviewDecisionError::MissingSourceText(_))
+    ));
+    let mut blocked_content = content.clone();
+    blocked_content.source_units[0].narration_eligibility = NarrationEligibility::Blocked;
+    let blocked_outline = SemanticOutline::skeleton(&blocked_content).expect("outline");
+    let blocked_packet =
+        build_script_review_packet("plan_1", &script, &plan, &blocked_content, &blocked_outline)
+            .expect("blocked source remains reviewable");
+    assert!(matches!(
+        validate_script_review_submission(
+            "plan_1",
+            &script,
+            &plan,
+            &blocked_content,
+            &blocked_outline,
+            &supported_submission(&blocked_packet)
+        ),
+        Err(ReviewDecisionError::BlockedEvidence(_))
+    ));
+    textless_submission.decisions[0].verdict = ReviewVerdict::NeedsEvidence;
+    textless_submission.decisions[0]
+        .evidence_source_unit_ids
+        .clear();
+    assert_eq!(
+        validate_script_review_submission(
+            "plan_1",
+            &script,
+            &plan,
+            &textless_content,
+            &textless_outline,
+            &textless_submission
+        )
+        .expect("needs evidence can be recorded")
+        .attestation_status,
+        ReviewAttestationStatus::Unverified
+    );
+
+    let mut second = script.sections[0].segments[0].clone();
+    second.id = "segment_2".into();
+    script.sections[0].segments.push(second);
+    assert_eq!(
+        validate_script_review_submission(
+            "plan_1",
+            &script,
+            &plan,
+            &content,
+            &outline,
+            &submission
+        ),
+        Err(ReviewDecisionError::StaleSubmission)
+    );
+}
+
+#[test]
+fn supported_review_requires_evidence_for_every_segment_source_reference() {
+    let mut content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let mut second_unit = content.source_units[0].clone();
+    second_unit.id = "unit_r_1_2".into();
+    second_unit.source_refs = vec!["r_1_2".into()];
+    second_unit.analysis_text = None;
+    content.source_units.push(second_unit);
+    let outline = SemanticOutline::skeleton(&content).expect("outline");
+    let mut plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("plan fixture");
+    plan.sections[0].transition = Some(audiobook_core::NarrativeTransition {
+        text: "Ligação entre trechos".into(),
+        relation: "sequence".into(),
+        source_refs: vec!["r_1_2".into()],
+    });
+    let mut script = NarrativeScript::from_json(NARRATIVE_SCRIPT_FIXTURE).expect("script fixture");
+    script.sections[0].segments[0]
+        .source_refs
+        .push("r_1_2".into());
+    let packet = build_script_review_packet("plan_1", &script, &plan, &content, &outline)
+        .expect("review packet");
+    let mut submission = supported_submission(&packet);
+    assert_eq!(
+        validate_script_review_submission(
+            "plan_1",
+            &script,
+            &plan,
+            &content,
+            &outline,
+            &submission,
+        ),
+        Err(ReviewDecisionError::MissingReferenceEvidence {
+            segment_id: "segment_1".into(),
+            source_ref: "r_1_2".into(),
+        })
+    );
+    submission.decisions[0]
+        .evidence_source_unit_ids
+        .push("unit_r_1_2".into());
+    assert!(matches!(
+        validate_script_review_submission(
+            "plan_1",
+            &script,
+            &plan,
+            &content,
+            &outline,
+            &submission,
+        ),
+        Err(ReviewDecisionError::MissingSourceText(_))
+    ));
+
+    content.source_units[1].analysis_text = Some("Texto da transição".into());
+    let updated_outline = SemanticOutline::skeleton(&content).expect("updated outline");
+    let updated_packet =
+        build_script_review_packet("plan_1", &script, &plan, &content, &updated_outline)
+            .expect("updated packet");
+    let mut complete = supported_submission(&updated_packet);
+    complete.decisions[0]
+        .evidence_source_unit_ids
+        .push("unit_r_1_2".into());
+    assert_eq!(
+        validate_script_review_submission(
+            "plan_1",
+            &script,
+            &plan,
+            &content,
+            &updated_outline,
+            &complete,
+        )
+        .expect("all references are covered")
+        .attestation_status,
+        ReviewAttestationStatus::Unverified
+    );
 }
 
 #[test]

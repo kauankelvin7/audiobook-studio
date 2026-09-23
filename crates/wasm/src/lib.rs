@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use audiobook_core::{
-    build_script_review_packet, build_validated_narration_qa, ContentModel, DocumentIr,
-    DocumentIrV2, NarrativePlan, NarrativeScript, SemanticOutline,
+    build_script_review_packet, build_validated_narration_qa, validate_script_review_submission,
+    ContentModel, DocumentIr, DocumentIrV2, NarrativePlan, NarrativeScript, ScriptReviewSubmission,
+    SemanticOutline,
 };
 use wasm_bindgen::prelude::*;
 
@@ -115,4 +116,30 @@ pub fn build_script_review_packet_json(
     let packet = build_script_review_packet(expected_plan_id, &script, &plan, &content, &outline)
         .map_err(js_error)?;
     serde_json::to_string(&packet).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn validate_script_review_submission_json(
+    expected_plan_id: &str,
+    script_json: &str,
+    plan_json: &str,
+    content_model_json: &str,
+    semantic_outline_json: &str,
+    submission_json: &str,
+) -> Result<String, JsValue> {
+    let content = ContentModel::from_json(content_model_json).map_err(js_error)?;
+    let outline = SemanticOutline::from_json(semantic_outline_json, &content).map_err(js_error)?;
+    let plan = NarrativePlan::from_json(plan_json).map_err(js_error)?;
+    let script = NarrativeScript::from_json(script_json).map_err(js_error)?;
+    let submission = ScriptReviewSubmission::from_json(submission_json).map_err(js_error)?;
+    let receipt = validate_script_review_submission(
+        expected_plan_id,
+        &script,
+        &plan,
+        &content,
+        &outline,
+        &submission,
+    )
+    .map_err(js_error)?;
+    serde_json::to_string(&receipt).map_err(js_error)
 }

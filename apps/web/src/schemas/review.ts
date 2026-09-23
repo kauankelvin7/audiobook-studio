@@ -36,3 +36,36 @@ export const scriptReviewPacketSchema = z.object({
 }).strict();
 
 export type ScriptReviewPacket = z.infer<typeof scriptReviewPacketSchema>;
+
+export const scriptReviewSubmissionSchema = z.object({
+  schemaVersion: z.literal(1),
+  planId: id,
+  documentId: id,
+  sourceHash: hash,
+  contentHash: hash,
+  planHash: hash,
+  scriptHash: hash,
+  decisions: z.array(z.object({
+    segmentId: id,
+    verdict: z.enum(["supported", "unsupported", "needs_evidence"]),
+    evidenceSourceUnitIds: z.array(id),
+    rationale: z.string().trim().min(1),
+  }).strict()).min(1),
+}).strict();
+
+export const scriptReviewReceiptSchema = z.object({
+  schemaVersion: z.literal(1),
+  planId: id,
+  documentId: id,
+  sourceHash: hash,
+  contentHash: hash,
+  planHash: hash,
+  scriptHash: hash,
+  submissionHash: hash,
+  reviewedSegments: z.number().int().positive(),
+  attestationStatus: z.literal("unverified"),
+  methodVersion: id,
+}).strict();
+
+export type ScriptReviewSubmission = z.infer<typeof scriptReviewSubmissionSchema>;
+export type ScriptReviewReceipt = z.infer<typeof scriptReviewReceiptSchema>;

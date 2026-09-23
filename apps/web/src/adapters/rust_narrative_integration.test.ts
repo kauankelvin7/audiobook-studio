@@ -7,7 +7,7 @@ import outlineFixture from "../../../../tests/fixtures/semantic_outline_v1.json"
 import planFixture from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import scriptFixture from "../../../../tests/fixtures/narrative_script_content_v1.json";
 import { buildNarrationQa, validateNarrativePlan } from "./rust_narrative_pipeline";
-import { buildScriptQa, buildScriptReviewPacket } from "./rust_script_pipeline";
+import { buildScriptQa, buildScriptReviewPacket, validateScriptReviewSubmission } from "./rust_script_pipeline";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -111,6 +111,66 @@ describe("real Rust narrative WASM boundary", () => {
       .rejects.toMatchObject({ code: "CORE_REJECTED" });
   });
 
+  it("validates a decision against current hashes without attesting or approving it", async () => {
+    const packet = await buildScriptReviewPacket("plan_1", scriptFixture, planFixture, contentFixture, outlineFixture);
+    const submission = {
+      schemaVersion: 1,
+      planId: packet.planId,
+      documentId: packet.documentId,
+      sourceHash: packet.sourceHash,
+      contentHash: packet.contentHash,
+      planHash: packet.planHash,
+      scriptHash: packet.scriptHash,
+      decisions: [{
+        segmentId: packet.segments[0].segmentId,
+        verdict: "supported" as const,
+        evidenceSourceUnitIds: [packet.segments[0].sources[0].sourceUnitId],
+        rationale: "Conferido com o trecho indicado.",
+      }],
+    };
+    const receipt = await validateScriptReviewSubmission(
+      "plan_1", scriptFixture, planFixture, contentFixture, outlineFixture, submission,
+    );
+    expect(receipt).toMatchObject({
+      planId: packet.planId,
+      documentId: packet.documentId,
+      sourceHash: packet.sourceHash,
+      contentHash: packet.contentHash,
+      planHash: packet.planHash,
+      scriptHash: packet.scriptHash,
+      submissionHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+      reviewedSegments: 1,
+      attestationStatus: "unverified",
+    });
+    await expect(validateScriptReviewSubmission(
+      "plan_1", scriptFixture, planFixture, contentFixture, outlineFixture,
+      { ...submission, scriptHash: `sha256:${"0".repeat(64)}` },
+    )).rejects.toMatchObject({ code: "CORE_REJECTED", cause: expect.stringContaining("current") });
+    await expect(validateScriptReviewSubmission(
+      "plan_1", scriptFixture, planFixture, contentFixture, outlineFixture,
+      { ...submission, decisions: [{ ...submission.decisions[0], evidenceSourceUnitIds: ["fabricated"] }] },
+    )).rejects.toMatchObject({ code: "CORE_REJECTED", cause: expect.stringContaining("unknown evidence") });
+
+    const textlessContent = {
+      ...contentFixture,
+      sourceUnits: [{ ...contentFixture.sourceUnits[0], analysisText: null }],
+    };
+    const textlessPacket = await buildScriptReviewPacket(
+      "plan_1", scriptFixture, planFixture, textlessContent, outlineFixture,
+    );
+    const textlessSubmission = {
+      ...submission,
+      contentHash: textlessPacket.contentHash,
+    };
+    await expect(validateScriptReviewSubmission(
+      "plan_1", scriptFixture, planFixture, textlessContent, outlineFixture, textlessSubmission,
+    )).rejects.toMatchObject({ code: "CORE_REJECTED", cause: expect.stringContaining("source text") });
+    await expect(validateScriptReviewSubmission(
+      "plan_1", scriptFixture, planFixture, textlessContent, outlineFixture,
+      { ...textlessSubmission, decisions: [{ ...submission.decisions[0], verdict: "needs_evidence", evidenceSourceUnitIds: [] }] },
+    )).resolves.toMatchObject({ attestationStatus: "unverified" });
+  });
+
   it("accepts a transition-only source reference and rejects an unrelated one", async () => {
     const content = {
       ...contentFixture,
@@ -146,5 +206,55 @@ describe("real Rust narrative WASM boundary", () => {
     script.sections[0].segments[0].sourceRefs = ["unrelated"];
     await expect(buildScriptQa("plan_1", script, plan, content, outline))
       .rejects.toMatchObject({ code: "CORE_REJECTED" });
+  });
+
+  it("does not accept partial evidence for a segment with multiple source refs", async () => {
+    const content = {
+      ...contentFixture,
+      sourceUnits: [
+        ...contentFixture.sourceUnits,
+        { ...contentFixture.sourceUnits[0], id: "unit_r_1_2", sourceRefs: ["r_1_2"], analysisText: null },
+      ],
+    };
+    const outline = {
+      ...outlineFixture,
+      sections: [{
+        ...outlineFixture.sections[0],
+        sourceUnitIds: ["unit_r_1_1", "unit_r_1_2"],
+        candidateNarrationUnitIds: ["unit_r_1_1", "unit_r_1_2"],
+      }],
+    };
+    const plan = {
+      ...planFixture,
+      sections: [{
+        ...planFixture.sections[0],
+        transition: { text: "Ligação", relation: "sequence", sourceRefs: ["r_1_2"] },
+      }],
+    };
+    const script = {
+      ...scriptFixture,
+      sections: [{
+        ...scriptFixture.sections[0],
+        segments: [{ ...scriptFixture.sections[0].segments[0], sourceRefs: ["r_1_1", "r_1_2"] }],
+      }],
+    };
+    const packet = await buildScriptReviewPacket("plan_1", script, plan, content, outline);
+    const submission = {
+      schemaVersion: 1,
+      planId: packet.planId,
+      documentId: packet.documentId,
+      sourceHash: packet.sourceHash,
+      contentHash: packet.contentHash,
+      planHash: packet.planHash,
+      scriptHash: packet.scriptHash,
+      decisions: [{
+        segmentId: packet.segments[0].segmentId,
+        verdict: "supported",
+        evidenceSourceUnitIds: ["unit_r_1_1"],
+        rationale: "Trecho conferido com a fonte indicada.",
+      }],
+    };
+    await expect(validateScriptReviewSubmission("plan_1", script, plan, content, outline, submission))
+      .rejects.toMatchObject({ code: "CORE_REJECTED", cause: expect.stringContaining("r_1_2") });
   });
 });

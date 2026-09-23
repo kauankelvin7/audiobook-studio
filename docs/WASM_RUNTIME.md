@@ -16,4 +16,6 @@ Na etapa M4.3, o core também valida NarrativePlan contra ContentModel/Outline e
 
 Em M4.4C, `build_script_review_packet_json` reúne evidência de fonte por trecho do roteiro validado. O adapter Web valida apenas o contrato de entrada/saída e testes executam o WASM real. O pacote permanece com revisão `pending`; não há decisão de aprovação, persistência ou liberação de TTS.
 
+Em M4.4D, `validate_script_review_submission_json` valida no core uma submissão contra o roteiro, plano, conteúdo e outline atuais. A fronteira Web confere o contrato e a identidade dos hashes devolvidos. O recibo inclui o hash da submissão e status `unverified`. O export não autentica o autor, não persiste o resultado e não aprova claims ou TTS.
+
 Limites: PDF.js permanece responsável por extração v1; páginas sem texto seguem como `no_text`/revisão. O skeleton de outline não é um planner semântico. Nenhum modelo, TTS ou geração de áudio é iniciado nesta etapa.

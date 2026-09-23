@@ -289,3 +289,21 @@
 ## RESULT M4.4C — publicação e CI (2026-09-23)
 - Commit `1c5394d1d5e783872502598955c5eef0d40dca36` publicado em `origin/codex/m4-content-model`; workflow `quality` run `35834617808` concluiu com `success` nos jobs Rust e Web.
 - Batch concluído no escopo do pacote de evidência. Próximo batch: decisão de revisão explícita vinculada aos hashes, mantendo TTS bloqueado até aprovação confiável e QA crítico.
+
+## PRE-FLIGHT de execução — M4.4D contrato de decisão de revisão (2026-09-23)
+- Base: checkout local limpo atualizado por fast-forward para `88af119` em `codex/m4-content-model`; workflow `quality` run `35834973158` do HEAD remoto concluiu com sucesso.
+- Objective: criar contrato canônico Rust para submissão de decisões por trecho, vinculado ao pacote de revisão atual e a seus hashes; rejeitar revisão incompleta, stale, evidência ausente ou sem texto. Entregar somente validação estrutural: nenhuma decisão equivale a atestação confiável ou libera TTS.
+- Evidence: M4.4C fornece `ScriptReviewPacket` com IDs de trechos, unidades de fonte e hashes; ADR 0010 mantém invariantes no core; QA atual mantém claims em `review`.
+- Constraints: Rust é fonte de verdade; WASM/TS somente fronteira se incluídos nesta fatia. Sem UI, modelo real, credencial/identidade de revisor, persistência de revisão, OCR ou TTS. Entrada de documento/modelo é não confiável; não registrar texto de fonte em logs.
+- Unknowns: como autenticar revisor humano ou verificador confiável; corpus/golden mainframe real e política final de aprovação. Não inferir confiança a partir de campos enviados pelo cliente.
+- Risks: decisão stale após mudança de fonte/plano/roteiro, trechos omitidos/duplicados, evidência fabricada ou sem texto, `supported` ser interpretado como QA `pass`.
+- Plan: (1) contrato e validação Rust contra pacote recalculado; (2) testes de hashes, cobertura, evidência e fonte sem texto; (3) fachada WASM e adapter TS fino com paridade real, se o contrato estiver estável; (4) gates, revisão independente, WORKLOG/HANDOFF e CI. Não avançar a TTS.
+- Verification: `cargo fmt --all -- --check`, `cargo test --workspace --locked`, clippy `-D warnings`, `npm run wasm:build`, Web STANDARD, diff check e workflow `quality` após publicação. Distinguir teste local de CI.
+- Task Risk: HIGH. Writer: Lead. Revisão independente obrigatória, read-only, após implementação.
+
+## RESULT M4.4D — validação local (2026-09-23)
+- Status: contrato de submissão implementado em Rust/WASM/Web, sem atestação ou persistência. Publicação e CI deste batch pendentes neste registro.
+- Entregue: validação contra hashes/IDs recalculados, cobertura exata de trechos, rationale e evidência por source ref para `supported`; rejeição de fonte sem texto ou bloqueada. Recibo contém hash da submissão e `attestationStatus: unverified`.
+- Revisão independente encontrou P2: uma decisão `supported` podia citar só parte das referências do trecho. Corrigido com cobertura por referência e regressões Rust/WASM real; segunda revisão confirmou correção e não encontrou P0/P1.
+- Gates locais: Rust fmt/test (33 testes)/clippy passaram; `npm run wasm:build` passou; Web STANDARD passou com 93 testes, typecheck e build; `npm audit --audit-level=high` encontrou 0 vulnerabilidades; `git diff --check` passou. CI após publicação ainda pendente.
+- Limites: não há identidade confiável de revisor, atestação, golden mainframe real, persistência de decisão, QA `pass` ou TTS. Próximo batch seguro: definir confiança e assinatura/identidade de revisão antes de qualquer liberação por QA; obter corpus real para avaliar claims.

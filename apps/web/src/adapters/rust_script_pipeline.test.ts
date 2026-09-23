@@ -3,7 +3,7 @@ import content from "../../../../tests/fixtures/content_model_v1.json";
 import outline from "../../../../tests/fixtures/semantic_outline_v1.json";
 import plan from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import script from "../../../../tests/fixtures/narrative_script_content_v1.json";
-import { buildScriptQa, buildScriptReviewPacket } from "./rust_script_pipeline";
+import { buildScriptQa, buildScriptReviewPacket, validateScriptReviewSubmission } from "./rust_script_pipeline";
 
 const qa = {
   schemaVersion: 1,
@@ -45,6 +45,48 @@ describe("Rust script boundary", () => {
       .rejects.toMatchObject({ code: "WASM_INIT_FAILED" });
     const rejected = { ...port, buildPacket: vi.fn((): string => { throw new Error("bad mapping"); }) };
     await expect(buildScriptReviewPacket("plan_1", script, plan, content, outline, rejected))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+  });
+
+  it("types submission boundary failures and rejects forged attestation", async () => {
+    const hash = `sha256:${"0".repeat(64)}`;
+    const submission = {
+      schemaVersion: 1,
+      planId: "plan_1",
+      documentId: content.documentId,
+      sourceHash: content.sourceHash,
+      contentHash: hash,
+      planHash: hash,
+      scriptHash: hash,
+      decisions: [{ segmentId: "segment_1", verdict: "supported", evidenceSourceUnitIds: ["unit_r_1_1"], rationale: "Fonte indicada." }],
+    };
+    const port = {
+      initialize: vi.fn(async () => undefined),
+      recordSubmission: vi.fn(() => JSON.stringify({
+        schemaVersion: 1, sourceHash: content.sourceHash, contentHash: hash, planHash: hash, scriptHash: hash,
+        reviewedSegments: 1, attestationStatus: "verified", methodVersion: "forged",
+      })),
+    };
+    await expect(validateScriptReviewSubmission("", script, plan, content, outline, submission, port))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    expect(port.initialize).not.toHaveBeenCalled();
+    await expect(validateScriptReviewSubmission("plan_1", script, plan, content, outline, {}, port))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(validateScriptReviewSubmission("plan_1", script, plan, content, outline, submission, port))
+      .rejects.toMatchObject({ code: "INVALID_CORE_OUTPUT" });
+    const wrongHash = { ...port, recordSubmission: vi.fn(() => JSON.stringify({
+      schemaVersion: 1, planId: "plan_1", documentId: content.documentId,
+      sourceHash: content.sourceHash, contentHash: hash, planHash: hash,
+      scriptHash: `sha256:${"1".repeat(64)}`, submissionHash: hash,
+      reviewedSegments: 1, attestationStatus: "unverified", methodVersion: "test",
+    })) };
+    await expect(validateScriptReviewSubmission("plan_1", script, plan, content, outline, submission, wrongHash))
+      .rejects.toMatchObject({ code: "INVALID_CORE_OUTPUT" });
+    const failedInit = { ...port, initialize: vi.fn(async () => { throw new Error("load failed"); }) };
+    await expect(validateScriptReviewSubmission("plan_1", script, plan, content, outline, submission, failedInit))
+      .rejects.toMatchObject({ code: "WASM_INIT_FAILED" });
+    const rejected = { ...port, recordSubmission: vi.fn((): string => { throw new Error("stale"); }) };
+    await expect(validateScriptReviewSubmission("plan_1", script, plan, content, outline, submission, rejected))
       .rejects.toMatchObject({ code: "CORE_REJECTED" });
   });
 

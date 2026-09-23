@@ -141,3 +141,9 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Commit `1c5394d1d5e783872502598955c5eef0d40dca36` publicado em `codex/m4-content-model`; workflow `quality` run `35834617808` concluiu com `success` para Rust e Web.
 - Pacote de revisão por trecho está implementado e TESTED via Rust/WASM real. Todas as fontes correspondentes são exibidas com texto/qualidade/flags e hashes de identidade; estado permanece `pending`. Nenhuma decisão de aprovação, modelo real, persistência de revisão ou TTS foi introduzida.
 - Próximo batch seguro: contrato canônico de decisão de revisão no Rust, vinculado a `sourceHash`, `contentHash`, `planHash`, `scriptHash` e IDs de todos os trechos. Definir tratamento explícito de evidência sem texto e verificador/revisor confiável; não tratar output do modelo como atestação. Buscar golden mainframe real para avaliação posterior. TTS continua bloqueado.
+
+## M4.4D validado localmente — 2026-09-23
+- Base remota `88af119`, workflow `quality` run `35834973158` verde. A branch local limpa foi atualizada por fast-forward antes do PRE-FLIGHT.
+- Rust valida submissão de decisões por trecho contra o pacote recalculado, incluindo hashes, cobertura de trechos e evidência textual por referência. Fonte ausente ou bloqueada não sustenta `supported`. WASM/TS preservam apenas a fronteira; recibo usa `attestationStatus: unverified` e hash da submissão. Nenhuma atestação, persistência, aprovação QA ou TTS foi implementada.
+- QA independente encontrou cobertura parcial P2 e a correção passou em Rust/WASM real. Segunda revisão confirmou correção, sem P0/P1. Gates locais: 33 testes Rust, fmt, clippy, build WASM, 93 testes Web, typecheck, build, audit 0 vulnerabilidades e diff check. Publicação e CI ainda pendentes neste checkpoint.
+- Próximo passo imediato: commit/push e CI. Depois definir mecanismo confiável de atestação e corpus real de avaliação; não liberar TTS com recibo `unverified`.

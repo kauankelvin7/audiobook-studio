@@ -21,6 +21,8 @@ export function validate_document_v2_json(input: string): string;
 
 export function validate_narrative_plan_json(plan_json: string, content_model_json: string, semantic_outline_json: string): void;
 
+export function validate_script_review_submission_json(expected_plan_id: string, script_json: string, plan_json: string, content_model_json: string, semantic_outline_json: string, submission_json: string): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -35,6 +37,7 @@ export interface InitOutput {
     readonly migrate_document_v1_to_v2_json: (a: number, b: number) => [number, number, number, number];
     readonly validate_document_v2_json: (a: number, b: number) => [number, number, number, number];
     readonly validate_narrative_plan_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly validate_script_review_submission_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

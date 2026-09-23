@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::{
     sha256_source, ContentModel, ContentSourceUnit, NarrationEligibility, NarrativeError,
@@ -49,6 +50,214 @@ pub struct ScriptReviewPacket {
     pub script_hash: String,
     pub segments: Vec<ReviewSegment>,
     pub method_version: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewVerdict {
+    Supported,
+    Unsupported,
+    NeedsEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SegmentReviewDecision {
+    pub segment_id: String,
+    pub verdict: ReviewVerdict,
+    pub evidence_source_unit_ids: Vec<String>,
+    pub rationale: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScriptReviewSubmission {
+    pub schema_version: u32,
+    pub plan_id: String,
+    pub document_id: String,
+    pub source_hash: String,
+    pub content_hash: String,
+    pub plan_hash: String,
+    pub script_hash: String,
+    pub decisions: Vec<SegmentReviewDecision>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewAttestationStatus {
+    Unverified,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScriptReviewReceipt {
+    pub schema_version: u32,
+    pub plan_id: String,
+    pub document_id: String,
+    pub source_hash: String,
+    pub content_hash: String,
+    pub plan_hash: String,
+    pub script_hash: String,
+    pub submission_hash: String,
+    pub reviewed_segments: usize,
+    pub attestation_status: ReviewAttestationStatus,
+    pub method_version: String,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ReviewDecisionError {
+    #[error("invalid review JSON: {0}")]
+    InvalidJson(String),
+    #[error("unsupported review schema version: {0}")]
+    UnsupportedSchemaVersion(u32),
+    #[error("review submission does not match current document, plan, content or script")]
+    StaleSubmission,
+    #[error("review decisions must cover every script segment exactly once")]
+    IncompleteCoverage,
+    #[error("duplicate review decision for segment: {0}")]
+    DuplicateSegment(String),
+    #[error("unknown review segment: {0}")]
+    UnknownSegment(String),
+    #[error("review rationale is empty for segment: {0}")]
+    EmptyRationale(String),
+    #[error("duplicate evidence source unit for segment: {0}")]
+    DuplicateEvidence(String),
+    #[error("unknown evidence source unit for segment: {0}")]
+    UnknownEvidence(String),
+    #[error("supported review requires source text for segment: {0}")]
+    MissingSourceText(String),
+    #[error("supported review cannot use blocked source evidence for segment: {0}")]
+    BlockedEvidence(String),
+    #[error("supported review requires evidence for segment: {0}")]
+    MissingEvidence(String),
+    #[error(
+        "supported review lacks evidence for source reference {source_ref} in segment {segment_id}"
+    )]
+    MissingReferenceEvidence {
+        segment_id: String,
+        source_ref: String,
+    },
+    #[error("could not serialize review submission: {0}")]
+    Serialization(String),
+    #[error("review packet could not be built: {0}")]
+    InvalidPacket(#[from] NarrativeError),
+}
+
+impl ScriptReviewSubmission {
+    pub fn from_json(input: &str) -> Result<Self, ReviewDecisionError> {
+        serde_json::from_str(input)
+            .map_err(|error| ReviewDecisionError::InvalidJson(error.to_string()))
+    }
+}
+
+pub fn validate_script_review_submission(
+    expected_plan_id: &str,
+    script: &NarrativeScript,
+    plan: &NarrativePlan,
+    content: &ContentModel,
+    outline: &SemanticOutline,
+    submission: &ScriptReviewSubmission,
+) -> Result<ScriptReviewReceipt, ReviewDecisionError> {
+    let packet = build_script_review_packet(expected_plan_id, script, plan, content, outline)?;
+    if submission.schema_version != 1 {
+        return Err(ReviewDecisionError::UnsupportedSchemaVersion(
+            submission.schema_version,
+        ));
+    }
+    if submission.plan_id != packet.plan_id
+        || submission.document_id != packet.document_id
+        || submission.source_hash != packet.source_hash
+        || submission.content_hash != packet.content_hash
+        || submission.plan_hash != packet.plan_hash
+        || submission.script_hash != packet.script_hash
+    {
+        return Err(ReviewDecisionError::StaleSubmission);
+    }
+
+    let segments: HashMap<&str, &ReviewSegment> = packet
+        .segments
+        .iter()
+        .map(|segment| (segment.segment_id.as_str(), segment))
+        .collect();
+    let mut reviewed = HashSet::new();
+    for decision in &submission.decisions {
+        let segment = segments
+            .get(decision.segment_id.as_str())
+            .ok_or_else(|| ReviewDecisionError::UnknownSegment(decision.segment_id.clone()))?;
+        if !reviewed.insert(decision.segment_id.as_str()) {
+            return Err(ReviewDecisionError::DuplicateSegment(
+                decision.segment_id.clone(),
+            ));
+        }
+        if decision.rationale.trim().is_empty() {
+            return Err(ReviewDecisionError::EmptyRationale(
+                decision.segment_id.clone(),
+            ));
+        }
+        let mut evidence_ids = HashSet::new();
+        for source_unit_id in &decision.evidence_source_unit_ids {
+            if !evidence_ids.insert(source_unit_id.as_str()) {
+                return Err(ReviewDecisionError::DuplicateEvidence(
+                    decision.segment_id.clone(),
+                ));
+            }
+            let source = segment
+                .sources
+                .iter()
+                .find(|source| source.source_unit_id == *source_unit_id)
+                .ok_or_else(|| ReviewDecisionError::UnknownEvidence(decision.segment_id.clone()))?;
+            if decision.verdict == ReviewVerdict::Supported && source.analysis_text.is_none() {
+                return Err(ReviewDecisionError::MissingSourceText(
+                    decision.segment_id.clone(),
+                ));
+            }
+            if decision.verdict == ReviewVerdict::Supported
+                && (source.quality_status == QualityStatus::Unusable
+                    || source.narration_eligibility == NarrationEligibility::Blocked
+                    || source.uncertainty == Uncertainty::Unsupported)
+            {
+                return Err(ReviewDecisionError::BlockedEvidence(
+                    decision.segment_id.clone(),
+                ));
+            }
+        }
+        if decision.verdict == ReviewVerdict::Supported && evidence_ids.is_empty() {
+            return Err(ReviewDecisionError::MissingEvidence(
+                decision.segment_id.clone(),
+            ));
+        }
+        if decision.verdict == ReviewVerdict::Supported {
+            for source_ref in &segment.source_refs {
+                if !segment.sources.iter().any(|source| {
+                    source.source_ref == *source_ref
+                        && evidence_ids.contains(source.source_unit_id.as_str())
+                }) {
+                    return Err(ReviewDecisionError::MissingReferenceEvidence {
+                        segment_id: decision.segment_id.clone(),
+                        source_ref: source_ref.clone(),
+                    });
+                }
+            }
+        }
+    }
+    if reviewed.len() != packet.segments.len() {
+        return Err(ReviewDecisionError::IncompleteCoverage);
+    }
+    let submission_json = serde_json::to_vec(submission)
+        .map_err(|error| ReviewDecisionError::Serialization(error.to_string()))?;
+    Ok(ScriptReviewReceipt {
+        schema_version: 1,
+        plan_id: packet.plan_id,
+        document_id: packet.document_id,
+        source_hash: packet.source_hash,
+        content_hash: packet.content_hash,
+        plan_hash: packet.plan_hash,
+        script_hash: packet.script_hash,
+        submission_hash: sha256_source(&submission_json),
+        reviewed_segments: reviewed.len(),
+        attestation_status: ReviewAttestationStatus::Unverified,
+        method_version: "script-review-receipt-rust-v1".into(),
+    })
 }
 
 pub fn build_script_review_packet(

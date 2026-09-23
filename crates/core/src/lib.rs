@@ -31,7 +31,9 @@ pub use narrative::{
     NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
 };
 pub use review::{
-    build_script_review_packet, ReviewSegment, ReviewSource, ReviewStatus, ScriptReviewPacket,
+    build_script_review_packet, validate_script_review_submission, ReviewAttestationStatus,
+    ReviewDecisionError, ReviewSegment, ReviewSource, ReviewStatus, ReviewVerdict,
+    ScriptReviewPacket, ScriptReviewReceipt, ScriptReviewSubmission, SegmentReviewDecision,
 };
 pub use script::{NarrativeScript, ScriptSection, ScriptSegment};
 
