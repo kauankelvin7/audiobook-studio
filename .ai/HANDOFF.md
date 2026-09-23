@@ -112,3 +112,8 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - `NarrativePlannerPort` e fake de fixture foram criados. O adapter valida a saída estruturada com schema e Rust/WASM, e retorna candidato com `qa: pending`; nenhum modelo real ou TTS foi conectado.
 - Revisão QA apontou retorno prematuro de plano como P1; wrapper de candidato aplicado. Rust fmt/test (26), Web STANDARD (84 testes/typecheck/build) e diff check passaram.
 - Publicação/CI pendentes. Próxima etapa após CI verde: decidir contrato de geração de roteiro/source mapping e QA crítico antes de avaliar modelo local real. Não iniciar TTS.
+
+## M4.4A concluído — 2026-09-22
+- Commit `f74229f42b54f32c4b0e471f66d0ca3e4c847208` publicado; workflow `quality` run `35804071973` concluiu com sucesso nos jobs Rust e Web.
+- Port Web recebe saída estruturada não confiável, valida schema/provenance pelo core Rust e devolve somente candidato com QA pendente. Fake determinístico existe apenas em suporte de testes. Sem modelo real, prompt, persistência de plano ou TTS.
+- Próximo batch seguro: contrato de roteiro/source mapping e QA crítico com estado explícito de revisão; buscar golden mainframe real e avaliar modelo local somente depois. TTS segue bloqueado até planner, source mapping e QA crítico passarem.

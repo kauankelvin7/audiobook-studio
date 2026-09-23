@@ -240,3 +240,8 @@
 - Risks: fake parecer capacidade real, erro de modelo escapar sem tipo, plano estruturalmente válido burlar provenance, port ser usado antes de QA.
 - Plan: contrato de port de objeto estruturado, adapter de validação com Rust, fake de fixture para teste, casos de falha de port/shape/provenance, gates e revisão. Não adicionar modelo externo.
 - Verification: testes focados e Web STANDARD; Rust gates mínimos; revisão independente; CI antes de ampliar planner.
+
+## RESULT M4.4A — 2026-09-22
+- Status: IMPLEMENTED/TESTED para port estruturado com fake de fixture e validação Rust/WASM; nenhum modelo real ou TTS.
+- Gates: Rust fmt/test (26 testes), Web STANDARD (84/84 testes/typecheck/build) e workflow `quality` run `35804071973` em `f74229f` passaram.
+- Próximo passo: contrato de roteiro/source mapping e QA crítico com revisão explícita antes de avaliar modelo local real. TTS permanece bloqueado.

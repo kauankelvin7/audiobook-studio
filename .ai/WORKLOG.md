@@ -187,3 +187,4 @@
 - `FixtureNarrativePlanner` em suporte de testes devolve a mesma fixture por chamada, sem implementar planejamento. Testes cobrem sucesso, contexto inválido, falha de port, shape inválido, source ref fabricada e documentos divergentes.
 - QA independente encontrou P1: plano retornado diretamente poderia parecer aprovado antes do QA. Corrigido com wrapper de candidato/QA pendente. Sugestões P2 de fake reutilizável e teste cross-document também incorporadas.
 - Gates locais finais: Rust fmt/test (26 testes), Web STANDARD (84/84 testes, typecheck, build) e `git diff --check` passaram. CI do M4.4A pendente; nenhum modelo real, prompt, persistência do plano ou TTS foi iniciado.
+- Publicação M4.4A: commit remoto `f74229f42b54f32c4b0e471f66d0ca3e4c847208` na branch; checkout local alinhado e limpo. Workflow `quality` run `35804071973` concluiu com `success` para Rust e Web. O port/fake estruturado está TESTED nesse escopo, sem modelo real.
