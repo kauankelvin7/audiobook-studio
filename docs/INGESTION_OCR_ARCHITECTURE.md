@@ -1,8 +1,8 @@
 # Arquitetura de ingestão, OCR e conteúdo complexo
 
-Status geral: `DESIGNED`; contratos centrais `SCAFFOLDED/TESTED`; extração nativa `IMPLEMENTED/TESTED`; OCR e visão `NOT STARTED`.
+Status geral: `DESIGNED`; contratos centrais `SCAFFOLDED/TESTED`; extração nativa `IMPLEMENTED/TESTED`; captura limitada de região `IMPLEMENTED/TESTED` em Chrome; engine OCR e visão `NOT STARTED`.
 
-M4.5D acrescenta apenas a fronteira de candidato OCR: recibo `pending` vinculado no Rust a documento, região, texto nativo e hash da imagem declarada (ADR 0014). Ainda não há engine OCR, proveniência verificada dos pixels, reconciliação ou promoção de qualidade.
+M4.5D acrescenta a fronteira de candidato OCR: recibo `pending` vinculado no Rust a documento, região, texto nativo e hash da imagem declarada (ADR 0014). O adapter Web agora captura um crop PNG limitado e confere o hash dos bytes do PDF antes de renderizar (ADR 0018). Ainda não há engine OCR, persistência de candidato/recibo, reconciliação ou promoção de qualidade. A correção semântica da bbox não foi validada por revisão humana.
 
 ## Pipeline
 

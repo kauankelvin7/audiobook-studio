@@ -229,3 +229,8 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Sobre base `eae4ee5`, a exclusão histórica exige confirmação, preserva o checkpoint atual e um fallback íntegro da mesma fonte e usa fila durável IndexedDB v3 para remoção OPFS idempotente. ADR 0017 e worklog detalham contrato e limites. Não há exclusão automática.
 - Gates locais verdes: Rust fmt/43 testes/clippy; Web 127 testes, 2 opt-in ignorados, typecheck/build/audit; smoke Chrome headless validou cancelar/confirmar, reload e ausência dos arquivos/manifests excluídos. Edge e escuta humana não foram repetidos nesta execução. Commit remoto e CI ainda pendentes neste checkpoint.
 - Próximo passo de valor: retomar a trilha de qualidade do conteúdo (goldens locais revisados, OCR limitado/reconciliação no Rust e atestação), depois narrativa/TTS por capítulos. O WAV literal continua prova de exportação local, não audiobook final.
+
+## Captura de região PDF para OCR — 2026-09-23
+- Adapter PDF.js confere fonte e bbox e captura PNG de região com hash e limites. ADR 0018 e worklog registram o contrato. Smoke Chrome compara pixels do crop com página inteira; sem teste visual humano, rotação real ou corpus privado.
+- Gates locais: Rust fmt/43 testes/clippy; Web 129 testes, 2 opt-in ignorados, typecheck/build/audit 0; smoke Chrome passou. Revisão independente apontou três riscos e confirmou correções sem P0–P2 remanescentes. Publicação/CI ainda pendentes neste checkpoint.
+- Próximo lote: persistir imagem/candidato/recibo `pending` com verificação após retomada, testar PDF real com bbox/rotação e construir goldens locais revisados. Só então avaliar engine OCR e reconciliador Rust; sem TTS narrativo antes de QA semântico.

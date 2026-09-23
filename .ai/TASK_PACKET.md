@@ -1,5 +1,14 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — captura verificável de região PDF para OCR (2026-09-23)
+- Base: `codex/m4-content-model`, HEAD `4b25d5edf86632cdd7f3aeb06ab4f14a5249c6e1`, árvore limpa. AGENTS, CONTEXT_INDEX, HANDOFF, WORKLOG, ADRs 0008/0009/0010/0014 e contratos PDF/OCR consultados.
+- Objetivo: capturar pixels de uma região v2 a partir do PDF original, com limites de área e vínculo ao hash da fonte, e testar um caminho real do arquivo até imagem verificável. Sem alegar reconhecimento de texto ou aprovação semântica.
+- Evidência: recibo OCR Rust já aceita `imageHash`, mas ainda o trata como declaração não atestada; PDF.js extrai texto e retém bbox nativa, sem render/crop. PDF de fixture local permite prova de renderização sem publicar material do usuário.
+- Restrições: Rust mantém identidade do documento/candidato e elegibilidade; TypeScript fica com PDF.js/canvas/OPFS. Não iniciar TTS narrativo, backend nem substituir texto nativo. Sem engine OCR nesta entrega.
+- Desconhecidos: precisão das bbox de PDFs reais, rotação, browser canvas em todos os navegadores e qualidade de OCR futuro. Falhar fechado quando bbox não estiver dentro da página ou recurso exceder limites.
+- Riscos: crop da página errada, hash de fonte divergente, alocação excessiva, renderização parcial, imagem enganosa e vazamento de corpus. Plano: validação antes da renderização, limites fixos, hash dos bytes PNG, teste browser com fixture e teste de rejeição.
+- Verificação: testes Web, typecheck/build, Rust fmt/test/clippy, audit, smoke de navegador sem avaliação visual, diff check e revisão independente. Risco HIGH; Lead único writer.
+
 ## PRE-FLIGHT — validação real e persistência WAV literal (2026-09-23)
 - Base: `codex/m4-content-model`, HEAD `bbb8b15`, worktree limpa; CI `quality` do commit passou.
 - Evidência: em navegador integrado, o PDF local importou, a sessão Rust/WASM da página 10 passou, o motor Piper baixou o modelo e gerou WAV de 105,53 s. Fixture pública de 2 páginas gerou WAV de 3,15 s. A aba caiu ao acionar reprodução em ambos; causa não isolada.

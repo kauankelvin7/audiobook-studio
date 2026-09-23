@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:fast": "vitest run src/adapters/local_project_persistence.test.ts src/adapters/review_submission_persistence.test.ts src/adapters/indexeddb_checkpoint_repository.test.ts src/adapters/opfs_artifact_store.test.ts src/adapters/web_locks_project_lock.test.ts",
     "test:browser:audio": "node scripts/smoke-literal-audio.mjs",
+    "test:browser:ocr-crop": "node scripts/smoke-ocr-crop.mjs",
     "test:standard": "npm run typecheck && npm test && npm run build",
     "test:full": "npm run test:standard && npm audit --audit-level=high"
   },
