@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
 
 use audiobook_core::{
-    build_active_narrative_identity, build_script_review_packet, build_validated_narration_qa,
-    evaluate_review_against_active, validate_script_review_submission, ContentModel, DocumentIr,
-    DocumentIrV2, GenerationJob, NarrativePlan, NarrativeScript, ReviewBindingReference,
-    ScriptReviewSubmission, SemanticOutline,
+    build_active_narrative_identity, build_ocr_candidate_receipt, build_script_review_packet,
+    build_validated_narration_qa, evaluate_review_against_active,
+    validate_script_review_submission, ContentModel, DocumentIr, DocumentIrV2, GenerationJob,
+    NarrativePlan, NarrativeScript, OcrCandidate, ReviewBindingReference, ScriptReviewSubmission,
+    SemanticOutline,
 };
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
@@ -60,6 +61,17 @@ pub fn build_semantic_outline_json(content_model_json: &str) -> Result<String, J
     SemanticOutline::skeleton(&content)
         .and_then(|outline| outline.to_json(&content))
         .map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn build_ocr_candidate_receipt_json(
+    document_json: &str,
+    candidate_json: &str,
+) -> Result<String, JsValue> {
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let candidate = OcrCandidate::from_json(candidate_json).map_err(js_error)?;
+    let receipt = build_ocr_candidate_receipt(&document, &candidate).map_err(js_error)?;
+    serde_json::to_string(&receipt).map_err(js_error)
 }
 
 #[wasm_bindgen]

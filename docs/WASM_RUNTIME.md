@@ -22,4 +22,6 @@ Em M4.4F, `build_active_narrative_identity_json` expõe hashes canônicos de fon
 
 Em M4.4G, `evaluate_review_against_active_json` revalida uma submissão no contexto ativo e calcula `bindingHash` no core. A fronteira Web devolve `not_established` para revisão histórica sem vínculo e `bound_unverified` para revisão v2 cujo vínculo salvo confere. Nenhum desses estados é atestação ou `pass` de QA (ADR 0013).
 
+Em M4.5D, `build_ocr_candidate_receipt_json` vincula um candidato OCR à fonte, região, texto nativo e hash de imagem declarado. O recibo continua `pending`; não altera DocumentIR nem atesta a origem dos pixels (ADR 0014).
+
 Limites: PDF.js permanece responsável por extração v1; páginas sem texto seguem como `no_text`/revisão. O skeleton de outline não é um planner semântico. Nenhum modelo, TTS ou geração de áudio é iniciado nesta etapa.

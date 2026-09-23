@@ -4,6 +4,7 @@ export const memory: WebAssembly.Memory;
 export const build_active_narrative_identity_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
 export const build_content_model_json: (a: number, b: number) => [number, number, number, number];
 export const build_narration_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
+export const build_ocr_candidate_receipt_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const build_script_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
 export const build_script_review_packet_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
 export const build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];

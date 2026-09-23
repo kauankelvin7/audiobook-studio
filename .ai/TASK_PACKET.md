@@ -1,5 +1,16 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5D candidato OCR vinculado à fonte (2026-09-23)
+- Base: `codex/m4-content-model` limpa em `e185a2f`; CI de M4.5C passou. Handoff pede contrato Rust para OCR sem promoção automática.
+- Objetivo: validar no core um candidato OCR de região contra documento/fonte/página/região e hash do texto nativo; devolver pacote de revisão `pending` com sinais mensurados e hashes, sem alterar DocumentIR ou ContentModel.
+- Evidência: DocumentIR v2 tem camadas OCR, mas não há engine nem golden aprovado. O manual real apresenta PUA e exige reconciliação, não substituição cega.
+- Restrições: domínio/hash em Rust; WASM fachada; TS schema/adapter de fronteira com paridade real. Sem persistência, engine OCR, UI, QA pass ou TTS. Escopo somente regiões existentes, não páginas `no_text`.
+- Desconhecidos: qualidade do OCR real, vínculo verificável entre pixels renderizados e região, política de revisão humana. `imageHash` fornecido pelo adapter não prova captura correta.
+- Riscos: candidato de documento errado, fonte obsoleta, texto vazio/enorme, glifos privados no OCR, confusão entre redução de PUA e fidelidade, status `pending` tratado como aprovação.
+- Plano: contrato/erro tipado e testes Rust; export WASM; schema/adapter TS com teste WASM real; ADR de limites; gates completos, diff, revisão e publicação se verdes.
+- Verificação: Rust fmt/test/clippy, WASM build, Web STANDARD/audit e teste dirigido, diff check, CI remoto. Resultados no worklog.
+- Risco: alto; um writer.
+
 ## PRE-FLIGHT — M4.5C goldens locais e ingestão real (2026-09-23)
 - Objetivo: conferir visualmente páginas selecionadas do corpus COBOL/CICS, registrar pequenas expectativas de fidelidade fora do repositório público e testar a importação real PDF.js→Rust/WASM com esses PDFs locais.
 - Base: branch `codex/m4-content-model` limpa, HEAD `8b40de2`; M4.5B mediu todas as páginas, mas não verificou `DocumentIR`/ContentModel. O manual contém PUA em todas as páginas.

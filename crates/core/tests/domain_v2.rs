@@ -1,15 +1,16 @@
 use std::collections::{BTreeMap, HashSet};
 
 use audiobook_core::{
-    build_active_narrative_identity, build_narration_qa, build_script_review_packet,
-    build_validated_narration_qa, compare_heading_to_body, evaluate_review_against_active,
-    find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
-    validate_script_review_submission, ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2,
-    GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility,
-    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
-    NarrativeSection, QaStatus, ReviewAttestationStatus, ReviewBindingReference,
-    ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission,
-    SegmentReviewDecision, SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
+    build_active_narrative_identity, build_narration_qa, build_ocr_candidate_receipt,
+    build_script_review_packet, build_validated_narration_qa, compare_heading_to_body,
+    evaluate_review_against_active, find_repeated_formulaic_openers, normalize_narrative_text,
+    reduce_narrative_memory, validate_script_review_submission, ActiveReviewStatus, ContentModel,
+    DocumentIr, DocumentIrV2, GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus,
+    NarrationEligibility, NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan,
+    NarrativeScript, NarrativeSection, OcrCandidate, OcrCandidateError, OcrCandidateStatus,
+    QaStatus, ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError, ReviewStatus,
+    ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
+    SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -24,6 +25,108 @@ const NARRATIVE_SCRIPT_FIXTURE: &str =
 
 fn document_v2() -> DocumentIrV2 {
     DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
+}
+
+#[test]
+fn ocr_candidate_is_bound_and_remains_pending_without_changing_source() {
+    let document = document_v2();
+    let region = &document.pages[0].regions[0];
+    let native = region
+        .sources
+        .raw_text
+        .as_deref()
+        .expect("fixture raw text");
+    let candidate = OcrCandidate {
+        schema_version: 1,
+        document_id: document.document_id.clone(),
+        source_hash: document.source_hash.clone(),
+        page_number: 1,
+        region_id: region.id.clone(),
+        native_text_hash: audiobook_core::sha256_source(native.as_bytes()),
+        image_hash: audiobook_core::sha256_source(b"rendered region bytes"),
+        engine_id: "fixture-engine".into(),
+        engine_version: "1".into(),
+        text: "Recovered code candidate".into(),
+    };
+    let original = document.clone();
+    let receipt = build_ocr_candidate_receipt(&document, &candidate).expect("bound candidate");
+    assert_eq!(document, original);
+    assert_eq!(receipt.status, OcrCandidateStatus::Pending);
+    assert_eq!(
+        receipt.ocr_text_hash,
+        audiobook_core::sha256_source(candidate.text.as_bytes())
+    );
+    assert_eq!(
+        receipt,
+        build_ocr_candidate_receipt(&document, &candidate).unwrap()
+    );
+    assert_ne!(receipt.receipt_hash, receipt.ocr_text_hash);
+    let complete_identity = serde_json::to_vec(&(
+        receipt.schema_version,
+        &receipt.document_id,
+        &receipt.source_hash,
+        &receipt.document_hash,
+        receipt.page_number,
+        &receipt.region_id,
+        &receipt.native_text_hash,
+        &receipt.image_hash,
+        &receipt.engine_id,
+        &receipt.engine_version,
+        &receipt.ocr_text_hash,
+        receipt.native_private_use_count,
+        receipt.ocr_private_use_count,
+        receipt.status,
+        &receipt.method_version,
+    ))
+    .unwrap();
+    assert_eq!(
+        receipt.receipt_hash,
+        audiobook_core::sha256_source(&complete_identity)
+    );
+
+    let mut stale = candidate.clone();
+    stale.native_text_hash = audiobook_core::sha256_source(b"older text");
+    assert_eq!(
+        build_ocr_candidate_receipt(&document, &stale),
+        Err(OcrCandidateError::StaleNativeText)
+    );
+    let mut wrong_page = candidate.clone();
+    wrong_page.page_number = 2;
+    assert_eq!(
+        build_ocr_candidate_receipt(&document, &wrong_page),
+        Err(OcrCandidateError::UnknownRegion)
+    );
+    let mut wrong_source = candidate.clone();
+    wrong_source.source_hash = audiobook_core::sha256_source(b"other PDF");
+    assert_eq!(
+        build_ocr_candidate_receipt(&document, &wrong_source),
+        Err(OcrCandidateError::WrongDocument)
+    );
+    let mut invalid_image = candidate.clone();
+    invalid_image.image_hash = "sha256:bad".into();
+    assert_eq!(
+        build_ocr_candidate_receipt(&document, &invalid_image),
+        Err(OcrCandidateError::InvalidImageHash)
+    );
+    let mut blank = candidate.clone();
+    blank.text = "  ".into();
+    assert_eq!(
+        build_ocr_candidate_receipt(&document, &blank),
+        Err(OcrCandidateError::InvalidText)
+    );
+    let mut changed = candidate.clone();
+    changed.text.push('!');
+    assert_ne!(
+        receipt.receipt_hash,
+        build_ocr_candidate_receipt(&document, &changed)
+            .unwrap()
+            .receipt_hash
+    );
+    let mut glyphs = candidate.clone();
+    glyphs.text = "\u{E000}".into();
+    let glyph_receipt = build_ocr_candidate_receipt(&document, &glyphs).unwrap();
+    assert_eq!(glyph_receipt.ocr_private_use_count, 1);
+    assert_eq!(glyph_receipt.status, OcrCandidateStatus::Pending);
 }
 
 #[test]

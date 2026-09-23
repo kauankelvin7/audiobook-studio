@@ -2,6 +2,8 @@
 
 Status geral: `DESIGNED`; contratos centrais `SCAFFOLDED/TESTED`; extração nativa `IMPLEMENTED/TESTED`; OCR e visão `NOT STARTED`.
 
+M4.5D acrescenta apenas a fronteira de candidato OCR: recibo `pending` vinculado no Rust a documento, região, texto nativo e hash da imagem declarada (ADR 0014). Ainda não há engine OCR, proveniência verificada dos pixels, reconciliação ou promoção de qualidade.
+
 ## Pipeline
 
 Cada página passa por extração nativa, segmentação em regiões e análise de qualidade. O resultado `good` usa texto nativo. `partial` envia somente regiões ruins ao OCR. `no_text` permite OCR da página. `corrupted` executa OCR e reconciliação. O scheduler futuro prioriza páginas necessárias ao próximo `NarrativeSection`; processamento integral não bloqueia TTFA.

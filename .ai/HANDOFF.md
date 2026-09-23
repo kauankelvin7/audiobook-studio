@@ -195,3 +195,8 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 ## M4.5C publicado — 2026-09-23
 - Commit `2978278463139fa7d6567725c86a77c68bf09366` publicado em `codex/m4-content-model`; workflow `quality` run `35874469086` concluiu com sucesso. A referência local permanece ignorada pelo Git.
 - Próxima etapa autorizada: contrato Rust para candidato OCR vinculado a fonte/região, sem promover texto automaticamente; engine/recuperação real dependem de golden local revisado. Não iniciar TTS.
+
+## M4.5D — contrato OCR em validação (2026-09-23)
+- Base limpa `e185a2f`; PRE-FLIGHT registrado. Core Rust valida identidade do candidato OCR e devolve recibo `pending` com hashes/sinais; não modifica DocumentIR, ContentModel ou elegibilidade. WASM/TS apenas fronteira; ADR 0014.
+- Gates locais: Rust 38 testes, fmt/clippy; build WASM; Web STANDARD 110 testes/typecheck/build (2 opt-in ignorados); audit 0 vulnerabilidades. Revisão independente inicial encontrou dois P2 de integridade, corrigidos e gates repetidos; segunda revisão read-only confirmou sem novo P0/P1/P2. Diff check passou; publicação/CI pendentes neste checkpoint.
+- Próximo passo após CI: definir captura limitada de pixels/região e provar vínculo entre crop e documento; avaliar engine OCR local com goldens revisados. Páginas sem região nativa continuam fora do contrato v1. Sem promoção automática de OCR, QA pass ou TTS.
