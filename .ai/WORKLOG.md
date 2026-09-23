@@ -164,3 +164,10 @@
 - `npm run wasm:build` regenerou bindings e binário. Primeiro STANDARD Web falhou em teste preexistente de Web Locks porque Node 24 disponibiliza `navigator.locks`; o teste agora remove essa API explicitamente. STANDARD repetido passou: typecheck, 78/78 testes e build.
 - `git diff --check` passou. CI da publicação M4.3A ainda pendente; M4.3B, planner/modelo e TTS não iniciados.
 - QA independente revisou o diff M4.3A sem achados P0/P1. Casos adicionais de `plan_id` vazio, fala em branco e seção extra foram incorporados; Rust fmt/test/clippy foram repetidos e passaram. Teste do export com WASM real está alocado no M4.3C.
+- Publicação M4.3A: commit remoto `9f7aca594121b0488407c41f2b3c376086012c3b` na branch `codex/m4-content-model`; árvore idêntica ao commit local validado. O workflow `quality` run `35802591562` concluiu com `success` nos jobs Rust e Web. O checkout local foi alinhado ao commit remoto e ficou limpo.
+
+## 2026-09-22 — M4.3B adapter narrativo Web
+- Base: M4.3A no commit `9f7aca5`, CI Rust/Web verde. PRE-FLIGHT registrado no TASK_PACKET antes do código.
+- `rust_wasm_runtime.ts` compartilha inicialização WASM entre os adapters de conteúdo e narrativa, com retry após falha. `rust_narrative_pipeline.ts` valida shape na fronteira, encaminha plano e falas ao core e valida o JSON de QA devolvido; não implementa QA ou deduplicação em TypeScript.
+- Testes com port injetado cobrem encaminhamento, entrada inválida, rejeição do core, falha de inicialização e saída inválida. QA independente encontrou P1: serialização de fala circular/tipo inválido escapava como erro JS bruto. Corrigido com schema de registro de strings e erro tipado `INVALID_INPUT`; testes de regressão adicionados.
+- STANDARD Web final passou: typecheck, 80/80 testes e build. `git diff --check` passou. Integração com bundle WASM real e fixture narrativa está reservada para M4.3C. CI do M4.3B ainda pendente; planner/modelo/TTS não iniciados.

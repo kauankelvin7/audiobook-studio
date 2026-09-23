@@ -213,3 +213,12 @@
 - Constraints: único writer Lead; sem modelo, adapter TS ou TTS neste batch; source refs derivados do ContentModel validado; nenhum QA para plano contextual inválido.
 - Risks: serialização de fala ausente, contagens arbitrárias, deriva dos bindings gerados.
 - Verification: testes Rust de plano válido/inválido e QA; regeneração WASM; fmt/test/clippy; Web STANDARD; CI antes de M4.3B.
+
+## PRE-FLIGHT de execução — M4.3B (2026-09-22)
+- Base: M4.3A publicado em `9f7aca5`; workflow `quality` run `35802591562` verde nos jobs Rust e Web.
+- Objective: criar adapter TypeScript de fronteira para validar plano e solicitar QA ao WASM real, sem duplicar regras narrativas.
+- Evidence: funções `validate_narrative_plan_json` e `build_narration_qa_json` estão nos bindings gerados; `rust_content_pipeline.ts` demonstra o padrão de carregamento/validação de contratos.
+- Constraints: TS valida shape de entrada/saída e encaminha ao core; sem planner/modelo/TTS; manter `REVIEW` para claims não avaliados; um writer Lead e QA independente.
+- Risks: schema TS divergir do Rust, inicialização WASM em contexto errado, erro WASM perder mensagem, adapter aceitar plano inválido.
+- Plan: adapter fino e testes de fronteira com fake injetável para encaminhamento e falhas; deixar fixture completa e execução real do bundle para M4.3C.
+- Verification: teste focado, typecheck, Web STANDARD e revisão; CI antes de M4.3C.

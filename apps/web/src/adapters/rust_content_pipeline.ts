@@ -1,14 +1,14 @@
-import initWasm, {
+import {
   build_content_model_json,
   build_semantic_outline_json,
   document_v2_has_source_units_json,
   migrate_document_v1_to_v2_json,
   validate_document_v2_json,
 } from "../generated/audiobook_wasm/audiobook_wasm.js";
-import wasmUrl from "../generated/audiobook_wasm/audiobook_wasm_bg.wasm?url";
 import { contentModelSchema, semanticOutlineSchema, type ContentModel, type SemanticOutline } from "../schemas/content_model";
 import { documentIrSchema, type DocumentIr } from "../schemas/document";
 import { documentIrV2Schema, type DocumentIrV2 } from "../schemas/ingestion";
+import { ensureRustWasm } from "./rust_wasm_runtime";
 
 export type RustContentAnalysis = {
   documentV2: DocumentIrV2;
@@ -25,20 +25,6 @@ export class RustContentError extends Error {
   }
 }
 
-let initialization: Promise<void> | null = null;
-
-async function ensureWasm(): Promise<void> {
-  if (!initialization) {
-    initialization = initWasm({ module_or_path: wasmUrl })
-      .then(() => undefined)
-      .catch(error => {
-        initialization = null;
-        throw new RustContentError("WASM_INIT_FAILED", "O núcleo Rust/WASM não pôde ser carregado.", { cause: error });
-      });
-  }
-  await initialization;
-}
-
 function parseCoreOutput<T>(json: string, schema: { parse: (value: unknown) => T }): T {
   try {
     return schema.parse(JSON.parse(json));
@@ -52,7 +38,11 @@ export async function analyzeDocumentV1(input: DocumentIr): Promise<RustContentA
   if (!parsed.success) {
     throw new RustContentError("INVALID_DOCUMENT", "O DocumentIR v1 não passou na validação de fronteira.", { cause: parsed.error });
   }
-  await ensureWasm();
+  try {
+    await ensureRustWasm();
+  } catch (error) {
+    throw new RustContentError("WASM_INIT_FAILED", "O núcleo Rust/WASM não pôde ser carregado.", { cause: error });
+  }
 
   let documentJson: string;
   let contentJson: string | null;

@@ -82,3 +82,14 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Gates locais: Rust fmt, 25 testes e clippy passaram; `npm run wasm:build` e Web STANDARD (78/78, typecheck, build) passaram; `git diff --check` passou. O teste de Web Locks foi ajustado para simular API ausente no Node 24.
 - Mudanças ainda locais e sem CI do novo commit. Próximo passo: revisão independente, commit/push de M4.3A e CI `quality`. Não iniciar M4.3B se CI falhar; planner/modelo e TTS seguem fora desta etapa.
 - Revisão QA independente não encontrou P0/P1. Inputs vazios e seção extra ganharam cobertura Rust; o teste de integração do export WASM permanece para M4.3C. Rust fmt/test/clippy passaram novamente após esses testes.
+
+## M4.3A concluído — 2026-09-22
+- Commit `9f7aca594121b0488407c41f2b3c376086012c3b` publicado em `codex/m4-content-model`; workflow `quality` run `35802591562` concluiu com sucesso nos jobs Rust e Web.
+- Rust fmt/test (25 testes)/clippy, regeneração WASM e Web STANDARD (78 testes/typecheck/build) passaram localmente. QA independente não encontrou P0/P1.
+- Core Rust valida NarrativePlan contra ContentModel/Outline e falas completas antes de emitir QA. Claim grounding ainda não é avaliado e força `REVIEW`. Export WASM foi gerado; a execução do export com bundle real está no M4.3C.
+- Próximo batch: M4.3B, adapter TS fino para validação de plano e QA, sem lógica de domínio. TTS continua bloqueado.
+
+## M4.3B localmente validado — 2026-09-22
+- Adapter narrativo TS e inicialização WASM compartilhada implementados sem regra narrativa nova em TS.
+- QA independente encontrou falha P1 na serialização de fala; corrigida e coberta por testes. STANDARD Web final: 80/80 testes, typecheck e build passaram; diff check passou.
+- Publicação/CI ainda pendentes. Próximo batch M4.3C só após CI verde do M4.3B; precisa fixture de NarrativePlan e teste contra WASM real. TTS permanece bloqueado.
