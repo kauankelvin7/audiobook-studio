@@ -230,3 +230,4 @@
 - Após correções: Web STANDARD 97/97, typecheck e build passaram. Segunda revisão independente em andamento neste checkpoint.
 - Segunda revisão confirmou a correção de contexto/race e apontou P1: leitura histórica ficava inacessível após troca da fonte ativa. Removida a exigência de presença no checkpoint atual; manifest fixado, integridade OPFS e revalidação contra contexto fornecido continuam obrigatórios. Teste com fonte ativa alterada e chave retirada do checkpoint passou. Gate rápido final: 31/31.
 - Gate Web completo final após último ajuste: 97/97 testes, typecheck e build passaram. Rust não mudou neste batch; 33 testes, fmt e clippy já tinham passado. Publicação e CI permanecem para o passo seguinte.
+- Commit M4.4E `c513744` publicado em `origin/codex/m4-content-model`; página pública de Actions confirmou `quality` run `35860380680` como `completed successfully`. Limites de atestação permanecem conforme ADR 0011.

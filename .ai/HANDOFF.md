@@ -158,3 +158,7 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - ADR 0011 explicita a fronteira: o checkpoint não guarda ainda a identidade de plano/roteiro ativos; a API é histórica e retorna `currentness: not_established`. Nenhuma atestação, QA `pass` ou TTS foi habilitada.
 - Rust fmt/test (33)/clippy, Web STANDARD final (97 testes/typecheck/build) e audit 0 vulnerabilidades passaram localmente. Revisão independente inicial teve P1/P2, corrigidos por contrato histórico explícito e rechecagem; segunda revisão apontou inacessibilidade após mudança da fonte ativa, corrigida e coberta no gate rápido (31/31). Publicação e CI ainda pendentes neste checkpoint.
 - Próximo passo após CI verde: persistir identidade canônica de plano/roteiro ativo, estabelecer política e mecanismo de atestação confiável vinculado ao `submissionHash`, e obter golden mainframe real para avaliação semântica. Não avançar para TTS.
+
+## M4.4E concluído — 2026-09-23
+- Commit `c513744` publicado em `codex/m4-content-model`; GitHub Actions `quality` run `35860380680` concluiu com sucesso.
+- Persistência histórica local de submissões está validada. `currentness: not_established` e `attestationStatus: unverified` continuam explícitos. Próximo batch: identidade ativa de plano/roteiro e desenho de atestação confiável; corpus/golden real ainda necessário antes de QA `pass`. TTS bloqueado.
