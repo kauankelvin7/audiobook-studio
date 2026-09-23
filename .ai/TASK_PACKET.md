@@ -437,3 +437,10 @@
 - Novo PDF COBOL/CICS examinado apenas localmente: 105 páginas, 1.066.609 bytes, texto extraível em todas, mas 36.111 caracteres de área privada Unicode em 488.556 caracteres extraídos. Página 27 renderizada é legível e mostra sobreposição visual em parte da lista/rodapé. Corpus registrado em `docs/INGESTION_TEST_STRATEGY.md`, sem copiar o PDF para o repositório. OCR e fidelidade não foram medidos.
 - Gates finais: Rust fmt, 36 testes workspace e clippy `-D warnings`; WASM regenerado; Web STANDARD 107 testes/typecheck/build; `npm audit --audit-level=high` 0 vulnerabilidades; diff check. O clippy apontou inicialmente oito argumentos no core e depois no export WASM; ambas as APIs foram agrupadas e os gates repetidos. Revisão independente read-only após correção não encontrou P0/P1/P2; Lead executou os testes.
 - Publicação e CI do novo commit ainda pendentes neste registro. Próximo batch após CI: política/mecanismo de atestação confiável e avaliação semântica com goldens locais, além de detecção/recuperação de camada de texto suspeita. A UI e o TTS continuam fora desta etapa.
+## PRE-FLIGHT — correção de seleção de WAV literal (2026-09-23)
+- Base: `codex/m4-content-model`, HEAD `018607192573c121d6a764a556ed514344f8c35f`, árvore limpa. Governança e handoff consultados.
+- Objetivo: verificar resalvamento de WAV e tornar recuperação tolerante a metadata JSON danificada, sem reinterpretá-lo como audiobook final.
+- Hipótese inicial: possível seleção de gravação antiga por `find`. Teste mostrou que `saveLiteralAudio` remove as chaves antigas do checkpoint; hipótese refutada. Evidência confirmada: `JSON.parse` de metadata danificada lançava erro na leitura.
+- Restrições: Rust mantém domínio canônico; TS só corrige seleção no adapter de storage. Sem TTS novo, UI ou backend.
+- Risco: regressão de recuperação de WAV e retenção de artefatos antigos. Plano: cobrir resalvamento e corrupção de metadata; gates Web/Rust e revisão do diff.
+- Desconhecido: playback/download externos ainda não comprovados; Chrome/Edge não estão expostos à automação desta sessão. CI remoto não pôde ser consultado agora.

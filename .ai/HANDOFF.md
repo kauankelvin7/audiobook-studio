@@ -218,3 +218,6 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 ## M4.5D publicado — 2026-09-23
 - Commit `eefd9a7` publicado em `codex/m4-content-model`; workflow `quality` run `35877078233` concluiu com sucesso. OCR candidato permanece `pending`, sem engine ou promoção de texto.
 - Próximo batch: capturar e limitar pixels da região via PDF.js, persistir imagem/candidato/recibo com proveniência e revalidar identidade ativa; só depois medir OCR real contra goldens locais revisados. Sem TTS.
+## Recuperação WAV literal — 2026-09-23
+- Resalvamento testado: checkpoint aponta só para o WAV novo; metadata JSON inválida não quebra recuperação. Gates locais Web/Rust verdes; detalhes em `.ai/WORKLOG.md`.
+- Próximo passo: validar reprodução e download em navegador externo automatizável ou manualmente, confirmar CI; em seguida definir retenção/limpeza explícita dos WAVs substituídos. Não chamar o resultado de audiobook final.

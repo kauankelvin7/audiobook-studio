@@ -63,6 +63,10 @@ describe("saved literal audio", () => {
     expect(savedWrites.every(write => write.pinned && !write.finalArtifact)).toBe(true);
     expect(latest.artifactKeys).toHaveLength(4);
     await expect(loadLiteralAudio(store, document)).resolves.toMatchObject({ blob: audio, startPage: 1, endPage: 1 });
+    const newerAudio = wav();
+    await saveLiteralAudio(store, document, session, newerAudio);
+    expect(latest.artifactKeys.filter(key => /^literal_wav_[0-9a-f]{32}$/.test(key))).toHaveLength(1);
+    await expect(loadLiteralAudio(store, document)).resolves.toMatchObject({ blob: newerAudio, startPage: 1, endPage: 1 });
     await expect(loadLiteralAudio(store, { ...document, sourceHash: `sha256:${"e".repeat(64)}` }))
       .resolves.toBeNull();
     await expect(saveLiteralAudio(store, document, { ...session, pages: [{ ...session.pages[0],
@@ -72,6 +76,8 @@ describe("saved literal audio", () => {
     writes.set(metaKey, { ...storedMeta, value: new Blob([JSON.stringify({
       ...JSON.parse(await storedMeta.value.text()), sessionHash: `sha256:${"f".repeat(64)}`,
     })], { type: "application/json" }) });
+    await expect(loadLiteralAudio(store, document)).resolves.toBeNull();
+    writes.set(metaKey, { ...storedMeta, value: new Blob(["{"], { type: "application/json" }) });
     await expect(loadLiteralAudio(store, document)).resolves.toBeNull();
   });
 });

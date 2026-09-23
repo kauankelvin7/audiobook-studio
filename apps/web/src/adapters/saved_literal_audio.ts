@@ -74,7 +74,12 @@ export async function loadLiteralAudio(store: Store, document: DocumentIrV2): Pr
   if (!audioRecord || !metaRecord || audioRecord.kind !== "audio_chunk" || metaRecord.kind !== "audio_metadata"
     || audioRecord.mediaType !== "audio/wav" || metaRecord.mediaType !== "application/json") return null;
   const metaBlob = await store.readArtifact(metaRecord);
-  const metadata = metaSchema.safeParse(JSON.parse(await metaBlob.text()));
+  let metadata: ReturnType<typeof metaSchema.safeParse>;
+  try {
+    metadata = metaSchema.safeParse(JSON.parse(await metaBlob.text()));
+  } catch {
+    return null;
+  }
   if (!metadata.success || metadata.data.documentId !== document.documentId || metadata.data.sourceHash !== document.sourceHash) return null;
   const session = await buildReadingSession(document, metadata.data.startPage, metadata.data.endPage);
   if (await sessionHash(session) !== metadata.data.sessionHash) return null;
