@@ -1,5 +1,9 @@
 # HANDOFF — retorno ao Codex Work
 
+## Checkpoint — síntese real e persistência WAV (2026-09-23)
+- CI `quality` de `bbb8b15` passou. Piper gerou WAV de 105,53 s com PDF real e 3,15 s com fixture pública no navegador integrado. Ambas as abas caíram ao acionar reprodução nativa; nenhuma escuta foi concluída. Não declarar áudio auditivamente aprovado.
+- Salvamento no OPFS com metadata vinculada a fonte/sessão Rust/WASM foi testado com fixture; recarga recuperou WAV e documento. Web STANDARD 119 testes, Rust 43 e audit 0 passaram. Falta validar reprodução/download em navegador externo e política de retenção. Não confundir com audiobook narrativo final.
+
 ## Checkpoint em andamento — WAV local (2026-09-23)
 - Partindo do commit `4560aa7`, foi integrado caminho de geração de WAV literal com Piper Web, runtime local no build e modelo Faber pt-BR sob download explícito. Há testes unitários de fronteira e build Web; validação real da inferência/escuta em navegador ainda falta.
 - Não confundir WAV literal com audiobook narrativo final. Próximo passo após gates/CI: testar uma sessão real curta em navegador suportado sem avaliar visualmente; medir download, inferência, reprodução e áudio salvo. Persistência automática e QA auditivo ainda pendentes.

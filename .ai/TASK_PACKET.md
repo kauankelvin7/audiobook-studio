@@ -1,5 +1,16 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — validação real e persistência WAV literal (2026-09-23)
+- Base: `codex/m4-content-model`, HEAD `bbb8b15`, worktree limpa; CI `quality` do commit passou.
+- Evidência: em navegador integrado, o PDF local importou, a sessão Rust/WASM da página 10 passou, o motor Piper baixou o modelo e gerou WAV de 105,53 s. Fixture pública de 2 páginas gerou WAV de 3,15 s. A aba caiu ao acionar reprodução em ambos; causa não isolada.
+- Objetivo: salvar o WAV literal gerado no projeto local e recuperá-lo após recarga, com integridade e vínculo à fonte; registrar o teste real sem alegar qualidade auditiva.
+- Restrições: não marcar áudio literal como `final_audio` narrativo; manter Rust canônico para sessão, TS para OPFS/IndexedDB/UI. Sem backend ou upload de texto.
+- Desconhecidos: causa da queda do navegador integrado, quota do OPFS, reprodução em Chrome/Edge externo, qualidade auditiva.
+- Riscos: publicar manifest sem arquivo, exibir WAV de outro documento, perder áudio salvo ao trocar projeto, quota cheia, sobrescrever artefato válido.
+- Plano: usar infraestrutura de persistência existente com artefato não final e metadata validada; recuperar somente quando fonte e sessão conferirem; testes unitários e gates; atualizar ADR/handoff/worklog.
+- Verificação: testes de armazenamento/recuperação, Rust fmt/test/clippy, Web STANDARD/audit, diff, CI. Não repetir clique que derrubou o navegador integrado.
+- Risco: alto; um writer, revisão final conservadora.
+
 ## PRE-FLIGHT — exportação de leitura literal (2026-09-23)
 - Base: `codex/m4-content-model`, HEAD `4560aa7`, worktree limpa. A sessão Rust/WASM de 1–10 páginas já exige revisão; Web Speech não fornece bytes exportáveis.
 - Objetivo: gerar, reproduzir e baixar WAV local de uma sessão literal conferida, sem confundir com audiobook narrativo final.

@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-09-23 — validação Piper e persistência WAV literal
+- Base limpa `bbb8b15`; CI `quality` do commit concluiu `success`. PRE-FLIGHT registrado antes das alterações.
+- Teste funcional no navegador integrado: PDF local de 75 páginas importado; sessão Rust/WASM da página 10 aceita; Piper baixou modelo e gerou WAV reconhecido por `<audio>` com duração 105,534694 s. Fixture pública `text_and_blank.pdf` gerou WAV de 3,146304 s. Ao acionar reprodução nativa, a aba caiu nas duas tentativas; causa não isolada. Não houve escuta ou inspeção visual.
+- Persistência: novo adapter grava WAV literal e metadata no OPFS, publica checkpoint/manifest via serviço existente e recupera somente após comparar documento, fonte e hash de sessão Rust/WASM. Áudio é `audio_chunk` fixado, nunca `final_audio` narrativo. Falha de armazenamento mantém WAV gerado disponível para download imediato. Gravações antigas não são excluídas automaticamente.
+- Teste dirigido `saved_literal_audio.test.ts` passou. Após gerar novamente a fixture no navegador integrado, a UI confirmou salvamento e, após recarga, recuperou projeto e WAV salvo. O elemento `<audio>` e link de download estavam presentes. `waitForEvent('download')` não recebeu evento no navegador integrado; download em arquivo externo não está comprovado.
+- Ajuste após revisão: salvar exige sessão idêntica à reconstruída pelo Rust/WASM; WAV ausente/corrompido não deve bloquear recuperação do documento e ganha mensagem específica. Web STANDARD passou: 119 testes, 2 opt-in ignorados, typecheck e build. Rust fmt/test/clippy passaram (43 testes); npm audit encontrou 0 vulnerabilidades; diff check passou. CI do novo commit ainda não executada.
+- Riscos: reprodução externa, quota/retention e integridade do modelo remoto. A queda da aba ao reproduzir no navegador integrado permanece não isolada.
+
 ## 2026-09-23 — geração de WAV local da leitura literal
 - Base limpa `4560aa7` em `codex/m4-content-model`; PRE-FLIGHT registrado antes do código. Rust/WASM permanece fonte canônica da sessão; TS apenas adapter de TTS/Web/UI.
 - Instalada versão fixa de Piper Web 1.0.5, ONNX Runtime Web 1.18.0 e fonemizador Piper WASM 1.0.0. O build copia os runtimes WASM/data para mesma origem; o modelo Faber pt-BR (~63 MB) é baixado sob comando do usuário. HEAD dos endpoints ONNX e configuração retornou HTTP 200; não houve download/inferência real do modelo neste ambiente.

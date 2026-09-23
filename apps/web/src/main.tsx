@@ -5,6 +5,7 @@ import type { CheckpointDraft } from "./adapters/local_project_persistence";
 import { MAX_PDF_BYTES } from "./adapters/pdf_limits";
 import { LocalSpeechPlayer, type SpeechState } from "./adapters/local_speech";
 import { renderLocalWav, type WavProgress } from "./adapters/local_wav";
+import { loadLiteralAudio, saveLiteralAudio, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
 import type { ArtifactWrite } from "./adapters/ports";
 import { documentIrSchema, type DocumentIr } from "./schemas/document";
@@ -20,6 +21,7 @@ function App() {
   const importGenerationRef = useRef(0);
   const wavAbortRef = useRef<AbortController | null>(null);
   const wavUrlRef = useRef<string | null>(null);
+  const savedWavUrlRef = useRef<string | null>(null);
   const [document, setDocument] = useState<DocumentIr | null>(null);
   const [documentV2, setDocumentV2] = useState<DocumentIrV2 | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -35,6 +37,7 @@ function App() {
   const [wavBusy, setWavBusy] = useState(false);
   const [wavUrl, setWavUrl] = useState<string | null>(null);
   const [wavProgress, setWavProgress] = useState<WavProgress | null>(null);
+  const [savedWav, setSavedWav] = useState<(SavedLiteralAudio & { url: string }) | null>(null);
 
   function clearWav() {
     wavAbortRef.current?.abort();
@@ -44,6 +47,12 @@ function App() {
     setWavUrl(null);
     setWavProgress(null);
     setWavBusy(false);
+  }
+
+  function clearSavedWav() {
+    if (savedWavUrlRef.current) URL.revokeObjectURL(savedWavUrlRef.current);
+    savedWavUrlRef.current = null;
+    setSavedWav(null);
   }
 
   useEffect(() => {
@@ -77,7 +86,9 @@ function App() {
         for (const projectId of await localPersistence!.service.listProjectIds()) {
           try {
             const inspection = await localPersistence!.service.inspectResume(projectId);
-            if (inspection.checkpoint && inspection.resumable) candidates.push(inspection);
+            const onlyAudioUnavailable = inspection.unavailableArtifactKeys.length > 0
+              && inspection.unavailableArtifactKeys.every(key => key.startsWith("literal_wav_"));
+            if (inspection.checkpoint && (inspection.resumable || onlyAudioUnavailable)) candidates.push(inspection);
           } catch {
             // Outro contexto pode estar escrevendo; recuperação permanece disponível depois.
           }
@@ -91,14 +102,33 @@ function App() {
         const parsed = documentIrSchema.safeParse(JSON.parse(await blob.text()));
         if (!parsed.success || cancelled || importGenerationRef.current !== 0) return;
         setDocument(parsed.data);
+        let recoveredAudio = false;
+        let audioRecoveryFailed = false;
+        const audioExpected = latest?.checkpoint?.artifactKeys.some(key => key.startsWith("literal_wav_")) ?? false;
         if (documentV2Record) {
           const v2Blob = await localPersistence!.service.readArtifact(documentV2Record);
           const v2 = documentIrV2Schema.safeParse(JSON.parse(await v2Blob.text()));
           if (v2.success && v2.data.documentId === parsed.data.documentId && v2.data.sourceHash === parsed.data.sourceHash && !cancelled && importGenerationRef.current === 0) {
             setDocumentV2(v2.data);
+            try {
+              const saved = await loadLiteralAudio(localPersistence!.service, v2.data);
+              if (saved && !cancelled && importGenerationRef.current === 0) {
+                const url = URL.createObjectURL(saved.blob);
+                savedWavUrlRef.current = url;
+                setSavedWav({ ...saved, url });
+                recoveredAudio = true;
+              }
+              if (!saved && audioExpected) audioRecoveryFailed = true;
+            } catch {
+              audioRecoveryFailed = audioExpected;
+            }
           }
         }
-        if (!cancelled && importGenerationRef.current === 0) setStatus("Seu último projeto foi recuperado neste dispositivo.");
+        if (!cancelled && importGenerationRef.current === 0) setStatus(recoveredAudio
+          ? "Seu último projeto e WAV salvo foram recuperados neste dispositivo."
+          : audioRecoveryFailed
+            ? "Seu projeto foi recuperado, mas o WAV salvo não pôde ser aberto. Gere outro arquivo após conferir o texto."
+            : "Seu último projeto foi recuperado neste dispositivo.");
       })().catch(() => undefined);
     } catch {
       persistenceRef.current = null;
@@ -108,6 +138,7 @@ function App() {
       cancelled = true;
       wavAbortRef.current?.abort();
       if (wavUrlRef.current) URL.revokeObjectURL(wavUrlRef.current);
+      if (savedWavUrlRef.current) URL.revokeObjectURL(savedWavUrlRef.current);
       workerRef.current?.terminate();
       workerRef.current = null;
       if (persistenceRef.current === localPersistence) persistenceRef.current = null;
@@ -123,6 +154,7 @@ function App() {
     readingRequestRef.current++;
     speechRef.current?.stop();
     clearWav();
+    clearSavedWav();
     setPreview(null);
     setReviewed(false);
     setDocumentV2(null);
@@ -297,7 +329,20 @@ function App() {
       const url = URL.createObjectURL(wav);
       wavUrlRef.current = url;
       setWavUrl(url);
-      setStatus("WAV pronto. Ouça e salve o arquivo; ele não é recuperado automaticamente ao fechar a página.");
+      const persistence = persistenceRef.current?.service;
+      if (persistence && documentV2) {
+        try {
+          await saveLiteralAudio(persistence, documentV2, preview, wav);
+          if (!controller.signal.aborted) {
+            clearSavedWav();
+            setStatus("WAV pronto e salvo neste dispositivo. Você também pode baixar uma cópia.");
+          }
+        } catch {
+          if (!controller.signal.aborted) setStatus("WAV pronto, mas não foi salvo neste dispositivo. Baixe uma cópia agora.");
+        }
+      } else {
+        setStatus("WAV pronto, mas o armazenamento local está indisponível. Baixe uma cópia agora.");
+      }
     } catch (error) {
       if (!controller.signal.aborted) setStatus(error instanceof Error ? error.message : "Não foi possível gerar o WAV.");
     } finally {
@@ -331,6 +376,14 @@ function App() {
           : <div className="blocks">{page.blocks.map(block => <p key={block.id}>{block.text}</p>)}</div>}
       </article>)}
       <p className="footnote">A ordem e o tipo dos trechos ainda precisam de revisão. O PDF é processado neste dispositivo.</p>
+    </section>}
+    {document && savedWav && <section className="panel" aria-labelledby="saved-audio-title">
+      <h2 id="saved-audio-title">Leitura salva neste dispositivo</h2>
+      <p>Páginas {savedWav.startPage} a {savedWav.endPage}. Esta gravação veio do texto extraído, não de um roteiro narrativo.</p>
+      <div className="wav-result">
+        <audio controls src={savedWav.url} aria-label="Leitura WAV salva" />
+        <a href={savedWav.url} download={`audiobook-studio-paginas-${savedWav.startPage}-${savedWav.endPage}.wav`}>Baixar WAV salvo</a>
+      </div>
     </section>}
     {document && <section className="panel" aria-labelledby="reading-title">
       <h2 id="reading-title">Ouvir o texto do PDF</h2>
