@@ -1,6 +1,6 @@
 # Audiobook Studio
 
-Projeto local-first para transformar documentos em audiolivros. A interface importa PDFs com texto selecionável, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura usa somente vozes que o navegador declara locais. Não há exportação de áudio, OCR funcional, modelo narrativo real ou audiolivro final nesta versão.
+Projeto local-first para transformar documentos em audiolivros. A interface importa PDFs com texto selecionável, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa somente vozes que o navegador declara locais. Também é possível gerar e salvar um WAV literal com a voz Faber pt-BR em um Worker local. Não há OCR funcional, modelo narrativo real ou audiolivro final nesta versão.
 
 ## Estrutura
 
@@ -10,7 +10,7 @@ Projeto local-first para transformar documentos em audiolivros. A interface impo
 - `apps/web/`: interface, PDF.js, storage local, Web Worker e adapter de voz.
 - `docs/`, `.ai/`: decisões, contexto e registro de trabalho.
 
-O modo de leitura está delimitado em `docs/adr/0015-native-text-reading-preview.md`. Páginas escaneadas ou com extração suspeita não entram na sessão. O usuário deve conferir todo o texto exibido antes de ouvir. A voz depende das vozes locais expostas pelo navegador ou sistema operacional.
+O modo de leitura está delimitado em `docs/adr/0015-native-text-reading-preview.md` e a exportação em `docs/adr/0016-local-wav-export.md`. Páginas escaneadas ou com extração suspeita não entram na sessão. O usuário deve conferir todo o texto exibido antes de ouvir ou gerar WAV. A voz de leitura imediata depende das vozes locais expostas pelo navegador; a exportação baixa um modelo de cerca de 63 MB na primeira geração, e o áudio pronto deve ser salvo pelo usuário. Ainda falta validar a inferência e a qualidade auditiva em navegador/dispositivo real.
 
 ## Desenvolvimento
 

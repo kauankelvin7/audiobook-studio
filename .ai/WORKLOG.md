@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-09-23 — geração de WAV local da leitura literal
+- Base limpa `4560aa7` em `codex/m4-content-model`; PRE-FLIGHT registrado antes do código. Rust/WASM permanece fonte canônica da sessão; TS apenas adapter de TTS/Web/UI.
+- Instalada versão fixa de Piper Web 1.0.5, ONNX Runtime Web 1.18.0 e fonemizador Piper WASM 1.0.0. O build copia os runtimes WASM/data para mesma origem; o modelo Faber pt-BR (~63 MB) é baixado sob comando do usuário. HEAD dos endpoints ONNX e configuração retornou HTTP 200; não houve download/inferência real do modelo neste ambiente.
+- Implementados Worker de síntese, validação de WAV, cancelamento e UI de reprodução/download. Saída não é persistida automaticamente no projeto. ADR 0016 registra licença, privacidade e limites.
+- `npm run typecheck` passou. O primeiro `npm run test:standard` parou por erro de tipo no teste; corrigido. A primeira execução dos testes fora do sandbox achou fixture WAV sem bits-per-sample; corrigida. Gate Web STANDARD final: 118 testes passaram, 2 opt-in ignorados, typecheck e build passaram. Execução no sandbox falhou com `spawn EPERM`; repetição fora passou.
+- Gates finais: Rust fmt/test/clippy passaram (43 testes); Web STANDARD passou (118 testes, 2 opt-in ignorados); `npm audit --audit-level=high` retornou 0 vulnerabilidades; `git diff --check` passou. Revisão do diff confirmou assets de runtime ignorados, dependências pinadas e ausência de PDF/modelo no Git.
+- Pendente antes de afirmar TTS funcional em dispositivo: síntese real e escuta em navegador, quota/tempo e integridade do modelo. Não houve teste visual, conforme preferência do usuário. CI do novo commit ainda não executada.
+
 ## 2026-09-23 — modo de leitura local de PDF nativo
 - Base limpa `2e28a7e` em `codex/m4-content-model`. PRE-FLIGHT em `.ai/TASK_PACKET.md`. Sem mudança de backend, OCR ou modelo narrativo.
 - Rust cria sessões atômicas de uma a dez páginas a partir de DocumentIR v2. Bloqueia páginas sem texto, suspeitas, regiões inutilizáveis, divergência de fonte, perda/junção detectável de tokens e tamanho excedido. WASM expõe a sessão; Web valida a fronteira e usa Web Speech com `localService=true`.

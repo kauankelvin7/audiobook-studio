@@ -1,0 +1,64 @@
+import { describe, expect, it, vi } from "vitest";
+import { readingTextForTts, renderLocalWav, validateWav } from "./local_wav";
+import type { ReadingSession } from "./rust_reading_preview";
+
+const session: ReadingSession = {
+  documentId: "doc", sourceHash: "sha256:abc", startPage: 1, endPage: 1,
+  pages: [{ documentId: "doc", sourceHash: "sha256:abc", pageNumber: 1,
+    chunks: [{ regionId: "a", text: "Primeiro." }, { regionId: "b", text: "Segundo." }] }],
+};
+
+function wav(): Blob {
+  const bytes = new ArrayBuffer(46);
+  const view = new DataView(bytes);
+  view.setUint32(0, 0x46464952, true);
+  view.setUint32(4, 38, true);
+  view.setUint32(8, 0x45564157, true);
+  view.setUint32(12, 0x20746d66, true);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 22_050, true);
+  view.setUint16(34, 16, true);
+  view.setUint32(36, 0x61746164, true);
+  view.setUint32(40, 2, true);
+  return new Blob([bytes], { type: "audio/wav" });
+}
+
+describe("local WAV adapter", () => {
+  it("passes every reviewed region in order without omission", () => {
+    expect(readingTextForTts(session)).toBe("Primeiro.\nSegundo.");
+    expect(() => readingTextForTts({ ...session, pages: [{ ...session.pages[0], chunks: [] }] }))
+      .toThrowError(/íntegra/);
+    expect(() => readingTextForTts({ ...session, pages: [{ ...session.pages[0], chunks: [{ regionId: "a", text: "x".repeat(12_001) }] }] }))
+      .toThrowError(/12 mil/);
+  });
+
+  it("accepts complete PCM WAV and rejects corrupt output", async () => {
+    await expect(validateWav(wav())).resolves.toBeUndefined();
+    await expect(validateWav(new Blob([new Uint8Array(44)]))).rejects.toMatchObject({ code: "INVALID_AUDIO" });
+    const truncated = wav().slice(0, 44);
+    await expect(validateWav(truncated)).rejects.toMatchObject({ code: "INVALID_AUDIO" });
+  });
+
+  it("terminates worker after a validated result", async () => {
+    const worker = { postMessage: vi.fn(), terminate: vi.fn(), onmessage: null as Worker["onmessage"], onerror: null as Worker["onerror"] };
+    const promise = renderLocalWav(session, new AbortController().signal, vi.fn(), () => worker);
+    expect(worker.postMessage).toHaveBeenCalledWith({ type: "render", text: "Primeiro.\nSegundo." });
+    worker.onmessage?.call(worker as unknown as Worker, { data: { type: "result", wav: wav() } } as MessageEvent);
+    await expect(promise).resolves.toBeInstanceOf(Blob);
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("rejects and terminates on cancellation or engine failure", async () => {
+    const worker = { postMessage: vi.fn(), terminate: vi.fn(), onmessage: null as Worker["onmessage"], onerror: null as Worker["onerror"] };
+    const controller = new AbortController();
+    const promise = renderLocalWav(session, controller.signal, vi.fn(), () => worker);
+    controller.abort();
+    await expect(promise).rejects.toMatchObject({ code: "CANCELLED" });
+    expect(worker.terminate).toHaveBeenCalledOnce();
+    const failed = renderLocalWav(session, new AbortController().signal, vi.fn(), () => worker);
+    worker.onmessage?.call(worker as unknown as Worker, { data: { type: "error" } } as MessageEvent);
+    await expect(failed).rejects.toMatchObject({ code: "ENGINE_FAILED" });
+  });
+});

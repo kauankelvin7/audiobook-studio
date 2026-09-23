@@ -4,6 +4,7 @@ import { createBrowserLocalPersistence, type BrowserLocalPersistence } from "./a
 import type { CheckpointDraft } from "./adapters/local_project_persistence";
 import { MAX_PDF_BYTES } from "./adapters/pdf_limits";
 import { LocalSpeechPlayer, type SpeechState } from "./adapters/local_speech";
+import { renderLocalWav, type WavProgress } from "./adapters/local_wav";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
 import type { ArtifactWrite } from "./adapters/ports";
 import { documentIrSchema, type DocumentIr } from "./schemas/document";
@@ -17,6 +18,8 @@ function App() {
   const speechRef = useRef<LocalSpeechPlayer | null>(null);
   const readingRequestRef = useRef(0);
   const importGenerationRef = useRef(0);
+  const wavAbortRef = useRef<AbortController | null>(null);
+  const wavUrlRef = useRef<string | null>(null);
   const [document, setDocument] = useState<DocumentIr | null>(null);
   const [documentV2, setDocumentV2] = useState<DocumentIrV2 | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -29,6 +32,19 @@ function App() {
   const [fileName, setFileName] = useState("");
   const [status, setStatus] = useState("Escolha um PDF para conferir o texto extraído.");
   const [busy, setBusy] = useState(false);
+  const [wavBusy, setWavBusy] = useState(false);
+  const [wavUrl, setWavUrl] = useState<string | null>(null);
+  const [wavProgress, setWavProgress] = useState<WavProgress | null>(null);
+
+  function clearWav() {
+    wavAbortRef.current?.abort();
+    wavAbortRef.current = null;
+    if (wavUrlRef.current) URL.revokeObjectURL(wavUrlRef.current);
+    wavUrlRef.current = null;
+    setWavUrl(null);
+    setWavProgress(null);
+    setWavBusy(false);
+  }
 
   useEffect(() => {
     const synthesis = typeof window === "undefined" ? null : window.speechSynthesis ?? null;
@@ -90,6 +106,8 @@ function App() {
 
     return () => {
       cancelled = true;
+      wavAbortRef.current?.abort();
+      if (wavUrlRef.current) URL.revokeObjectURL(wavUrlRef.current);
       workerRef.current?.terminate();
       workerRef.current = null;
       if (persistenceRef.current === localPersistence) persistenceRef.current = null;
@@ -104,6 +122,7 @@ function App() {
     importGenerationRef.current++;
     readingRequestRef.current++;
     speechRef.current?.stop();
+    clearWav();
     setPreview(null);
     setReviewed(false);
     setDocumentV2(null);
@@ -239,6 +258,7 @@ function App() {
     if (!documentV2) return;
     const request = ++readingRequestRef.current;
     speechRef.current?.stop();
+    clearWav();
     setReviewed(false);
     setPreview(null);
     try {
@@ -262,6 +282,32 @@ function App() {
     }
   }
 
+  async function generateWav() {
+    if (!preview || !reviewed || !documentV2 || preview.documentId !== documentV2.documentId
+      || preview.sourceHash !== documentV2.sourceHash || preview.startPage !== pageNumber || preview.endPage !== endPage || wavBusy) return;
+    clearWav();
+    speechRef.current?.stop();
+    const controller = new AbortController();
+    wavAbortRef.current = controller;
+    setWavBusy(true);
+    setStatus("Preparando a voz neste dispositivo. Na primeira vez, o modelo de cerca de 63 MB será baixado.");
+    try {
+      const wav = await renderLocalWav(preview, controller.signal, setWavProgress);
+      if (controller.signal.aborted) return;
+      const url = URL.createObjectURL(wav);
+      wavUrlRef.current = url;
+      setWavUrl(url);
+      setStatus("WAV pronto. Ouça e salve o arquivo; ele não é recuperado automaticamente ao fechar a página.");
+    } catch (error) {
+      if (!controller.signal.aborted) setStatus(error instanceof Error ? error.message : "Não foi possível gerar o WAV.");
+    } finally {
+      if (wavAbortRef.current === controller) {
+        wavAbortRef.current = null;
+        setWavBusy(false);
+      }
+    }
+  }
+
   return <main className="shell">
     <header className="intro">
       <p className="eyebrow">Audiobook Studio · leitura de PDF</p>
@@ -270,7 +316,7 @@ function App() {
     </header>
     <section className="panel" aria-labelledby="import-title">
       <h2 id="import-title">Importar PDF</h2>
-      <p>Selecione um PDF de até 32 MB com texto selecionável. A leitura não cria um arquivo de áudio.</p>
+      <p>Selecione um PDF de até 32 MB com texto selecionável. Após conferir o trecho, você pode gerar um WAV local.</p>
       <label htmlFor="pdf-input">Arquivo PDF</label>
       <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy} />
       {fileName && <p className="file-name">Arquivo: {fileName}</p>}
@@ -293,6 +339,7 @@ function App() {
       <select id="reading-page" value={pageNumber} onChange={event => {
         readingRequestRef.current++;
         speechRef.current?.stop();
+        clearWav();
         setPreview(null);
         setReviewed(false);
         setPageNumber(Number(event.target.value));
@@ -304,6 +351,7 @@ function App() {
       <select id="reading-end-page" value={endPage} onChange={event => {
         readingRequestRef.current++;
         speechRef.current?.stop();
+        clearWav();
         setPreview(null);
         setReviewed(false);
         setEndPage(Number(event.target.value));
@@ -319,7 +367,7 @@ function App() {
           {page.chunks.map(chunk => <p key={chunk.regionId}>{chunk.text}</p>)}
         </section>)}</div>
         <label className="check-label"><input type="checkbox" checked={reviewed} onChange={event => {
-          if (!event.target.checked) speechRef.current?.stop();
+          if (!event.target.checked) { speechRef.current?.stop(); clearWav(); }
           setReviewed(event.target.checked);
         }} /> Conferi o texto de todas as páginas selecionadas.</label>
         <label htmlFor="reading-voice">Voz instalada</label>
@@ -334,7 +382,20 @@ function App() {
           <button type="button" onClick={() => speechRef.current?.stop()} disabled={speechState === "idle"}>Parar</button>
         </div>
         <p role="status" aria-live="polite">{speechState === "playing" ? "Lendo o texto selecionado." : speechState === "paused" ? "Leitura pausada." : "Leitura parada."}</p>
-        <p className="footnote">A voz vem do navegador ou sistema operacional. Esta prévia não exporta áudio nem cria roteiro narrativo.</p>
+        <h3>Gerar arquivo de áudio</h3>
+        <p>Use a voz local Faber (pt-BR). O modelo é baixado na primeira geração; o texto do PDF não é enviado ao serviço de voz. Limite: 12 mil caracteres por arquivo.</p>
+        <div className="reading-actions">
+          <button type="button" onClick={() => void generateWav()} disabled={!reviewed || wavBusy}>Gerar WAV</button>
+          <button type="button" onClick={clearWav} disabled={!wavBusy}>Cancelar geração</button>
+        </div>
+        {wavBusy && <p role="status" aria-live="polite">{wavProgress && wavProgress.total > 0
+          ? `Preparando áudio: ${Math.min(100, Math.round(wavProgress.loaded / wavProgress.total * 100))}%.`
+          : "Preparando áudio local…"}</p>}
+        {wavUrl && <div className="wav-result">
+          <audio controls src={wavUrl} aria-label="Prévia do WAV gerado" />
+          <a href={wavUrl} download={`audiobook-studio-paginas-${pageNumber}-${endPage}.wav`}>Salvar WAV</a>
+        </div>}
+        <p className="footnote">Esta é uma leitura literal do texto extraído, não um audiobook narrativo revisado. O áudio pode conter erros da extração e da voz.</p>
       </div>}
     </section>}
   </main>;

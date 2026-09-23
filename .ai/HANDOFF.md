@@ -1,5 +1,9 @@
 # HANDOFF — retorno ao Codex Work
 
+## Checkpoint em andamento — WAV local (2026-09-23)
+- Partindo do commit `4560aa7`, foi integrado caminho de geração de WAV literal com Piper Web, runtime local no build e modelo Faber pt-BR sob download explícito. Há testes unitários de fronteira e build Web; validação real da inferência/escuta em navegador ainda falta.
+- Não confundir WAV literal com audiobook narrativo final. Próximo passo após gates/CI: testar uma sessão real curta em navegador suportado sem avaliar visualmente; medir download, inferência, reprodução e áudio salvo. Persistência automática e QA auditivo ainda pendentes.
+
 ## Checkpoint atual — leitura local verificável (2026-09-23)
 - A prioridade passou de microcontratos para fluxo vertical visível. O app importa PDF nativo, mostra texto, prepara sessão Rust/WASM de até dez páginas, exige conferência do usuário e reproduz com Web Speech apenas em voz declarada local. Há controles de pausa/retomada/parada; nada é exportado ou marcado QA `pass`.
 - ADR 0015 delimita esse modo literal. OCR, planner/modelo real, narração editorial e áudio persistente continuam pendentes. O manual COBOL/CICS com PUA é recusado; a apostila de controle gerou sessão na página 10 em teste local opt-in. PDFs seguem fora do Git.

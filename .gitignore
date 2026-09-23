@@ -2,6 +2,7 @@
 /work/
 apps/web/node_modules/
 apps/web/dist/
+apps/web/public/tts-runtime/
 apps/web/.npm-cache/
 /tmp/
 *.tsbuildinfo

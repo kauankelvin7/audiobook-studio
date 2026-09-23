@@ -39,6 +39,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .reading-text p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .check-label { display: flex; align-items: center; gap: var(--space-1); }
 .reading-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-2) 0; }
+.wav-result { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; }
+.wav-result audio { max-width: 100%; }
 .file-name { overflow-wrap: anywhere; }
 .result-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .result-heading span { color: var(--color-muted); }

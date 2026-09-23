@@ -1,5 +1,16 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — exportação de leitura literal (2026-09-23)
+- Base: `codex/m4-content-model`, HEAD `4560aa7`, worktree limpa. A sessão Rust/WASM de 1–10 páginas já exige revisão; Web Speech não fornece bytes exportáveis.
+- Objetivo: gerar, reproduzir e baixar WAV local de uma sessão literal conferida, sem confundir com audiobook narrativo final.
+- Evidência: Piper Web documenta `predict` retornando Blob WAV e cache de modelo em OPFS; voz pt-BR existe no catálogo Piper. Contrato, licença específica e runtime devem ser verificados antes da integração.
+- Restrições: Rust conserva sessão/invariantes; TS limita-se a adapter TTS, UI e Web APIs. Não enviar texto/PDF ao servidor, não marcar QA narrativo `pass`, sem backend.
+- Desconhecidos: suporte real a WASM/ONNX/OPFS no navegador do usuário, qualidade acústica e licença/termos da voz escolhida. Sem teste auditivo, não declarar qualidade aprovada.
+- Riscos: modelo grande, falha parcial, WAV inválido/omissão, corrida ao trocar documento, memória e download incompleto.
+- Plano: verificar dependência/voz; implementar geração fail-closed em lote curto, validar saída/ordem, tocar e baixar; testes de adapter e gates; registrar limites em ADR/worklog.
+- Verificação: testes Web e Rust, typecheck/build, auditoria, diff, teste real de navegador apenas se viável sem avaliação visual.
+- Risco: alto; um writer, revisão independente quando disponível.
+
 ## PRE-FLIGHT — leitura local verificável de PDF nativo (2026-09-23)
 - Base: `codex/m4-content-model`, HEAD `2e28a7e`, worktree limpa. O app importa PDF e exibe texto, sem reprodução.
 - Objetivo: fechar fluxo visível importar PDF de texto selecionável, selecionar página, conferir texto e ouvir com voz local do navegador; parar/cancelar com segurança.

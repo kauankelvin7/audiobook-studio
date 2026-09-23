@@ -5,7 +5,9 @@
   "type": "module",
   "packageManager": "npm@11.19.1",
   "scripts": {
+    "predev": "node scripts/stage-tts-runtime.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/stage-tts-runtime.mjs",
     "build": "tsc -b && vite build",
     "wasm:build": "node ../../scripts/build-wasm.mjs",
     "typecheck": "tsc --noEmit",
@@ -16,7 +18,10 @@
     "test:full": "npm run test:standard && npm audit --audit-level=high"
   },
   "dependencies": {
+    "@diffusionstudio/piper-wasm": "1.0.0",
+    "@mintplex-labs/piper-tts-web": "1.0.5",
     "@vitejs/plugin-react": "6.1.1",
+    "onnxruntime-web": "1.18.0",
     "pdfjs-dist": "5.4.296",
     "react": "18.3.1",
     "react-dom": "18.3.1",
