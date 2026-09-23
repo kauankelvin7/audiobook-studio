@@ -171,3 +171,11 @@
 - `rust_wasm_runtime.ts` compartilha inicialização WASM entre os adapters de conteúdo e narrativa, com retry após falha. `rust_narrative_pipeline.ts` valida shape na fronteira, encaminha plano e falas ao core e valida o JSON de QA devolvido; não implementa QA ou deduplicação em TypeScript.
 - Testes com port injetado cobrem encaminhamento, entrada inválida, rejeição do core, falha de inicialização e saída inválida. QA independente encontrou P1: serialização de fala circular/tipo inválido escapava como erro JS bruto. Corrigido com schema de registro de strings e erro tipado `INVALID_INPUT`; testes de regressão adicionados.
 - STANDARD Web final passou: typecheck, 80/80 testes e build. `git diff --check` passou. Integração com bundle WASM real e fixture narrativa está reservada para M4.3C. CI do M4.3B ainda pendente; planner/modelo/TTS não iniciados.
+- Publicação M4.3B: commit remoto `b03bd286aaaa373dcb4ed3e02c0e47bdae4f84df` na branch; checkout local alinhado e limpo. Workflow `quality` run `35803065588` concluiu com `success` para Rust e Web.
+
+## 2026-09-22 — M4.3C fixture e integração WASM real
+- Base: M4.3B publicado em `b03bd28`, CI Rust/Web verde. PRE-FLIGHT M4.3C registrado antes do código.
+- Criada `narrative_plan_content_v1.json` compatível com o ContentModel/Outline compartilhados; contém source ref `r_1_1`, sem conceitos ou relações inventados. A fixture histórica `narrative_plan_v1.json` foi preservada.
+- Teste Rust valida a fixture e executa QA contextual. Teste Vitest carrega `audiobook_wasm_bg.wasm` real, chama o adapter de plano/QA e confirma `REVIEW` por claim grounding não avaliado. Source ref fabricada atravessa schema TS e é rejeitada pelo core; o teste verifica a causa com o ref.
+- Primeiro STANDARD falhou porque a nova fixture havia substituído a histórica usada por outro teste. Restaurada a original, criado arquivo distinto e repetidos os gates: Rust fmt/test (26 testes)/clippy, `npm run wasm:build`, Web STANDARD (82/82 testes, typecheck, build) e diff check passaram.
+- QA independente não encontrou bloqueio; sugeriu assert da causa Rust, incorporado e verificado. CI do M4.3C ainda pendente. Planner/modelo/TTS não iniciados.

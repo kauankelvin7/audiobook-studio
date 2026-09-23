@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "documentId": "doc_0000000000000000000000000000000000000000000000000000000000000000",
+  "sections": [{
+    "id": "section_1",
+    "sourceRefs": ["r_1_1"],
+    "conceptIds": [],
+    "heading": null,
+    "transition": null,
+    "spokenChapterId": "chapter_1",
+    "estimatedSeconds": null
+  }],
+  "spokenChapters": [{
+    "id": "chapter_1",
+    "sectionIds": ["section_1"],
+    "displayTitle": "Trecho do documento"
+  }]
+}

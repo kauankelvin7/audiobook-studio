@@ -93,3 +93,12 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Adapter narrativo TS e inicialização WASM compartilhada implementados sem regra narrativa nova em TS.
 - QA independente encontrou falha P1 na serialização de fala; corrigida e coberta por testes. STANDARD Web final: 80/80 testes, typecheck e build passaram; diff check passou.
 - Publicação/CI ainda pendentes. Próximo batch M4.3C só após CI verde do M4.3B; precisa fixture de NarrativePlan e teste contra WASM real. TTS permanece bloqueado.
+
+## M4.3B concluído — 2026-09-22
+- Commit `b03bd286aaaa373dcb4ed3e02c0e47bdae4f84df` publicado; workflow `quality` run `35803065588` concluiu com sucesso nos jobs Rust e Web.
+- Próximo batch liberado: M4.3C, fixture NarrativePlan compartilhada e integração do adapter com o WASM real. Ainda sem planner/modelo/TTS.
+
+## M4.3C localmente validado — 2026-09-22
+- Nova fixture `narrative_plan_content_v1.json` preserva a fixture narrativa histórica e referencia o ContentModel atual sem inventar conceitos.
+- Rust fmt/test (26 testes)/clippy e Web STANDARD (82 testes/typecheck/build) passaram. `npm run wasm:build` passou; Vitest executou o WASM real, inclusive rejeição de provenance fabricada. QA independente não encontrou bloqueio.
+- Publicação e CI deste batch ainda pendentes. Somente após CI verde iniciar `NarrativePlannerPort`/fake estruturado; TTS continua bloqueado.

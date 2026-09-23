@@ -13,6 +13,8 @@ const DOCUMENT_V2_FIXTURE: &str = include_str!("../../../tests/fixtures/document
 const CONTENT_MODEL_FIXTURE: &str = include_str!("../../../tests/fixtures/content_model_v1.json");
 const SEMANTIC_OUTLINE_FIXTURE: &str =
     include_str!("../../../tests/fixtures/semantic_outline_v1.json");
+const NARRATIVE_PLAN_FIXTURE: &str =
+    include_str!("../../../tests/fixtures/narrative_plan_content_v1.json");
 
 fn document_v2() -> DocumentIrV2 {
     DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
@@ -85,6 +87,21 @@ fn validated_qa_requires_contextual_provenance_and_complete_speech() {
     assert!(
         build_validated_narration_qa("plan_1", &invalid_plan, &content, &outline, &speech).is_err()
     );
+}
+
+#[test]
+fn shared_narrative_plan_fixture_passes_contextual_qa() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let outline =
+        SemanticOutline::from_json(SEMANTIC_OUTLINE_FIXTURE, &content).expect("outline fixture");
+    let plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("narrative fixture");
+    let speech = BTreeMap::from([("section_1".into(), "PR0CEDURE DIVISI0N".into())]);
+    let qa = build_validated_narration_qa("plan_1", &plan, &content, &outline, &speech)
+        .expect("contextual QA");
+    assert_eq!(qa.status, QaStatus::Review);
+    assert_eq!(qa.document_sections, 1);
+    assert_eq!(qa.narrative_sections, 1);
+    assert_eq!(qa.duplicated_spoken_headings, 0);
 }
 
 #[test]

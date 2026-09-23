@@ -12,4 +12,6 @@ O repositório fixa Rust 1.94.1 em `rust-toolchain.toml` e `wasm-bindgen` 0.2.12
 
 O teste `rust_content_pipeline.test.ts` carrega o arquivo `.wasm` real, executa a migração v1, preserva uma página sem texto e compara DocumentIR v2, ContentModel e SemanticOutline às fixtures compartilhadas. Testes Rust verificam as mesmas fixtures no core. O build Vite inclui o `.wasm` como asset do Worker. Teste visual não foi executado nesta etapa, conforme orientação do usuário.
 
+Na etapa M4.3, o core também valida NarrativePlan contra ContentModel/Outline e produz NarrationQA determinístico. O adapter `rust_narrative_pipeline.ts` valida contratos na fronteira e chama os exports WASM; a fixture `narrative_plan_content_v1.json` é verificada por Rust e por teste Vitest com o binário real. Como claim grounding ainda não foi implementado, esse QA retorna `review` mesmo quando os checks determinísticos não encontram falha. O adapter narrativo ainda não está ligado à UI ou a um modelo de planner.
+
 Limites: PDF.js permanece responsável por extração v1; páginas sem texto seguem como `no_text`/revisão. O skeleton de outline não é um planner semântico. Nenhum modelo, TTS ou geração de áudio é iniciado nesta etapa.

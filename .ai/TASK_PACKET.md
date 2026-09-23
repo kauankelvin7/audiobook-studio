@@ -222,3 +222,12 @@
 - Risks: schema TS divergir do Rust, inicialização WASM em contexto errado, erro WASM perder mensagem, adapter aceitar plano inválido.
 - Plan: adapter fino e testes de fronteira com fake injetável para encaminhamento e falhas; deixar fixture completa e execução real do bundle para M4.3C.
 - Verification: teste focado, typecheck, Web STANDARD e revisão; CI antes de M4.3C.
+
+## PRE-FLIGHT de execução — M4.3C (2026-09-22)
+- Base: M4.3B publicado em `b03bd28`; workflow `quality` run `35803065588` verde em Rust e Web.
+- Objective: provar com fixture compartilhada que NarrativePlan e falas atravessam adapter TS → WASM real → core Rust, retornando NarrationQA coerente e erro tipado para provenance inválida.
+- Evidence: export `build_narration_qa_json` gerado no M4.3A e adapter TS validado com fake no M4.3B; fixture ContentModel/Outline atual possui a fonte `r_1_1`.
+- Constraints: fixture sem inferência semântica inventada; nenhum modelo, planner externo ou TTS; Rust segue autoridade final; não alterar UI.
+- Risks: fixture não corresponder aos contratos Rust/TS, inicialização do WASM no teste Node, teste passar sem chamar binário real.
+- Plan: criar fixture NarrativePlan v1 compatível com o ContentModel atual sem substituir a fixture narrativa histórica, validá-la no Rust, executar plano e QA por adapter TS com WASM real, cobrir source ref inválida, rodar Rust fmt/test/clippy + Web STANDARD + CI e revisar diff.
+- Verification: teste Rust da fixture, teste Vitest com binário `.wasm` real, gates completos, revisão independente e CI.
