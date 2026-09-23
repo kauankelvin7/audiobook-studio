@@ -76,6 +76,8 @@ impl NarrativeScript {
                         .source_refs
                         .iter()
                         .any(|value| value.trim().is_empty())
+                    || segment.source_refs.iter().collect::<HashSet<_>>().len()
+                        != segment.source_refs.len()
                 {
                     return Err(NarrativeError::InvalidScript(format!(
                         "incomplete or duplicate script segment: {}",

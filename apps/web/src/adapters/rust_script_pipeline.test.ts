@@ -3,7 +3,7 @@ import content from "../../../../tests/fixtures/content_model_v1.json";
 import outline from "../../../../tests/fixtures/semantic_outline_v1.json";
 import plan from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import script from "../../../../tests/fixtures/narrative_script_content_v1.json";
-import { buildScriptQa } from "./rust_script_pipeline";
+import { buildScriptQa, buildScriptReviewPacket } from "./rust_script_pipeline";
 
 const qa = {
   schemaVersion: 1,
@@ -28,6 +28,24 @@ describe("Rust script boundary", () => {
     expect(port.buildQa).toHaveBeenCalledWith(
       "plan_1", JSON.stringify(script), JSON.stringify(plan), JSON.stringify(content), JSON.stringify(outline),
     );
+  });
+
+  it("types review packet boundary failures without accepting fabricated approval", async () => {
+    const port = {
+      initialize: vi.fn(async () => undefined),
+      buildPacket: vi.fn(() => JSON.stringify({ ...qa, status: "pass" })),
+    };
+    await expect(buildScriptReviewPacket("", script, plan, content, outline, port))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    expect(port.initialize).not.toHaveBeenCalled();
+    await expect(buildScriptReviewPacket("plan_1", script, plan, content, outline, port))
+      .rejects.toMatchObject({ code: "INVALID_CORE_OUTPUT" });
+    const failedInit = { ...port, initialize: vi.fn(async () => { throw new Error("load failed"); }) };
+    await expect(buildScriptReviewPacket("plan_1", script, plan, content, outline, failedInit))
+      .rejects.toMatchObject({ code: "WASM_INIT_FAILED" });
+    const rejected = { ...port, buildPacket: vi.fn((): string => { throw new Error("bad mapping"); }) };
+    await expect(buildScriptReviewPacket("plan_1", script, plan, content, outline, rejected))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
   });
 
   it("types invalid input, initialization, core, and output failures", async () => {

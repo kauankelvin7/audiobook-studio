@@ -1,11 +1,12 @@
 use std::collections::{BTreeMap, HashSet};
 
 use audiobook_core::{
-    build_narration_qa, build_validated_narration_qa, compare_heading_to_body,
-    find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
-    ContentModel, DocumentIr, DocumentIrV2, HeadingOverlapMethod, HeadingOverlapStatus,
-    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
-    NarrativeSection, QaStatus, SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
+    build_narration_qa, build_script_review_packet, build_validated_narration_qa,
+    compare_heading_to_body, find_repeated_formulaic_openers, normalize_narrative_text,
+    reduce_narrative_memory, ContentModel, DocumentIr, DocumentIrV2, HeadingOverlapMethod,
+    HeadingOverlapStatus, NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan,
+    NarrativeScript, NarrativeSection, QaStatus, ReviewStatus, SemanticOutline, SpokenChapter,
+    SpokenHeadingPolicy,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -135,6 +136,14 @@ fn script_mapping_requires_plan_coverage_and_keeps_claims_in_review() {
         .build_qa("plan_1", &plan, &content, &outline)
         .is_err());
 
+    let mut repeated_ref = script.clone();
+    repeated_ref.sections[0].segments[0]
+        .source_refs
+        .push("r_1_1".into());
+    assert!(repeated_ref
+        .build_qa("plan_1", &plan, &content, &outline)
+        .is_err());
+
     let mut invented = script.clone();
     invented.sections[0].segments[0].source_refs = vec!["fabricated".into()];
     assert!(invented
@@ -202,6 +211,58 @@ fn script_accepts_a_planned_transition_source_reference() {
 }
 
 #[test]
+fn review_packet_preserves_all_source_evidence_and_tracks_changes() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let outline =
+        SemanticOutline::from_json(SEMANTIC_OUTLINE_FIXTURE, &content).expect("outline fixture");
+    let plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("plan fixture");
+    let script = NarrativeScript::from_json(NARRATIVE_SCRIPT_FIXTURE).expect("script fixture");
+
+    let packet = build_script_review_packet("plan_1", &script, &plan, &content, &outline)
+        .expect("review packet");
+    assert_eq!(packet.segments.len(), 1);
+    assert_eq!(packet.segments[0].review_status, ReviewStatus::Pending);
+    assert_eq!(packet.segments[0].sources[0].source_ref, "r_1_1");
+    assert_eq!(packet.segments[0].sources[0].source_unit_id, "unit_r_1_1");
+    assert_eq!(
+        packet.segments[0].sources[0].analysis_text.as_deref(),
+        Some("PR0CEDURE DIVISI0N")
+    );
+    assert_eq!(packet.source_hash, content.source_hash);
+    assert!(packet.content_hash.starts_with("sha256:"));
+    assert!(packet.plan_hash.starts_with("sha256:"));
+    assert!(packet.script_hash.starts_with("sha256:"));
+
+    let mut changed_script = script.clone();
+    changed_script.sections[0].segments[0]
+        .speech_text
+        .push_str(" Outro texto.");
+    let changed = build_script_review_packet("plan_1", &changed_script, &plan, &content, &outline)
+        .expect("changed script");
+    assert_ne!(packet.script_hash, changed.script_hash);
+    assert_eq!(packet.content_hash, changed.content_hash);
+
+    let mut second_content = content.clone();
+    let mut unit = second_content.source_units[0].clone();
+    unit.id = "unit_r_1_1_copy".into();
+    unit.analysis_text = None;
+    second_content.source_units.push(unit);
+    let second_outline = SemanticOutline::skeleton(&second_content).expect("outline");
+    let multiple =
+        build_script_review_packet("plan_1", &script, &plan, &second_content, &second_outline)
+            .expect("multiple units with same reference");
+    assert_eq!(multiple.segments[0].sources.len(), 2);
+    assert_eq!(multiple.segments[0].sources[1].analysis_text, None);
+    assert_ne!(packet.content_hash, multiple.content_hash);
+    assert_eq!(packet.source_hash, multiple.source_hash);
+
+    assert!(build_script_review_packet("wrong", &script, &plan, &content, &outline).is_err());
+    let mut fabricated = script;
+    fabricated.sections[0].segments[0].source_refs = vec!["fabricated".into()];
+    assert!(build_script_review_packet("plan_1", &fabricated, &plan, &content, &outline).is_err());
+}
+
+#[test]
 fn rust_owns_document_v1_to_v2_migration() {
     let v1 = DocumentIr::from_json(DOCUMENT_V1_FIXTURE).expect("v1 fixture");
     let migrated = DocumentIrV2::migrate_from_v1(&v1).expect("migration succeeds");
@@ -230,6 +291,19 @@ fn document_v2_round_trip_preserves_uncertainty_and_code() {
 fn content_model_rejects_wrong_schema_version() {
     let changed = CONTENT_MODEL_FIXTURE.replace("\"schemaVersion\": 1", "\"schemaVersion\": 2");
     assert!(ContentModel::from_json(&changed).is_err());
+}
+
+#[test]
+fn content_model_binds_document_identity_and_rejects_empty_analysis_text() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let mut forged = content.clone();
+    forged.source_hash = format!("sha256:{}", "1".repeat(64));
+    assert!(forged.validate().is_err());
+    assert!(ContentModel::from_json(&serde_json::to_string(&forged).expect("serialize")).is_err());
+
+    let mut empty_text = content;
+    empty_text.source_units[0].analysis_text = Some(" ".into());
+    assert!(empty_text.validate().is_err());
 }
 
 #[test]

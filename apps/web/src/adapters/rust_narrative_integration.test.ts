@@ -7,7 +7,7 @@ import outlineFixture from "../../../../tests/fixtures/semantic_outline_v1.json"
 import planFixture from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import scriptFixture from "../../../../tests/fixtures/narrative_script_content_v1.json";
 import { buildNarrationQa, validateNarrativePlan } from "./rust_narrative_pipeline";
-import { buildScriptQa } from "./rust_script_pipeline";
+import { buildScriptQa, buildScriptReviewPacket } from "./rust_script_pipeline";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -66,6 +66,49 @@ describe("real Rust narrative WASM boundary", () => {
     };
     await expect(buildScriptQa("plan_1", unmapped, planFixture, contentFixture, outlineFixture))
       .rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("builds a pending review packet with source text and content identities", async () => {
+    const packet = await buildScriptReviewPacket("plan_1", scriptFixture, planFixture, contentFixture, outlineFixture);
+    expect(packet).toMatchObject({
+      planId: "plan_1",
+      documentId: contentFixture.documentId,
+      sourceHash: contentFixture.sourceHash,
+      methodVersion: "script-review-packet-rust-v1",
+      segments: [{
+        sectionId: "section_1",
+        segmentId: "segment_1",
+        reviewStatus: "pending",
+        sources: [{
+          sourceRef: "r_1_1",
+          sourceUnitId: "unit_r_1_1",
+          analysisText: "PR0CEDURE DIVISI0N",
+          qualityStatus: "review_required",
+        }],
+      }],
+    });
+    expect(packet.scriptHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(packet.contentHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(packet.planHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+
+    const changed = {
+      ...scriptFixture,
+      sections: [{
+        ...scriptFixture.sections[0],
+        segments: [{ ...scriptFixture.sections[0].segments[0], speechText: "Outro texto falado." }],
+      }],
+    };
+    const changedPacket = await buildScriptReviewPacket("plan_1", changed, planFixture, contentFixture, outlineFixture);
+    expect(changedPacket.scriptHash).not.toBe(packet.scriptHash);
+    expect(changedPacket.contentHash).toBe(packet.contentHash);
+    await expect(buildScriptReviewPacket("other", scriptFixture, planFixture, contentFixture, outlineFixture))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+    const forgedContent = {
+      ...contentFixture,
+      sourceHash: `sha256:${"1".repeat(64)}`,
+    };
+    await expect(buildScriptReviewPacket("plan_1", scriptFixture, planFixture, forgedContent, outlineFixture))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
   });
 
   it("accepts a transition-only source reference and rejects an unrelated one", async () => {

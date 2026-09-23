@@ -5,6 +5,7 @@ mod document;
 mod document_v2;
 mod job;
 mod narrative;
+mod review;
 mod script;
 
 pub use content::{
@@ -28,6 +29,9 @@ pub use narrative::{
     HeadingOverlapMethod, HeadingOverlapStatus, NarrationQa, NarrationWarning, NarrativeError,
     NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeSection,
     NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
+};
+pub use review::{
+    build_script_review_packet, ReviewSegment, ReviewSource, ReviewStatus, ScriptReviewPacket,
 };
 pub use script::{NarrativeScript, ScriptSection, ScriptSegment};
 

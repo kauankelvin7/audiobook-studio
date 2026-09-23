@@ -198,3 +198,13 @@
 - Gates locais finais: `cargo fmt --all -- --check`, `cargo test --workspace --locked` (28 testes), clippy com `-D warnings`, `npm run wasm:build`, `npm run test:standard` (88 testes, typecheck, build) e `git diff --check` passaram. CI após publicação ainda pendente neste registro.
 - Sem modelo real, verificador semântico, golden mainframe real, geração de roteiro ou TTS. Próximo batch só após CI verde.
 - Publicação: commit local `19d7693` criado; `git push` falhou por falta de autenticação HTTPS (`could not read Username for 'https://github.com'`). Não há `gh`, credential helper, token de ambiente ou sessão de navegador disponível. CI deste commit não executou. Stop condition aplicada; próximo batch não iniciado.
+
+## 2026-09-23 — M4.4B publicado e CI verde
+- Após configuração SSH pelo usuário, branch `codex/m4-content-model` e `origin/codex/m4-content-model` ficaram alinhados em `2aaa73124d52f6fda6e388a495529525e661cfe1`. GitHub Actions `quality` run `35806473115` concluiu com `success` nesse HEAD. O bloqueio de publicação anterior foi resolvido; M4.4C liberado.
+
+## 2026-09-23 — M4.4C pacote de revisão por trecho
+- PRE-FLIGHT registrado antes do código. `audiobook-core` constrói `ScriptReviewPacket` após validação de roteiro/plano/conteúdo: cada trecho recebe todas as unidades que correspondem às suas refs, preservando texto de análise opcional, incerteza, qualidade, elegibilidade e flags. Estado de cada trecho é `pending`; não há decisão automática.
+- Pacote inclui `sourceHash` do documento e hashes SHA-256 de ContentModel, plano e roteiro serializados para detectar revisão desatualizada. Indexação por ref preserva ordem das unidades de fonte e evita varredura completa por trecho.
+- WASM recebeu `build_script_review_packet_json`. Schema/adapter TS validam apenas a fronteira; testes Vitest usam WASM real e verificam texto, qualidade, hashes, alteração de roteiro e rejeição de ID de plano/fonte forjados. Texto importado não entra em logs.
+- Primeira revisão independente encontrou P1: `ContentModel` aceitava `documentId` e `sourceHash` sem vínculo. Core agora exige `documentId == doc_<digest>`; regressões Rust/WASM cobrem hash divergente. Texto de análise vazio é rejeitado pelo Rust, e refs repetidas no mesmo segmento também. Segunda revisão não encontrou P0/P1.
+- Gates locais finais: Rust fmt, `cargo test --workspace --locked` (30 testes), clippy `-D warnings`, regeneração WASM, Web STANDARD (90 testes/typecheck/build), `git diff --check`. Publicação/CI do M4.4C ainda pendentes neste registro. TTS continua bloqueado.

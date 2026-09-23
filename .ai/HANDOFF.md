@@ -129,3 +129,10 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Commit local `19d76931762f9e8ab20bc792e769ada29f5dfffc` criado após todos os gates locais e revisão independente. Branch local está à frente de `origin/codex/m4-content-model`.
 - Push HTTPS falhou por ausência de credencial (`could not read Username for 'https://github.com'`). O sandbox foi liberado para a tentativa, mas o Git não dispõe de autenticação. Não afirmar CI verde para M4.4B.
 - Não avançar para modelo real ou TTS. Retomar com autenticação GitHub disponível: publicar commits locais, verificar Rust/Web do workflow `quality`, registrar resultado e só então planejar o próximo batch.
+
+## M4.4B concluído e M4.4C validado localmente — 2026-09-23
+- M4.4B foi publicado em `codex/m4-content-model`; HEAD remoto/local `2aaa73124d52f6fda6e388a495529525e661cfe1`, workflow `quality` run `35806473115` com `success`. A antiga nota de bloqueio SSH é histórica.
+- PRE-FLIGHT M4.4C registrado. Core Rust agora produz `ScriptReviewPacket` por trecho, com texto falado, refs e todas as unidades de fonte correspondentes, estados de qualidade e hashes de fonte/ContentModel/plano/roteiro. Cada trecho sai como `pending`; nenhuma aprovação ou TTS é possível por esse contrato.
+- QA independente identificou vínculo ausente entre `documentId` e `sourceHash` no ContentModel; corrigido e coberto em Rust e WASM real. Texto de análise vazio e refs duplicadas foram rejeitados. Segunda revisão sem P0/P1.
+- Gates locais M4.4C: Rust fmt/test (30)/clippy, WASM build, Web STANDARD (90/typecheck/build) e diff check passaram. Publicação/CI do novo commit ainda pendentes neste checkpoint.
+- Após CI verde: contrato de decisão explícita de revisão semântica vinculado aos hashes, com tratamento de fonte sem texto e revisão humana/verificador confiável; corpus/golden mainframe real ainda não está no repo. TTS segue bloqueado.

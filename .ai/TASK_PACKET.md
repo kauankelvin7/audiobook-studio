@@ -268,3 +268,20 @@
 - Commit local: `19d76931762f9e8ab20bc792e769ada29f5dfffc` contém o batch validado.
 - `git push origin codex/m4-content-model` alcançou o GitHub fora do sandbox, mas falhou com `could not read Username for 'https://github.com': No such device or address`. Nenhuma credencial/helper GitHub está configurada nesta sessão.
 - CI do commit M4.4B não existe enquanto o push não ocorrer. Stop condition aplicada: não iniciar o próximo batch nem TTS. Próxima retomada: configurar autenticação GitHub fora desta sessão, publicar commits locais e verificar workflow `quality` antes de avançar.
+
+## PRE-FLIGHT de execução — M4.4C pacote de revisão semântica (2026-09-23)
+- Base: `codex/m4-content-model` limpa em `2aaa731`; remoto alinhado. Workflow `quality` do HEAD run `35806473115` concluído com `success` (GitHub API consultada antes da alteração).
+- Objective: produzir no core Rust um pacote de revisão que associe cada trecho do roteiro ao texto e ao estado de qualidade das unidades de fonte referenciadas, com identidade de plano/roteiro/fonte. O estado de revisão permanece pendente.
+- Evidence: M4.4B valida apenas source mapping estrutural; ADR 0005 e adendo narrativo exigem revisão semântica e QA crítico antes de TTS. `ContentModel` já fornece `analysisText`, `qualityStatus`, `uncertainty` e `narrationEligibility`.
+- Constraints: Rust possui o contrato e a transformação; WASM é fachada; TS apenas valida a fronteira. Texto importado é não confiável e não vira instrução. Sem aprovação automática, modelo real, persistência ou TTS neste batch.
+- Unknowns: golden mainframe real e método confiável de atestar revisão humana/verificador. Nenhum deles está disponível neste repositório.
+- Risks: tomar vínculo de referência como prova semântica; pacote perder múltiplas unidades com mesma referência; revisão ficar desatualizada após mudança no plano/roteiro/fonte; vazamento de texto em logs.
+- Plan: criar pacote canônico com hashes de plano/roteiro/fonte, evidência de todas as unidades correspondentes e status `pending`; expor no WASM, espelhar na fronteira TS, testar fixture e casos sem texto/refs inválidas. Revisão independente, gates completos, WORKLOG/HANDOFF, commit, push e CI.
+- Verification: Rust fmt/test/clippy; `npm run wasm:build`; Web STANDARD com WASM real; diff check; workflow `quality` do commit remoto. Não iniciar próximo batch se algum gate falhar.
+
+## RESULT M4.4C — validação local (2026-09-23)
+- Status: pacote de revisão implementado e validado localmente. Publicação e CI do novo commit pendentes neste registro.
+- Entregue: `ScriptReviewPacket` canônico em Rust, com evidência por trecho, texto e qualidade das unidades de fonte, estado `pending` e hashes de fonte, ContentModel, plano e roteiro. WASM exporta pacote; TS espelha contrato e classifica falhas da fronteira. Nenhuma decisão de aprovação é aceita neste batch.
+- QA independente encontrou P1: `ContentModel` aceitava `documentId` e `sourceHash` incongruentes. Corrigido no core, com regressão Rust e WASM real. P2 de texto de análise vazio e refs duplicadas também corrigidos. Segunda revisão sem P0/P1.
+- Gates finais: `cargo fmt --all -- --check`, `cargo test --workspace --locked` (30 testes), clippy `-D warnings`, `npm run wasm:build`, Web STANDARD (90 testes, typecheck, build), `git diff --check` passaram.
+- Limites: pacote não decide fidelidade semântica, não persiste revisão e não libera TTS. Golden mainframe real e método de atestação ainda indisponíveis. Próximo passo após CI verde: contrato de decisão explícita com vínculo aos hashes e revisão humana/verificador confiável.

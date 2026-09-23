@@ -14,4 +14,6 @@ O teste `rust_content_pipeline.test.ts` carrega o arquivo `.wasm` real, executa 
 
 Na etapa M4.3, o core também valida NarrativePlan contra ContentModel/Outline e produz NarrationQA determinístico. O adapter `rust_narrative_pipeline.ts` valida contratos na fronteira e chama os exports WASM; a fixture `narrative_plan_content_v1.json` é verificada por Rust e por teste Vitest com o binário real. Como claim grounding ainda não foi implementado, esse QA retorna `review` mesmo quando os checks determinísticos não encontram falha. O adapter narrativo ainda não está ligado à UI ou a um modelo de planner.
 
+Em M4.4C, `build_script_review_packet_json` reúne evidência de fonte por trecho do roteiro validado. O adapter Web valida apenas o contrato de entrada/saída e testes executam o WASM real. O pacote permanece com revisão `pending`; não há decisão de aprovação, persistência ou liberação de TTS.
+
 Limites: PDF.js permanece responsável por extração v1; páginas sem texto seguem como `no_text`/revisão. O skeleton de outline não é um planner semântico. Nenhum modelo, TTS ou geração de áudio é iniciado nesta etapa.

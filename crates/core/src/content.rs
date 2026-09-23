@@ -171,7 +171,13 @@ impl ContentModel {
         if self.schema_version != 1 {
             return Err(ContentError::UnsupportedSchemaVersion(self.schema_version));
         }
-        if self.document_id.trim().is_empty() || !is_sha256(&self.source_hash) {
+        let valid_identity = self
+            .source_hash
+            .strip_prefix("sha256:")
+            .is_some_and(|digest| {
+                is_sha256(&self.source_hash) && self.document_id == format!("doc_{digest}")
+            });
+        if !valid_identity {
             return Err(ContentError::InvalidContent(
                 "invalid document identity".into(),
             ));
@@ -182,6 +188,10 @@ impl ContentModel {
             if unit.id.trim().is_empty()
                 || unit.source_refs.is_empty()
                 || unit.source_refs.iter().any(|value| value.trim().is_empty())
+                || unit
+                    .analysis_text
+                    .as_ref()
+                    .is_some_and(|value| value.trim().is_empty())
             {
                 return Err(ContentError::InvalidContent("invalid source unit".into()));
             }
