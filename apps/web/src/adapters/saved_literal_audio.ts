@@ -23,7 +23,15 @@ export type SavedLiteralAudio = { blob: Blob; startPage: number; endPage: number
 export type LiteralAudioEntry = { artifactKey: string; startPage: number; endPage: number; createdAtMs: number; sizeBytes: number };
 type Store = Pick<LocalProjectPersistence, "loadLatest" | "persistNext" | "loadArtifactRecord" | "readArtifact">;
 type CatalogStore = Store & Pick<LocalProjectPersistence, "listArtifactRecords">;
+type MaintenanceStore = CatalogStore & Pick<LocalProjectPersistence, "compactHistoricalLiteralAudio">;
 const AUDIO_KEY = /^literal_wav_[0-9a-f]{32}$/;
+
+export class SavedLiteralAudioError extends Error {
+  constructor(public readonly code: "NOT_FOUND", message: string) {
+    super(message);
+    this.name = "SavedLiteralAudioError";
+  }
+}
 
 async function sessionHash(session: ReadingSession): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(session));
@@ -31,7 +39,7 @@ async function sessionHash(session: ReadingSession): Promise<string> {
   return `sha256:${Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
-export async function saveLiteralAudio(store: Store, document: DocumentIrV2, session: ReadingSession, wav: Blob): Promise<void> {
+export async function saveLiteralAudio(store: Store, document: DocumentIrV2, session: ReadingSession, wav: Blob): Promise<string> {
   await validateWav(wav);
   if (document.documentId !== session.documentId || document.sourceHash !== session.sourceHash) {
     throw new Error("A sessão não pertence ao documento atual.");
@@ -64,6 +72,7 @@ export async function saveLiteralAudio(store: Store, document: DocumentIrV2, ses
     pipelineVersion: latest.pipelineVersion, sourceHash: latest.sourceHash, job: latest.job,
     artifactKeys: [...previousKeys, audioKey, metaKey],
   }, writes, latest.checksum);
+  return audioKey;
 }
 
 export async function loadLiteralAudio(store: Store, document: DocumentIrV2): Promise<SavedLiteralAudio | null> {
@@ -124,4 +133,12 @@ export async function loadLiteralAudioByKey(store: Store, document: DocumentIrV2
   await validateWav(wav);
   return { blob: wav, startPage: valid.metadata.startPage, endPage: valid.metadata.endPage,
     createdAtMs: valid.metadata.createdAtMs };
+}
+
+export async function removeHistoricalLiteralAudio(store: MaintenanceStore, document: DocumentIrV2, audioKey: string) {
+  const entries = await listLiteralAudios(store, document);
+  if (!entries.some(entry => entry.artifactKey === audioKey)) {
+    throw new SavedLiteralAudioError("NOT_FOUND", "A gravação não pertence ao documento atual.");
+  }
+  return await store.compactHistoricalLiteralAudio(document.documentId, document.sourceHash, audioKey);
 }

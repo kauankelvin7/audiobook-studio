@@ -10,7 +10,7 @@ Projeto local-first para transformar documentos em audiolivros. A interface impo
 - `apps/web/`: interface, PDF.js, storage local, Web Worker e adapter de voz.
 - `docs/`, `.ai/`: decisões, contexto e registro de trabalho.
 
-O modo de leitura está delimitado em `docs/adr/0015-native-text-reading-preview.md` e a exportação em `docs/adr/0016-local-wav-export.md`. Páginas escaneadas ou com extração suspeita não entram na sessão. O usuário deve conferir todo o texto exibido antes de ouvir ou gerar WAV. A voz de leitura imediata depende das vozes locais expostas pelo navegador; a exportação baixa um modelo de cerca de 63 MB na primeira geração. O app salva cada WAV localmente, lista gravações anteriores válidas e permite abrir e baixar uma cópia. Reprodução programática e download foram testados em Chrome e Edge; qualidade auditiva ainda exige escuta humana.
+O modo de leitura está delimitado em `docs/adr/0015-native-text-reading-preview.md` e a exportação em `docs/adr/0016-local-wav-export.md`. Páginas escaneadas ou com extração suspeita não entram na sessão. O usuário deve conferir todo o texto exibido antes de ouvir ou gerar WAV. A voz de leitura imediata depende das vozes locais expostas pelo navegador; a exportação baixa um modelo de cerca de 63 MB na primeira geração. O app salva cada WAV localmente, lista gravações anteriores válidas e permite abrir, baixar ou excluir uma gravação antiga após confirmação. A exclusão preserva o projeto atual e um checkpoint de recuperação (ADR 0017). Reprodução programática e download foram testados em Chrome e Edge; qualidade auditiva ainda exige escuta humana.
 
 ## Desenvolvimento
 

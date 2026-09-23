@@ -189,6 +189,51 @@ describe("IndexedDB checkpoint repository", () => {
     store.close();
   });
 
+  it("upgrades version 2 without losing checkpoints or manifests", async () => {
+    const seedRepository = repository(new IDBFactory(), "upgrade-v2-seed");
+    const saved = await seedRepository.save(checkpoint(1));
+    seedRepository.close();
+    const indexedDb = new IDBFactory();
+    const databaseName = "upgrade-v2-retention";
+    const request = indexedDb.open(databaseName, 2);
+    request.onupgradeneeded = () => {
+      const checkpoints = request.result.createObjectStore("checkpoints", { keyPath: ["projectId", "sequence"] });
+      checkpoints.createIndex("by_project_sequence", ["projectId", "sequence"], { unique: true });
+      const artifacts = request.result.createObjectStore("artifacts", { keyPath: ["projectId", "artifactKey"] });
+      artifacts.createIndex("by_project", "projectId", { unique: false });
+    };
+    const legacy = await requestResult(request);
+    const record = artifactRecord();
+    const transaction = legacy.transaction(["checkpoints", "artifacts"], "readwrite");
+    const completed = new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = () => reject(transaction.error);
+      transaction.onerror = () => reject(transaction.error);
+    });
+    transaction.objectStore("checkpoints").put(saved);
+    transaction.objectStore("artifacts").put(record);
+    await completed;
+    legacy.close();
+    const store = repository(indexedDb, databaseName);
+    await expect(store.listCheckpoints("project_1")).resolves.toEqual([saved]);
+    await expect(store.listArtifacts("project_1")).resolves.toEqual([record]);
+    await expect(store.listPendingFileDeletions("project_1")).resolves.toEqual([]);
+    await expect(store.commit({ checkpoint: checkpoint(2), artifacts: [] })).resolves.toMatchObject({ sequence: 2 });
+    store.close();
+  });
+
+  it("refuses compaction inventory when an older checkpoint is corrupt", async () => {
+    const indexedDb = new IDBFactory();
+    const databaseName = "compaction-corrupt-history";
+    const store = repository(indexedDb, databaseName);
+    const old = await store.save(checkpoint(1));
+    await store.save(checkpoint(2));
+    await putRaw(indexedDb, databaseName, { ...old, checksum: `sha256:${"f".repeat(64)}` });
+    await expect(store.listCheckpoints("project_1")).rejects.toMatchObject({ code: "CHECKSUM_MISMATCH" });
+    await expect(store.loadLatest("project_1")).resolves.toMatchObject({ sequence: 2 });
+    store.close();
+  });
+
   it("retries opening the database after a transient failure", async () => {
     const indexedDb = new IDBFactory();
     let attempts = 0;

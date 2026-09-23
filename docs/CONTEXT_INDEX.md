@@ -7,7 +7,7 @@ Carregue somente o contexto necessário para a tarefa.
 | Governança | `AGENTS.md`, `.ai/TASK_PACKET.md`, `.ai/WORKLOG.md`, `docs/CODE_REVIEW.md` |
 | Orquestração multiagente | `docs/AI_AGENT_POLICY.md`, `.codex/config.toml`, papel necessário em `.codex/agents/` |
 | Rust/domínio e runtime WASM | `docs/adr/0001-local-first.md`, `docs/adr/0004-document-ir-v1.md`, `docs/adr/0010-rust-core-ownership.md`, `docs/WASM_RUNTIME.md`, `crates/core/`, `crates/wasm/`, schemas espelho em `apps/web/src/schemas/` |
-| Ingestão/OCR/storage | `docs/INGESTION_OCR_ARCHITECTURE.md`, `docs/INGESTION_TEST_STRATEGY.md`, `docs/PERSISTENCE.md`, ADRs 0008–0009, schemas e adapters relacionados |
+| Ingestão/OCR/storage | `docs/INGESTION_OCR_ARCHITECTURE.md`, `docs/INGESTION_TEST_STRATEGY.md`, `docs/PERSISTENCE.md`, ADRs 0008–0009 e 0017, schemas e adapters relacionados |
 | PWA/UI | `apps/web/`, `docs/adr/0002-ports-adapters.md`, skill `humanizer` para textos da interface |
 | Narrativa/QA/performance | `docs/NARRATIVE_AND_PERFORMANCE.md`, `docs/PERFORMANCE_REQUIREMENTS.md`, ADRs 0005–0007, schemas `narrative.ts`/`performance.ts` |
 | IA/segurança | `docs/SECURITY.md`, `docs/AI_GOVERNANCE.md` |

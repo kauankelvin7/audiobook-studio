@@ -1,6 +1,8 @@
 import type {
   CheckpointRecovery,
   CheckpointRepository,
+  HistoricalAudioCompaction,
+  PendingFileDeletion,
   ProjectCommitInput,
   ProjectStateRepository,
   RejectedCheckpoint,
@@ -15,9 +17,10 @@ import {
   type CheckpointRecord,
 } from "../schemas/persistence";
 
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 const CHECKPOINT_STORE = "checkpoints";
 const ARTIFACT_STORE = "artifacts";
+const PENDING_DELETION_STORE = "pending_file_deletions";
 const PROJECT_SEQUENCE_INDEX = "by_project_sequence";
 const PROJECT_ARTIFACT_INDEX = "by_project";
 const MAX_RECOVERY_CANDIDATES = 1_000;
@@ -36,7 +39,8 @@ export type PersistenceErrorCode =
   | "MISSING_ARTIFACT_MANIFEST"
   | "CORRUPT_ARTIFACT_RECORD"
   | "PROJECT_MISMATCH"
-  | "CHECKSUM_FAILED";
+  | "CHECKSUM_FAILED"
+  | "COMPACTION_CONFLICT";
 
 export class PersistenceError extends Error {
   constructor(public readonly code: PersistenceErrorCode, message: string, options?: ErrorOptions) {
@@ -279,6 +283,99 @@ export class IndexedDbCheckpointRepository implements CheckpointRepository, Proj
     }
   }
 
+  async listPendingFileDeletions(projectIdInput: string): Promise<PendingFileDeletion[]> {
+    const projectId = storageIdSchema.parse(projectIdInput);
+    try {
+      const database = await this.database();
+      const transaction = database.transaction(PENDING_DELETION_STORE, "readonly");
+      const done = transactionDone(transaction);
+      const range = this.keyRange.bound([projectId, ""], [projectId, "\uffff"]);
+      const values = await requestResult(transaction.objectStore(PENDING_DELETION_STORE).getAll(range));
+      await done;
+      return values.map(value => {
+        if (typeof value !== "object" || value === null || value.projectId !== projectId
+          || typeof value.fileName !== "string" || !/^v1_[0-9a-f]{64}\.bin$/.test(value.fileName)
+          || !Number.isSafeInteger(value.createdAtMs) || value.createdAtMs < 0) {
+          throw new PersistenceError("CORRUPT_RECORD", "A fila de limpeza local está corrompida.");
+        }
+        return value as PendingFileDeletion;
+      });
+    } catch (error) {
+      throw toPersistenceError(error, "TRANSACTION_FAILED");
+    }
+  }
+
+  async deletePendingFileDeletion(projectIdInput: string, fileName: string): Promise<void> {
+    const projectId = storageIdSchema.parse(projectIdInput);
+    if (!/^v1_[0-9a-f]{64}\.bin$/.test(fileName)) throw new PersistenceError("CORRUPT_RECORD", "Nome de arquivo de limpeza inválido.");
+    try {
+      const database = await this.database();
+      const transaction = database.transaction(PENDING_DELETION_STORE, "readwrite");
+      const done = transactionDone(transaction);
+      await requestResult(transaction.objectStore(PENDING_DELETION_STORE).delete([projectId, fileName]));
+      await done;
+    } catch (error) {
+      throw toPersistenceError(error, "TRANSACTION_FAILED");
+    }
+  }
+
+  async compactHistoricalAudio(input: HistoricalAudioCompaction): Promise<void> {
+    const projectId = storageIdSchema.parse(input.projectId);
+    const [audio, metadata] = input.artifacts.map(record => artifactManifestRecordSchema.parse(record));
+    if (audio.projectId !== projectId || metadata.projectId !== projectId
+      || audio.kind !== "audio_chunk" || metadata.kind !== "audio_metadata"
+      || !/^literal_wav_[0-9a-f]{32}$/.test(audio.artifactKey)
+      || metadata.artifactKey !== `${audio.artifactKey}_meta`
+      || input.removedSequences.length === 0 || new Set(input.removedSequences).size !== input.removedSequences.length) {
+      throw new PersistenceError("COMPACTION_CONFLICT", "A seleção de gravação para limpeza não é válida.");
+    }
+    let transaction: IDBTransaction | null = null;
+    let completion: Promise<void> | null = null;
+    try {
+      const database = await this.database();
+      transaction = database.transaction([CHECKPOINT_STORE, ARTIFACT_STORE, PENDING_DELETION_STORE], "readwrite");
+      completion = transactionDone(transaction);
+      const range = this.keyRange.bound([projectId, 0], [projectId, Number.MAX_SAFE_INTEGER]);
+      const checkpointStore = transaction.objectStore(CHECKPOINT_STORE);
+      const artifactStore = transaction.objectStore(ARTIFACT_STORE);
+      const pendingStore = transaction.objectStore(PENDING_DELETION_STORE);
+      const currentRaw = await requestResult(checkpointStore.index(PROJECT_SEQUENCE_INDEX).getAll(range, this.maxRecoveryCandidates + 1));
+      const current = currentRaw.map(value => this.parseStoredRecord(value));
+      const expected = input.expectedCheckpoints;
+      if (current.length !== expected.length || current.some((item, index) =>
+        JSON.stringify(item) !== JSON.stringify(expected[index]))
+        || current.at(-1)?.checksum !== input.expectedLatestChecksum) {
+        throw new PersistenceError("COMPACTION_CONFLICT", "O histórico do projeto mudou durante a limpeza.");
+      }
+      const removed = new Set(input.removedSequences);
+      const retained = current.filter(item => !removed.has(item.sequence));
+      if (retained.length < 2 || removed.has(current.at(-1)!.sequence)
+        || current.filter(item => removed.has(item.sequence)).length !== removed.size
+        || current.some(item => removed.has(item.sequence)
+          && (!item.artifactKeys.includes(audio.artifactKey) || !item.artifactKeys.includes(metadata.artifactKey)))
+        || retained.some(item => item.artifactKeys.includes(audio.artifactKey)
+          || item.artifactKeys.includes(metadata.artifactKey))) {
+        throw new PersistenceError("COMPACTION_CONFLICT", "A limpeza afetaria o checkpoint atual ou a recuperação.");
+      }
+      for (const record of [audio, metadata]) {
+        const raw = await requestResult(artifactStore.get([projectId, record.artifactKey]));
+        if (raw === undefined || !sameArtifactRecord(this.validateArtifactRecord(raw), record)) {
+          throw new PersistenceError("COMPACTION_CONFLICT", "O artefato mudou durante a limpeza.");
+        }
+      }
+      for (const sequence of removed) await requestResult(checkpointStore.delete([projectId, sequence]));
+      for (const record of [audio, metadata]) {
+        await requestResult(artifactStore.delete([projectId, record.artifactKey]));
+        await requestResult(pendingStore.put({ projectId, fileName: record.fileName, createdAtMs: Date.now() }));
+      }
+      await completion;
+    } catch (error) {
+      try { transaction?.abort(); } catch { /* Já concluída ou abortada. */ }
+      await completion?.catch(() => undefined);
+      throw toPersistenceError(error, "TRANSACTION_FAILED");
+    }
+  }
+
   async deleteArtifactRecord(projectIdInput: string, artifactKeyInput: string): Promise<void> {
     const projectId = storageIdSchema.parse(projectIdInput);
     const artifactKey = storageIdSchema.parse(artifactKeyInput);
@@ -304,6 +401,22 @@ export class IndexedDbCheckpointRepository implements CheckpointRepository, Proj
       await done;
       if (!cursor) return null;
       return await this.validateStoredRecord(cursor.value);
+    } catch (error) {
+      throw toPersistenceError(error, "TRANSACTION_FAILED");
+    }
+  }
+
+  async listCheckpoints(projectIdInput: string): Promise<CheckpointRecord[]> {
+    const projectId = storageIdSchema.parse(projectIdInput);
+    try {
+      const database = await this.database();
+      const transaction = database.transaction(CHECKPOINT_STORE, "readonly");
+      const done = transactionDone(transaction);
+      const range = this.keyRange.bound([projectId, 0], [projectId, Number.MAX_SAFE_INTEGER]);
+      const values = await requestResult(transaction.objectStore(CHECKPOINT_STORE).index(PROJECT_SEQUENCE_INDEX).getAll(range, this.maxRecoveryCandidates + 1));
+      await done;
+      if (values.length > this.maxRecoveryCandidates) throw new PersistenceError("RECOVERY_LIMIT", "O histórico excede o limite seguro para limpeza.");
+      return await Promise.all(values.map(value => this.validateStoredRecord(value)));
     } catch (error) {
       throw toPersistenceError(error, "TRANSACTION_FAILED");
     }
@@ -374,6 +487,9 @@ export class IndexedDbCheckpointRepository implements CheckpointRepository, Proj
         if (!database.objectStoreNames.contains(ARTIFACT_STORE)) {
           const store = database.createObjectStore(ARTIFACT_STORE, { keyPath: ["projectId", "artifactKey"] });
           store.createIndex(PROJECT_ARTIFACT_INDEX, "projectId", { unique: false });
+        }
+        if (!database.objectStoreNames.contains(PENDING_DELETION_STORE)) {
+          database.createObjectStore(PENDING_DELETION_STORE, { keyPath: ["projectId", "fileName"] });
         }
       };
       request.onsuccess = () => {

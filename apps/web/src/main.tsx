@@ -5,7 +5,7 @@ import type { CheckpointDraft } from "./adapters/local_project_persistence";
 import { MAX_PDF_BYTES } from "./adapters/pdf_limits";
 import { LocalSpeechPlayer, type SpeechState } from "./adapters/local_speech";
 import { renderLocalWav, type WavProgress } from "./adapters/local_wav";
-import { listLiteralAudios, loadLiteralAudio, loadLiteralAudioByKey, saveLiteralAudio,
+import { listLiteralAudios, loadLiteralAudio, loadLiteralAudioByKey, removeHistoricalLiteralAudio, saveLiteralAudio,
   type LiteralAudioEntry, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
 import type { ArtifactWrite } from "./adapters/ports";
@@ -43,6 +43,8 @@ function App() {
   const [audioHistory, setAudioHistory] = useState<LiteralAudioEntry[]>([]);
   const [selectedAudioKey, setSelectedAudioKey] = useState<string | null>(null);
   const [audioOpening, setAudioOpening] = useState(false);
+  const [audioMaintenanceBusy, setAudioMaintenanceBusy] = useState(false);
+  const [currentAudioKey, setCurrentAudioKey] = useState<string | null>(null);
 
   function clearWav() {
     wavAbortRef.current?.abort();
@@ -86,6 +88,35 @@ function App() {
     }
   }
 
+  async function removeSavedAudio(entry: LiteralAudioEntry) {
+    if (!documentV2 || !persistenceRef.current || audioMaintenanceBusy || wavBusy
+      || entry.artifactKey === currentAudioKey) return;
+    const confirmed = window.confirm(`Excluir a gravação das páginas ${entry.startPage} a ${entry.endPage}? O arquivo e os checkpoints que o referenciam serão removidos deste dispositivo. Esta ação não pode ser desfeita.`);
+    if (!confirmed) return;
+    const generation = importGenerationRef.current;
+    setAudioMaintenanceBusy(true);
+    try {
+      const result = await removeHistoricalLiteralAudio(persistenceRef.current.service, documentV2, entry.artifactKey);
+      if (generation !== importGenerationRef.current) return;
+      if (selectedAudioKey === entry.artifactKey) clearSavedWav();
+      setAudioHistory(history => history.filter(item => item.artifactKey !== entry.artifactKey));
+      setStatus(result.pendingFiles > 0
+        ? "Gravação removida do catálogo. A limpeza do arquivo será retomada neste dispositivo."
+        : "Gravação antiga removida. O projeto e a gravação atual foram preservados.");
+    } catch (error) {
+      if (generation === importGenerationRef.current) {
+        const code = typeof error === "object" && error !== null && "code" in error ? error.code : null;
+        setStatus(code === "RECOVERY_UNSAFE"
+          ? "Esta gravação não pode ser removida porque falta uma cópia recuperável do projeto."
+          : code === "NOT_HISTORICAL" || code === "CHECKPOINT_CHANGED"
+            ? "O projeto mudou. Recarregue a página antes de tentar excluir a gravação."
+            : "Não foi possível concluir a exclusão. Recarregue a página e confira as gravações salvas.");
+      }
+    } finally {
+      if (generation === importGenerationRef.current) setAudioMaintenanceBusy(false);
+    }
+  }
+
   useEffect(() => {
     const synthesis = typeof window === "undefined" ? null : window.speechSynthesis ?? null;
     const player = new LocalSpeechPlayer(synthesis, setSpeechState,
@@ -116,6 +147,11 @@ function App() {
         const candidates = [];
         for (const projectId of await localPersistence!.service.listProjectIds()) {
           try {
+            await localPersistence!.service.resumePendingFileDeletions(projectId);
+          } catch {
+            // Falha de limpeza pendente não impede a recuperação do projeto.
+          }
+          try {
             const inspection = await localPersistence!.service.inspectResume(projectId);
             const onlyAudioUnavailable = inspection.unavailableArtifactKeys.length > 0
               && inspection.unavailableArtifactKeys.every(key => key.startsWith("literal_wav_"));
@@ -141,6 +177,7 @@ function App() {
           const v2 = documentIrV2Schema.safeParse(JSON.parse(await v2Blob.text()));
           if (v2.success && v2.data.documentId === parsed.data.documentId && v2.data.sourceHash === parsed.data.sourceHash && !cancelled && importGenerationRef.current === 0) {
             setDocumentV2(v2.data);
+            setCurrentAudioKey(latest?.checkpoint?.artifactKeys.find(key => /^literal_wav_[0-9a-f]{32}$/.test(key)) ?? null);
             try {
               const history = await listLiteralAudios(localPersistence!.service, v2.data);
               if (!cancelled && importGenerationRef.current === 0) setAudioHistory(history);
@@ -194,6 +231,7 @@ function App() {
     clearWav();
     clearSavedWav();
     setAudioHistory([]);
+    setCurrentAudioKey(null);
     setPreview(null);
     setReviewed(false);
     setDocumentV2(null);
@@ -302,6 +340,7 @@ function App() {
           try {
             await persistence.persistNext(checkpoint, writes);
             if (generation === importGenerationRef.current) {
+              setCurrentAudioKey(null);
               setStatus(`${baseStatus} Progresso salvo neste dispositivo.`);
               try {
                 const history = await listLiteralAudios(persistence, response.documentV2);
@@ -380,9 +419,10 @@ function App() {
       const persistence = persistenceRef.current?.service;
       if (persistence && documentV2) {
         try {
-          await saveLiteralAudio(persistence, documentV2, preview, wav);
+          const audioKey = await saveLiteralAudio(persistence, documentV2, preview, wav);
           if (!controller.signal.aborted) {
             clearSavedWav();
+            setCurrentAudioKey(audioKey);
             setStatus("WAV pronto e salvo neste dispositivo. Você também pode baixar uma cópia.");
             try {
               const history = await listLiteralAudios(persistence, documentV2);
@@ -417,7 +457,7 @@ function App() {
       <h2 id="import-title">Importar PDF</h2>
       <p>Selecione um PDF de até 32 MB com texto selecionável. Após conferir o trecho, você pode gerar um WAV local.</p>
       <label htmlFor="pdf-input">Arquivo PDF</label>
-      <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy} />
+      <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy || audioMaintenanceBusy} />
       {fileName && <p className="file-name">Arquivo: {fileName}</p>}
       <p role="status" aria-live="polite">{status}</p>
     </section>
@@ -440,6 +480,11 @@ function App() {
           aria-label={`Abrir gravação das páginas ${entry.startPage} a ${entry.endPage}, salva em ${new Date(entry.createdAtMs).toLocaleString("pt-BR")}`}>
           {selectedAudioKey === entry.artifactKey ? "Reabrir gravação" : "Abrir gravação"}
         </button>
+        {entry.artifactKey !== currentAudioKey && <button type="button" onClick={() => void removeSavedAudio(entry)}
+          disabled={audioMaintenanceBusy || audioOpening || wavBusy}
+          aria-label={`Excluir gravação das páginas ${entry.startPage} a ${entry.endPage}, salva em ${new Date(entry.createdAtMs).toLocaleString("pt-BR")}`}>
+          Excluir gravação antiga
+        </button>}
       </li>)}</ul>
       {savedWav && <div className="wav-result">
         <audio controls src={savedWav.url} aria-label="Gravação WAV selecionada" />
@@ -499,7 +544,7 @@ function App() {
         <h3>Gerar arquivo de áudio</h3>
         <p>Use a voz local Faber (pt-BR). O modelo é baixado na primeira geração; o texto do PDF não é enviado ao serviço de voz. Limite: 12 mil caracteres por arquivo.</p>
         <div className="reading-actions">
-          <button type="button" onClick={() => void generateWav()} disabled={!reviewed || wavBusy}>Gerar WAV</button>
+          <button type="button" onClick={() => void generateWav()} disabled={!reviewed || wavBusy || audioMaintenanceBusy}>Gerar WAV</button>
           <button type="button" onClick={clearWav} disabled={!wavBusy}>Cancelar geração</button>
         </div>
         {wavBusy && <p role="status" aria-live="polite">{wavProgress && wavProgress.total > 0

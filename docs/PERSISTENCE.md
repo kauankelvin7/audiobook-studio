@@ -40,6 +40,7 @@ PDF original, edição humana, artefato final e dados não regeneráveis nunca s
 
 - IndexedDB v1: store `checkpoints`.
 - IndexedDB v2: adiciona store `artifacts` e índice `by_project`, preservando checkpoints existentes.
+- IndexedDB v3: adiciona `pending_file_deletions` para concluir exclusões de WAV históricos após falha/fechamento, preservando stores anteriores (ADR 0017).
 - Checkpoints e manifests mantêm `schemaVersion: 1` no wire format; schema futuro incompatível falha explicitamente.
 
 ## Test tiers
@@ -49,6 +50,10 @@ PDF original, edição humana, artefato final e dados não regeneráveis nunca s
 - `npm run test:full`: standard + audit de dependências.
 
 Fuzz, browser matrix, soak e hardware/performance continuam como gates futuros/nightly; não são simulados como concluídos.
+
+## Exclusão de WAV histórico
+
+O usuário pode excluir uma gravação literal antiga após confirmação. O serviço protege o checkpoint atual e um fallback recuperável da mesma fonte, valida o histórico inteiro até 1.000 registros e remove as referências antigas em uma transação IndexedDB. A limpeza OPFS é retomável por fila persistida. Fonte PDF, artefatos finais e revisões não entram nessa seleção. Não há exclusão automática por quota ou idade. Consulte ADR 0017.
 
 ## Pendências pós-M3.2
 

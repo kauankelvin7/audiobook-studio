@@ -31,7 +31,7 @@ export type StorageReconciliation = {
   missingFileNames: string[];
 };
 
-export type LocalProjectPersistenceErrorCode = "PROJECT_MISMATCH" | "CHECKPOINT_CHANGED";
+export type LocalProjectPersistenceErrorCode = "PROJECT_MISMATCH" | "CHECKPOINT_CHANGED" | "NOT_HISTORICAL" | "RECOVERY_UNSAFE";
 
 export class LocalProjectPersistenceError extends Error {
   constructor(public readonly code: LocalProjectPersistenceErrorCode, message: string) {
@@ -86,6 +86,97 @@ export class LocalProjectPersistence {
 
   async readArtifact(record: ArtifactManifestRecord): Promise<Blob> {
     return await this.artifacts.get(record);
+  }
+
+  async compactHistoricalLiteralAudio(projectIdInput: string, sourceHash: string, audioKeyInput: string): Promise<{
+    removedCheckpoints: number;
+    reclaimedBytes: number;
+    pendingFiles: number;
+  }> {
+    const projectId = storageIdSchema.parse(projectIdInput);
+    const audioKey = storageIdSchema.parse(audioKeyInput);
+    if (!/^literal_wav_[0-9a-f]{32}$/.test(audioKey)) {
+      throw new LocalProjectPersistenceError("NOT_HISTORICAL", "Esta chave não pertence a uma gravação literal.");
+    }
+    return await this.lock.runExclusive(projectId, async () => {
+      const latest = await this.state.loadLatest(projectId);
+      if (!latest || latest.sourceHash !== sourceHash) {
+        throw new LocalProjectPersistenceError("CHECKPOINT_CHANGED", "A fonte ativa mudou antes da limpeza.");
+      }
+      const metaKey = `${audioKey}_meta`;
+      if (latest.artifactKeys.includes(audioKey) || latest.artifactKeys.includes(metaKey)) {
+        throw new LocalProjectPersistenceError("NOT_HISTORICAL", "A gravação atual não pode ser removida.");
+      }
+      const checkpoints = await this.state.listCheckpoints(projectId);
+      if (checkpoints.at(-1)?.checksum !== latest.checksum) {
+        throw new LocalProjectPersistenceError("CHECKPOINT_CHANGED", "O histórico mudou antes da limpeza.");
+      }
+      const records = await this.state.listArtifacts(projectId);
+      const byKey = new Map(records.map(record => [record.artifactKey, record]));
+      const audio = byKey.get(audioKey);
+      const metadata = byKey.get(metaKey);
+      if (!audio || !metadata || audio.kind !== "audio_chunk" || metadata.kind !== "audio_metadata"
+        || audio.regenerable || metadata.regenerable || !audio.pinned || !metadata.pinned
+        || audio.finalArtifact || metadata.finalArtifact) {
+        throw new LocalProjectPersistenceError("NOT_HISTORICAL", "A gravação histórica não tem manifests íntegros.");
+      }
+      const removed = checkpoints.filter(checkpoint => checkpoint.artifactKeys.includes(audioKey)
+        || checkpoint.artifactKeys.includes(metaKey));
+      if (removed.length === 0 || removed.some(checkpoint =>
+        !checkpoint.artifactKeys.includes(audioKey) || !checkpoint.artifactKeys.includes(metaKey))) {
+        throw new LocalProjectPersistenceError("RECOVERY_UNSAFE", "O histórico da gravação está incompleto.");
+      }
+      const removedSequences = new Set(removed.map(checkpoint => checkpoint.sequence));
+      const fallback = [...checkpoints].reverse().find(checkpoint => checkpoint.sequence !== latest.sequence
+        && !removedSequences.has(checkpoint.sequence) && checkpoint.sourceHash === latest.sourceHash
+        && ["source_pdf", "document_ir", "document_ir_v2"].every(key => checkpoint.artifactKeys.includes(key)));
+      if (!fallback) {
+        throw new LocalProjectPersistenceError("RECOVERY_UNSAFE", "Não há checkpoint alternativo seguro para esta fonte.");
+      }
+      for (const key of new Set([...latest.artifactKeys, ...fallback.artifactKeys])) {
+        const record = byKey.get(key);
+        if (!record) throw new LocalProjectPersistenceError("RECOVERY_UNSAFE", "Falta um manifest necessário para recuperação.");
+        try {
+          await this.artifacts.get(record);
+        } catch {
+          throw new LocalProjectPersistenceError("RECOVERY_UNSAFE", "Um artefato necessário para recuperação está indisponível.");
+        }
+      }
+      await this.state.compactHistoricalAudio({ projectId, expectedLatestChecksum: latest.checksum,
+        expectedCheckpoints: checkpoints, removedSequences: [...removedSequences], artifacts: [audio, metadata] });
+      let cleanup: { deletedFileNames: string[]; pendingFiles: number };
+      try {
+        cleanup = await this.flushPendingFileDeletionsLocked(projectId);
+      } catch {
+        return { removedCheckpoints: removed.length, reclaimedBytes: 0, pendingFiles: 2 };
+      }
+      return { removedCheckpoints: removed.length,
+        reclaimedBytes: [audio, metadata].reduce((sum, record) =>
+          sum + (cleanup.deletedFileNames.includes(record.fileName) ? record.sizeBytes : 0), 0),
+        pendingFiles: cleanup.pendingFiles };
+    });
+  }
+
+  async resumePendingFileDeletions(projectIdInput: string): Promise<{ deletedFileNames: string[]; pendingFiles: number }> {
+    const projectId = storageIdSchema.parse(projectIdInput);
+    return await this.lock.runExclusive(projectId, async () => await this.flushPendingFileDeletionsLocked(projectId));
+  }
+
+  private async flushPendingFileDeletionsLocked(projectId: string): Promise<{ deletedFileNames: string[]; pendingFiles: number }> {
+    const pending = await this.state.listPendingFileDeletions(projectId);
+    const deletedFileNames: string[] = [];
+    for (const item of pending) {
+      const manifests = await this.state.listAllArtifacts();
+      if (manifests.some(record => record.fileName === item.fileName)) continue;
+      try {
+        await this.artifacts.deleteFileName(item.fileName);
+        await this.state.deletePendingFileDeletion(projectId, item.fileName);
+        deletedFileNames.push(item.fileName);
+      } catch {
+        // A fila persiste para tentativa posterior; nunca apagar um manifest ativo.
+      }
+    }
+    return { deletedFileNames, pendingFiles: (await this.state.listPendingFileDeletions(projectId)).length };
   }
 
   async inspectResume(projectIdInput: string): Promise<ResumeInspection> {

@@ -8,7 +8,7 @@ import { documentIrSchema } from "../schemas/document";
 import type { ArtifactWrite } from "./ports";
 import { analyzeDocumentV1 } from "./rust_content_pipeline";
 import { buildReadingSession } from "./rust_reading_preview";
-import { listLiteralAudios, loadLiteralAudio, loadLiteralAudioByKey, saveLiteralAudio } from "./saved_literal_audio";
+import { listLiteralAudios, loadLiteralAudio, loadLiteralAudioByKey, removeHistoricalLiteralAudio, saveLiteralAudio } from "./saved_literal_audio";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -57,6 +57,7 @@ describe("saved literal audio", () => {
       }),
       listArtifactRecords: vi.fn(async () => (await Promise.all([...writes.keys()].map(key =>
         store.loadArtifactRecord(document.documentId, key)))).filter((record): record is ArtifactManifestRecord => record !== null)),
+      compactHistoricalLiteralAudio: vi.fn(async () => ({ removedCheckpoints: 1, reclaimedBytes: audio.size, pendingFiles: 0 })),
       readArtifact: vi.fn(async (record: ArtifactManifestRecord) => writes.get(record.artifactKey)!.value),
     };
     await saveLiteralAudio(store, document, session, audio);
@@ -77,6 +78,11 @@ describe("saved literal audio", () => {
     await expect(loadLiteralAudioByKey(store, document, savedWrites[0].artifactKey))
       .resolves.toMatchObject({ blob: audio, startPage: 1, endPage: 1 });
     await expect(loadLiteralAudioByKey(store, document, "source_pdf")).resolves.toBeNull();
+    await expect(removeHistoricalLiteralAudio(store, document, savedWrites[0].artifactKey))
+      .resolves.toMatchObject({ removedCheckpoints: 1 });
+    expect(store.compactHistoricalLiteralAudio).toHaveBeenCalledWith(document.documentId, document.sourceHash, savedWrites[0].artifactKey);
+    await expect(removeHistoricalLiteralAudio(store, { ...document, sourceHash: `sha256:${"e".repeat(64)}` }, savedWrites[0].artifactKey))
+      .rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(loadLiteralAudio(store, { ...document, sourceHash: `sha256:${"e".repeat(64)}` }))
       .resolves.toBeNull();
     await expect(saveLiteralAudio(store, document, { ...session, pages: [{ ...session.pages[0],

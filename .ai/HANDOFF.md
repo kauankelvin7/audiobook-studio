@@ -224,3 +224,8 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 ## Biblioteca WAV literal — 2026-09-23
 - Gravações históricas da mesma fonte agora aparecem no catálogo local; abertura sob demanda revalida sessão Rust/WASM. Smoke real em Chrome e Edge gerou dois WAVs, reabriu o antigo após reload, reproduziu programaticamente e baixou arquivo de SHA-256 idêntico ao Blob. Gates locais verdes; ver `.ai/WORKLOG.md` e ADR 0016.
 - Próximo batch de valor: contrato de retenção/compaction de checkpoints e manifests com preservação de recuperação histórica; depois ampliar áudio por capítulos apenas após QA semântico e revisão de texto. Escuta humana, corpus OCR/goldens, atestação de revisão e audiobook narrativo final continuam pendentes. Não confundir WAV literal com exportação final.
+
+## Retenção explícita de WAV literal — 2026-09-23
+- Sobre base `eae4ee5`, a exclusão histórica exige confirmação, preserva o checkpoint atual e um fallback íntegro da mesma fonte e usa fila durável IndexedDB v3 para remoção OPFS idempotente. ADR 0017 e worklog detalham contrato e limites. Não há exclusão automática.
+- Gates locais verdes: Rust fmt/43 testes/clippy; Web 127 testes, 2 opt-in ignorados, typecheck/build/audit; smoke Chrome headless validou cancelar/confirmar, reload e ausência dos arquivos/manifests excluídos. Edge e escuta humana não foram repetidos nesta execução. Commit remoto e CI ainda pendentes neste checkpoint.
+- Próximo passo de valor: retomar a trilha de qualidade do conteúdo (goldens locais revisados, OCR limitado/reconciliação no Rust e atestação), depois narrativa/TTS por capítulos. O WAV literal continua prova de exportação local, não audiobook final.
