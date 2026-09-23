@@ -10,7 +10,7 @@ Projeto local-first para transformar documentos em audiolivros. A interface impo
 - `apps/web/`: interface, PDF.js, storage local, Web Worker e adapter de voz.
 - `docs/`, `.ai/`: decisões, contexto e registro de trabalho.
 
-O modo de leitura está delimitado em `docs/adr/0015-native-text-reading-preview.md` e a exportação em `docs/adr/0016-local-wav-export.md`. Páginas escaneadas ou com extração suspeita não entram na sessão. O usuário deve conferir todo o texto exibido antes de ouvir ou gerar WAV. A voz de leitura imediata depende das vozes locais expostas pelo navegador; a exportação baixa um modelo de cerca de 63 MB na primeira geração. O app salva o WAV localmente e também permite baixá-lo. A síntese foi executada em navegador integrado; a reprodução auditiva ainda precisa de validação em navegador externo.
+O modo de leitura está delimitado em `docs/adr/0015-native-text-reading-preview.md` e a exportação em `docs/adr/0016-local-wav-export.md`. Páginas escaneadas ou com extração suspeita não entram na sessão. O usuário deve conferir todo o texto exibido antes de ouvir ou gerar WAV. A voz de leitura imediata depende das vozes locais expostas pelo navegador; a exportação baixa um modelo de cerca de 63 MB na primeira geração. O app salva cada WAV localmente, lista gravações anteriores válidas e permite abrir e baixar uma cópia. Reprodução programática e download foram testados em Chrome e Edge; qualidade auditiva ainda exige escuta humana.
 
 ## Desenvolvimento
 
@@ -33,3 +33,11 @@ cargo test --workspace
 ```
 
 Após mudar código Rust usado no navegador, rode `npm run wasm:build` em `apps/web` antes dos testes Web. Consulte `docs/CONTEXT_INDEX.md` antes de iniciar uma tarefa.
+
+O smoke funcional de áudio é opt-in porque baixa o modelo de voz na primeira execução e requer Chrome ou Edge instalado. Ele não faz inspeção visual:
+
+```text
+cd apps/web
+npm run test:browser:audio
+$env:AUDIO_BROWSER_CHANNEL='msedge'; npm run test:browser:audio
+```

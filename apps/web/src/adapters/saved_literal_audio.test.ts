@@ -8,7 +8,7 @@ import { documentIrSchema } from "../schemas/document";
 import type { ArtifactWrite } from "./ports";
 import { analyzeDocumentV1 } from "./rust_content_pipeline";
 import { buildReadingSession } from "./rust_reading_preview";
-import { loadLiteralAudio, saveLiteralAudio } from "./saved_literal_audio";
+import { listLiteralAudios, loadLiteralAudio, loadLiteralAudioByKey, saveLiteralAudio } from "./saved_literal_audio";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -55,6 +55,8 @@ describe("saved literal audio", () => {
           fileName: `v1_${"d".repeat(64)}.bin`, schemaVersion: 1, sizeBytes: write.value.size,
           lastAccessedAtMs: write.createdAtMs } as ArtifactManifestRecord : null;
       }),
+      listArtifactRecords: vi.fn(async () => (await Promise.all([...writes.keys()].map(key =>
+        store.loadArtifactRecord(document.documentId, key)))).filter((record): record is ArtifactManifestRecord => record !== null)),
       readArtifact: vi.fn(async (record: ArtifactManifestRecord) => writes.get(record.artifactKey)!.value),
     };
     await saveLiteralAudio(store, document, session, audio);
@@ -67,6 +69,14 @@ describe("saved literal audio", () => {
     await saveLiteralAudio(store, document, session, newerAudio);
     expect(latest.artifactKeys.filter(key => /^literal_wav_[0-9a-f]{32}$/.test(key))).toHaveLength(1);
     await expect(loadLiteralAudio(store, document)).resolves.toMatchObject({ blob: newerAudio, startPage: 1, endPage: 1 });
+    const history = await listLiteralAudios(store, document);
+    expect(history).toHaveLength(2);
+    expect(history.map(entry => entry.artifactKey)).toContain(savedWrites[0].artifactKey);
+    await expect(listLiteralAudios(store, { ...document, sourceHash: `sha256:${"e".repeat(64)}` }))
+      .resolves.toEqual([]);
+    await expect(loadLiteralAudioByKey(store, document, savedWrites[0].artifactKey))
+      .resolves.toMatchObject({ blob: audio, startPage: 1, endPage: 1 });
+    await expect(loadLiteralAudioByKey(store, document, "source_pdf")).resolves.toBeNull();
     await expect(loadLiteralAudio(store, { ...document, sourceHash: `sha256:${"e".repeat(64)}` }))
       .resolves.toBeNull();
     await expect(saveLiteralAudio(store, document, { ...session, pages: [{ ...session.pages[0],
@@ -79,5 +89,8 @@ describe("saved literal audio", () => {
     await expect(loadLiteralAudio(store, document)).resolves.toBeNull();
     writes.set(metaKey, { ...storedMeta, value: new Blob(["{"], { type: "application/json" }) });
     await expect(loadLiteralAudio(store, document)).resolves.toBeNull();
+    expect(await listLiteralAudios(store, document)).toHaveLength(1);
+    writes.delete(savedWrites[0].artifactKey);
+    expect(await listLiteralAudios(store, document)).toHaveLength(0);
   });
 });

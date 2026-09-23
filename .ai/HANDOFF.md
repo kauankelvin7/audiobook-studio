@@ -221,3 +221,6 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 ## Recuperação WAV literal — 2026-09-23
 - Resalvamento testado: checkpoint aponta só para o WAV novo; metadata JSON inválida não quebra recuperação. Gates locais Web/Rust verdes; detalhes em `.ai/WORKLOG.md`.
 - Próximo passo: validar reprodução e download em navegador externo automatizável ou manualmente, confirmar CI; em seguida definir retenção/limpeza explícita dos WAVs substituídos. Não chamar o resultado de audiobook final.
+## Biblioteca WAV literal — 2026-09-23
+- Gravações históricas da mesma fonte agora aparecem no catálogo local; abertura sob demanda revalida sessão Rust/WASM. Smoke real em Chrome e Edge gerou dois WAVs, reabriu o antigo após reload, reproduziu programaticamente e baixou arquivo de SHA-256 idêntico ao Blob. Gates locais verdes; ver `.ai/WORKLOG.md` e ADR 0016.
+- Próximo batch de valor: contrato de retenção/compaction de checkpoints e manifests com preservação de recuperação histórica; depois ampliar áudio por capítulos apenas após QA semântico e revisão de texto. Escuta humana, corpus OCR/goldens, atestação de revisão e audiobook narrativo final continuam pendentes. Não confundir WAV literal com exportação final.

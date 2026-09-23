@@ -41,6 +41,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .reading-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-2) 0; }
 .wav-result { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; }
 .wav-result audio { max-width: 100%; }
+.audio-history { list-style: none; padding: 0; margin: var(--space-2) 0; }
+.audio-history li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); padding: var(--space-1) 0; border-bottom: 1px solid var(--color-border); }
 .file-name { overflow-wrap: anywhere; }
 .result-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .result-heading span { color: var(--color-muted); }

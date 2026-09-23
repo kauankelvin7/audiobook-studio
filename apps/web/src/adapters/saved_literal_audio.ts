@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { DocumentIrV2 } from "../schemas/ingestion";
+import type { ArtifactManifestRecord } from "../schemas/persistence";
 import type { ArtifactWrite } from "./ports";
 import type { LocalProjectPersistence } from "./local_project_persistence";
 import { buildReadingSession, type ReadingSession } from "./rust_reading_preview";
@@ -19,7 +20,10 @@ const metaSchema = z.object({
 }).strict();
 
 export type SavedLiteralAudio = { blob: Blob; startPage: number; endPage: number; createdAtMs: number };
+export type LiteralAudioEntry = { artifactKey: string; startPage: number; endPage: number; createdAtMs: number; sizeBytes: number };
 type Store = Pick<LocalProjectPersistence, "loadLatest" | "persistNext" | "loadArtifactRecord" | "readArtifact">;
+type CatalogStore = Store & Pick<LocalProjectPersistence, "listArtifactRecords">;
+const AUDIO_KEY = /^literal_wav_[0-9a-f]{32}$/;
 
 async function sessionHash(session: ReadingSession): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(session));
@@ -65,26 +69,59 @@ export async function saveLiteralAudio(store: Store, document: DocumentIrV2, ses
 export async function loadLiteralAudio(store: Store, document: DocumentIrV2): Promise<SavedLiteralAudio | null> {
   const latest = await store.loadLatest(document.documentId);
   if (!latest || latest.sourceHash !== document.sourceHash) return null;
-  const audioKey = latest.artifactKeys.find(key => /^literal_wav_[0-9a-f]{32}$/.test(key));
+  const audioKey = latest.artifactKeys.find(key => AUDIO_KEY.test(key));
   if (!audioKey || !latest.artifactKeys.includes(`${audioKey}_meta`)) return null;
-  const [audioRecord, metaRecord] = await Promise.all([
-    store.loadArtifactRecord(document.documentId, audioKey),
-    store.loadArtifactRecord(document.documentId, `${audioKey}_meta`),
-  ]);
+  return await loadLiteralAudioByKey(store, document, audioKey);
+}
+
+async function validMetadata(store: Store, document: DocumentIrV2, audioKey: string,
+  records?: Map<string, ArtifactManifestRecord>) {
+  if (!AUDIO_KEY.test(audioKey)) return null;
+  const [audioRecord, metaRecord] = records
+    ? [records.get(audioKey), records.get(`${audioKey}_meta`)]
+    : await Promise.all([
+      store.loadArtifactRecord(document.documentId, audioKey),
+      store.loadArtifactRecord(document.documentId, `${audioKey}_meta`),
+    ]);
   if (!audioRecord || !metaRecord || audioRecord.kind !== "audio_chunk" || metaRecord.kind !== "audio_metadata"
-    || audioRecord.mediaType !== "audio/wav" || metaRecord.mediaType !== "application/json") return null;
-  const metaBlob = await store.readArtifact(metaRecord);
+    || audioRecord.mediaType !== "audio/wav" || metaRecord.mediaType !== "application/json"
+    || metaRecord.sizeBytes > 16 * 1024) return null;
   let metadata: ReturnType<typeof metaSchema.safeParse>;
   try {
-    metadata = metaSchema.safeParse(JSON.parse(await metaBlob.text()));
+    metadata = metaSchema.safeParse(JSON.parse(await (await store.readArtifact(metaRecord)).text()));
   } catch {
     return null;
   }
   if (!metadata.success || metadata.data.documentId !== document.documentId || metadata.data.sourceHash !== document.sourceHash) return null;
-  const session = await buildReadingSession(document, metadata.data.startPage, metadata.data.endPage);
-  if (await sessionHash(session) !== metadata.data.sessionHash) return null;
-  const wav = await store.readArtifact(audioRecord);
+  try {
+    const session = await buildReadingSession(document, metadata.data.startPage, metadata.data.endPage);
+    if (await sessionHash(session) !== metadata.data.sessionHash) return null;
+  } catch {
+    return null;
+  }
+  return { audioRecord, metadata: metadata.data };
+}
+
+export async function listLiteralAudios(store: CatalogStore, document: DocumentIrV2): Promise<LiteralAudioEntry[]> {
+  const records = await store.listArtifactRecords(document.documentId);
+  const byKey = new Map(records.map(record => [record.artifactKey, record]));
+  const keys = records.filter(record => record.kind === "audio_chunk" && AUDIO_KEY.test(record.artifactKey))
+    .map(record => record.artifactKey);
+  const entries = await Promise.all(keys.map(async artifactKey => {
+    const valid = await validMetadata(store, document, artifactKey, byKey);
+    if (!valid) return null;
+    return { artifactKey, startPage: valid.metadata.startPage, endPage: valid.metadata.endPage,
+      createdAtMs: valid.metadata.createdAtMs, sizeBytes: valid.audioRecord.sizeBytes };
+  }));
+  return entries.filter((entry): entry is LiteralAudioEntry => entry !== null)
+    .sort((left, right) => right.createdAtMs - left.createdAtMs || right.artifactKey.localeCompare(left.artifactKey));
+}
+
+export async function loadLiteralAudioByKey(store: Store, document: DocumentIrV2, audioKey: string): Promise<SavedLiteralAudio | null> {
+  const valid = await validMetadata(store, document, audioKey);
+  if (!valid) return null;
+  const wav = await store.readArtifact(valid.audioRecord);
   await validateWav(wav);
-  return { blob: wav, startPage: metadata.data.startPage, endPage: metadata.data.endPage,
-    createdAtMs: metadata.data.createdAtMs };
+  return { blob: wav, startPage: valid.metadata.startPage, endPage: valid.metadata.endPage,
+    createdAtMs: valid.metadata.createdAtMs };
 }

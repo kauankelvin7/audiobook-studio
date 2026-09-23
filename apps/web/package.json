@@ -14,6 +14,7 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:fast": "vitest run src/adapters/local_project_persistence.test.ts src/adapters/review_submission_persistence.test.ts src/adapters/indexeddb_checkpoint_repository.test.ts src/adapters/opfs_artifact_store.test.ts src/adapters/web_locks_project_lock.test.ts",
+    "test:browser:audio": "node scripts/smoke-literal-audio.mjs",
     "test:standard": "npm run typecheck && npm test && npm run build",
     "test:full": "npm run test:standard && npm audit --audit-level=high"
   },
@@ -34,6 +35,7 @@
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "fake-indexeddb": "6.2.5",
+    "playwright-core": "1.63.0",
     "vitest": "5.0.1"
   }
 }

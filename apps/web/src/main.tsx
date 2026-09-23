@@ -5,7 +5,8 @@ import type { CheckpointDraft } from "./adapters/local_project_persistence";
 import { MAX_PDF_BYTES } from "./adapters/pdf_limits";
 import { LocalSpeechPlayer, type SpeechState } from "./adapters/local_speech";
 import { renderLocalWav, type WavProgress } from "./adapters/local_wav";
-import { loadLiteralAudio, saveLiteralAudio, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
+import { listLiteralAudios, loadLiteralAudio, loadLiteralAudioByKey, saveLiteralAudio,
+  type LiteralAudioEntry, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
 import type { ArtifactWrite } from "./adapters/ports";
 import { documentIrSchema, type DocumentIr } from "./schemas/document";
@@ -19,6 +20,7 @@ function App() {
   const speechRef = useRef<LocalSpeechPlayer | null>(null);
   const readingRequestRef = useRef(0);
   const importGenerationRef = useRef(0);
+  const audioOpenRef = useRef(0);
   const wavAbortRef = useRef<AbortController | null>(null);
   const wavUrlRef = useRef<string | null>(null);
   const savedWavUrlRef = useRef<string | null>(null);
@@ -38,6 +40,9 @@ function App() {
   const [wavUrl, setWavUrl] = useState<string | null>(null);
   const [wavProgress, setWavProgress] = useState<WavProgress | null>(null);
   const [savedWav, setSavedWav] = useState<(SavedLiteralAudio & { url: string }) | null>(null);
+  const [audioHistory, setAudioHistory] = useState<LiteralAudioEntry[]>([]);
+  const [selectedAudioKey, setSelectedAudioKey] = useState<string | null>(null);
+  const [audioOpening, setAudioOpening] = useState(false);
 
   function clearWav() {
     wavAbortRef.current?.abort();
@@ -50,9 +55,35 @@ function App() {
   }
 
   function clearSavedWav() {
+    audioOpenRef.current++;
     if (savedWavUrlRef.current) URL.revokeObjectURL(savedWavUrlRef.current);
     savedWavUrlRef.current = null;
     setSavedWav(null);
+    setSelectedAudioKey(null);
+    setAudioOpening(false);
+  }
+
+  async function openSavedAudio(entry: LiteralAudioEntry) {
+    if (!documentV2 || !persistenceRef.current) return;
+    const request = ++audioOpenRef.current;
+    const generation = importGenerationRef.current;
+    setAudioOpening(true);
+    try {
+      const saved = await loadLiteralAudioByKey(persistenceRef.current.service, documentV2, entry.artifactKey);
+      if (request !== audioOpenRef.current || generation !== importGenerationRef.current) return;
+      if (!saved) throw new Error("A gravação não corresponde ao documento atual.");
+      if (savedWavUrlRef.current) URL.revokeObjectURL(savedWavUrlRef.current);
+      const url = URL.createObjectURL(saved.blob);
+      savedWavUrlRef.current = url;
+      setSavedWav({ ...saved, url });
+      setSelectedAudioKey(entry.artifactKey);
+      setStatus("Gravação aberta. Confira o áudio antes de baixar.");
+    } catch {
+      if (request === audioOpenRef.current && generation === importGenerationRef.current)
+        setStatus("Não foi possível abrir esta gravação. O arquivo pode estar ausente ou danificado.");
+    } finally {
+      if (request === audioOpenRef.current) setAudioOpening(false);
+    }
   }
 
   useEffect(() => {
@@ -111,11 +142,18 @@ function App() {
           if (v2.success && v2.data.documentId === parsed.data.documentId && v2.data.sourceHash === parsed.data.sourceHash && !cancelled && importGenerationRef.current === 0) {
             setDocumentV2(v2.data);
             try {
+              const history = await listLiteralAudios(localPersistence!.service, v2.data);
+              if (!cancelled && importGenerationRef.current === 0) setAudioHistory(history);
+            } catch {
+              // A leitura do projeto continua disponível sem o catálogo de gravações.
+            }
+            try {
               const saved = await loadLiteralAudio(localPersistence!.service, v2.data);
               if (saved && !cancelled && importGenerationRef.current === 0) {
                 const url = URL.createObjectURL(saved.blob);
                 savedWavUrlRef.current = url;
                 setSavedWav({ ...saved, url });
+                setSelectedAudioKey(latest?.checkpoint?.artifactKeys.find(key => /^literal_wav_[0-9a-f]{32}$/.test(key)) ?? null);
                 recoveredAudio = true;
               }
               if (!saved && audioExpected) audioRecoveryFailed = true;
@@ -150,11 +188,12 @@ function App() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    importGenerationRef.current++;
+    const generation = ++importGenerationRef.current;
     readingRequestRef.current++;
     speechRef.current?.stop();
     clearWav();
     clearSavedWav();
+    setAudioHistory([]);
     setPreview(null);
     setReviewed(false);
     setDocumentV2(null);
@@ -262,9 +301,18 @@ function App() {
           ];
           try {
             await persistence.persistNext(checkpoint, writes);
-            setStatus(`${baseStatus} Progresso salvo neste dispositivo.`);
+            if (generation === importGenerationRef.current) {
+              setStatus(`${baseStatus} Progresso salvo neste dispositivo.`);
+              try {
+                const history = await listLiteralAudios(persistence, response.documentV2);
+                if (generation === importGenerationRef.current) setAudioHistory(history);
+              } catch {
+                // O PDF salvo continua acessível mesmo se o catálogo de áudio falhar.
+              }
+            }
           } catch {
-            setStatus(`${baseStatus} O progresso não pôde ser salvo neste navegador.`);
+            if (generation === importGenerationRef.current)
+              setStatus(`${baseStatus} O progresso não pôde ser salvo neste navegador.`);
           }
         } else {
           setStatus(baseStatus);
@@ -336,6 +384,12 @@ function App() {
           if (!controller.signal.aborted) {
             clearSavedWav();
             setStatus("WAV pronto e salvo neste dispositivo. Você também pode baixar uma cópia.");
+            try {
+              const history = await listLiteralAudios(persistence, documentV2);
+              if (!controller.signal.aborted) setAudioHistory(history);
+            } catch {
+              // O WAV já está salvo e segue disponível pelo link desta geração.
+            }
           }
         } catch {
           if (!controller.signal.aborted) setStatus("WAV pronto, mas não foi salvo neste dispositivo. Baixe uma cópia agora.");
@@ -377,13 +431,20 @@ function App() {
       </article>)}
       <p className="footnote">A ordem e o tipo dos trechos ainda precisam de revisão. O PDF é processado neste dispositivo.</p>
     </section>}
-    {document && savedWav && <section className="panel" aria-labelledby="saved-audio-title">
-      <h2 id="saved-audio-title">Leitura salva neste dispositivo</h2>
-      <p>Páginas {savedWav.startPage} a {savedWav.endPage}. Esta gravação veio do texto extraído, não de um roteiro narrativo.</p>
-      <div className="wav-result">
-        <audio controls src={savedWav.url} aria-label="Leitura WAV salva" />
-        <a href={savedWav.url} download={`audiobook-studio-paginas-${savedWav.startPage}-${savedWav.endPage}.wav`}>Baixar WAV salvo</a>
-      </div>
+    {document && audioHistory.length > 0 && <section className="panel" aria-labelledby="saved-audio-title">
+      <h2 id="saved-audio-title">Gravações neste dispositivo</h2>
+      <p>Abra uma gravação para ouvir ou baixar. Cada WAV contém o texto extraído do intervalo indicado.</p>
+      <ul className="audio-history">{audioHistory.map(entry => <li key={entry.artifactKey}>
+        Páginas {entry.startPage} a {entry.endPage} · {new Date(entry.createdAtMs).toLocaleString("pt-BR")} · {(entry.sizeBytes / 1024 / 1024).toFixed(1)} MB{" "}
+        <button type="button" onClick={() => void openSavedAudio(entry)} disabled={audioOpening}
+          aria-label={`Abrir gravação das páginas ${entry.startPage} a ${entry.endPage}, salva em ${new Date(entry.createdAtMs).toLocaleString("pt-BR")}`}>
+          {selectedAudioKey === entry.artifactKey ? "Reabrir gravação" : "Abrir gravação"}
+        </button>
+      </li>)}</ul>
+      {savedWav && <div className="wav-result">
+        <audio controls src={savedWav.url} aria-label="Gravação WAV selecionada" />
+        <a href={savedWav.url} download={`audiobook-studio-paginas-${savedWav.startPage}-${savedWav.endPage}.wav`}>Baixar WAV selecionado</a>
+      </div>}
     </section>}
     {document && <section className="panel" aria-labelledby="reading-title">
       <h2 id="reading-title">Ouvir o texto do PDF</h2>

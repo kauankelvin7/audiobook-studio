@@ -444,3 +444,11 @@
 - Restrições: Rust mantém domínio canônico; TS só corrige seleção no adapter de storage. Sem TTS novo, UI ou backend.
 - Risco: regressão de recuperação de WAV e retenção de artefatos antigos. Plano: cobrir resalvamento e corrupção de metadata; gates Web/Rust e revisão do diff.
 - Desconhecido: playback/download externos ainda não comprovados; Chrome/Edge não estão expostos à automação desta sessão. CI remoto não pôde ser consultado agora.
+## PRE-FLIGHT — biblioteca local de WAV literal (2026-09-23)
+- Base: branch `codex/m4-content-model`, HEAD `2a136ec49cb9ba50e87c0baedb68e71851f6bb07`, árvore limpa; AGENTS, CONTEXT_INDEX, handoff, task packet, worklog, ADR 0010/0016 e contratos de persistência consultados.
+- Objetivo: disponibilizar gravações literais anteriores já retidas no OPFS, com listagem validada, abertura sob demanda e download por intervalo, após reiniciar a aplicação.
+- Evidência: `saveLiteralAudio` cria chaves imutáveis e o checkpoint só aponta para o WAV novo; manifests anteriores continuam no IndexedDB, mas a UI só exibe a gravação atual.
+- Restrições: sessão e elegibilidade continuam canônicas em Rust; TS fica em storage/UI. Sem TTS narrativo, QA `pass`, backend, exclusão automática ou alegação de audiobook final.
+- Riscos: metadata órfã/corrompida, áudio faltante, sessão antiga após troca da fonte, corrida de importação/abertura, leitura excessiva de arquivos grandes. Listar por metadata pequena; validar WAV no acesso; tratar falha isolada sem perder projeto.
+- Plano: adapter de catálogo e testes de múltiplas gravações/corrupção/fonte; integrar lista e abertura sob demanda na UI; ADR, gates, revisão do diff, commit/push. Validação de reprodução auditiva/download fora do navegador integrado permanece separada se ambiente não permitir.
+- Verificação: testes Web, typecheck/build, Rust fmt/test/clippy, audit, diff check. Não medir playback visualmente, conforme pedido do usuário.
