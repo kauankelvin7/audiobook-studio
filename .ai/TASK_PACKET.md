@@ -285,3 +285,7 @@
 - QA independente encontrou P1: `ContentModel` aceitava `documentId` e `sourceHash` incongruentes. Corrigido no core, com regressão Rust e WASM real. P2 de texto de análise vazio e refs duplicadas também corrigidos. Segunda revisão sem P0/P1.
 - Gates finais: `cargo fmt --all -- --check`, `cargo test --workspace --locked` (30 testes), clippy `-D warnings`, `npm run wasm:build`, Web STANDARD (90 testes, typecheck, build), `git diff --check` passaram.
 - Limites: pacote não decide fidelidade semântica, não persiste revisão e não libera TTS. Golden mainframe real e método de atestação ainda indisponíveis. Próximo passo após CI verde: contrato de decisão explícita com vínculo aos hashes e revisão humana/verificador confiável.
+
+## RESULT M4.4C — publicação e CI (2026-09-23)
+- Commit `1c5394d1d5e783872502598955c5eef0d40dca36` publicado em `origin/codex/m4-content-model`; workflow `quality` run `35834617808` concluiu com `success` nos jobs Rust e Web.
+- Batch concluído no escopo do pacote de evidência. Próximo batch: decisão de revisão explícita vinculada aos hashes, mantendo TTS bloqueado até aprovação confiável e QA crítico.

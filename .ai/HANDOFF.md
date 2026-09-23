@@ -136,3 +136,8 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - QA independente identificou vínculo ausente entre `documentId` e `sourceHash` no ContentModel; corrigido e coberto em Rust e WASM real. Texto de análise vazio e refs duplicadas foram rejeitados. Segunda revisão sem P0/P1.
 - Gates locais M4.4C: Rust fmt/test (30)/clippy, WASM build, Web STANDARD (90/typecheck/build) e diff check passaram. Publicação/CI do novo commit ainda pendentes neste checkpoint.
 - Após CI verde: contrato de decisão explícita de revisão semântica vinculado aos hashes, com tratamento de fonte sem texto e revisão humana/verificador confiável; corpus/golden mainframe real ainda não está no repo. TTS segue bloqueado.
+
+## M4.4C concluído — 2026-09-23
+- Commit `1c5394d1d5e783872502598955c5eef0d40dca36` publicado em `codex/m4-content-model`; workflow `quality` run `35834617808` concluiu com `success` para Rust e Web.
+- Pacote de revisão por trecho está implementado e TESTED via Rust/WASM real. Todas as fontes correspondentes são exibidas com texto/qualidade/flags e hashes de identidade; estado permanece `pending`. Nenhuma decisão de aprovação, modelo real, persistência de revisão ou TTS foi introduzida.
+- Próximo batch seguro: contrato canônico de decisão de revisão no Rust, vinculado a `sourceHash`, `contentHash`, `planHash`, `scriptHash` e IDs de todos os trechos. Definir tratamento explícito de evidência sem texto e verificador/revisor confiável; não tratar output do modelo como atestação. Buscar golden mainframe real para avaliação posterior. TTS continua bloqueado.
