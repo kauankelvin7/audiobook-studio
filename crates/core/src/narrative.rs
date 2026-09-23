@@ -645,6 +645,50 @@ pub fn build_narration_qa(
     })
 }
 
+pub fn build_validated_narration_qa(
+    plan_id: &str,
+    plan: &NarrativePlan,
+    content: &ContentModel,
+    outline: &SemanticOutline,
+    section_speech: &BTreeMap<String, String>,
+) -> Result<NarrationQa, NarrativeError> {
+    plan.validate_against(content, outline)?;
+    if plan_id.trim().is_empty()
+        || section_speech.len() != plan.sections.len()
+        || plan.sections.iter().any(|section| {
+            section_speech
+                .get(&section.id)
+                .is_none_or(|speech| speech.trim().is_empty())
+        })
+    {
+        return Err(NarrativeError::InvalidNarrative(
+            "plan ID or section speech is incomplete".into(),
+        ));
+    }
+    let valid_source_refs = content
+        .source_units
+        .iter()
+        .flat_map(|unit| unit.source_refs.iter().cloned())
+        .collect();
+    let mut qa = build_narration_qa(
+        plan_id,
+        outline.sections.len(),
+        plan,
+        section_speech,
+        &valid_source_refs,
+        0,
+    )?;
+    qa.warnings.push(NarrationWarning {
+        code: "CLAIM_GROUNDING_NOT_EVALUATED".into(),
+        section_id: None,
+        message: "Claim grounding requires a separate review.".into(),
+    });
+    if qa.status == QaStatus::Pass {
+        qa.status = QaStatus::Review;
+    }
+    Ok(qa)
+}
+
 fn content_tokens(input: &str) -> Vec<String> {
     let stop_words: HashSet<&str> = STOP_WORDS.into_iter().collect();
     unique(

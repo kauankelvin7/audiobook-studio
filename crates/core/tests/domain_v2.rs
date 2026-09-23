@@ -1,11 +1,11 @@
 use std::collections::{BTreeMap, HashSet};
 
 use audiobook_core::{
-    build_narration_qa, compare_heading_to_body, find_repeated_formulaic_openers,
-    normalize_narrative_text, reduce_narrative_memory, ContentModel, DocumentIr, DocumentIrV2,
-    HeadingOverlapMethod, HeadingOverlapStatus, NarrativeHeading, NarrativeMemory,
-    NarrativeMemoryDelta, NarrativePlan, NarrativeSection, QaStatus, SemanticOutline,
-    SpokenChapter, SpokenHeadingPolicy,
+    build_narration_qa, build_validated_narration_qa, compare_heading_to_body,
+    find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
+    ContentModel, DocumentIr, DocumentIrV2, HeadingOverlapMethod, HeadingOverlapStatus,
+    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeSection,
+    QaStatus, SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -41,6 +41,50 @@ fn plan(policy: SpokenHeadingPolicy) -> NarrativePlan {
             display_title: "COBOL".into(),
         }],
     }
+}
+
+#[test]
+fn validated_qa_requires_contextual_provenance_and_complete_speech() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let outline =
+        SemanticOutline::from_json(SEMANTIC_OUTLINE_FIXTURE, &content).expect("outline fixture");
+    let plan = plan(SpokenHeadingPolicy::Announce);
+    let mut speech = BTreeMap::from([(
+        "section_1".to_owned(),
+        "Procedure Division begins here".to_owned(),
+    )]);
+    let qa = build_validated_narration_qa("plan_1", &plan, &content, &outline, &speech)
+        .expect("valid contextual QA");
+    assert_eq!(qa.status, QaStatus::Fail);
+    assert_eq!(qa.duplicated_spoken_headings, 1);
+    assert_eq!(qa.unsupported_claims, 0);
+    assert!(qa
+        .warnings
+        .iter()
+        .any(|warning| warning.code == "CLAIM_GROUNDING_NOT_EVALUATED"));
+
+    speech.insert(
+        "section_1".into(),
+        "The body discusses a distinct topic".into(),
+    );
+    let review = build_validated_narration_qa("plan_1", &plan, &content, &outline, &speech)
+        .expect("claim grounding remains for review");
+    assert_eq!(review.status, QaStatus::Review);
+    assert!(build_validated_narration_qa(" ", &plan, &content, &outline, &speech).is_err());
+    speech.insert("section_1".into(), "   ".into());
+    assert!(build_validated_narration_qa("plan_1", &plan, &content, &outline, &speech).is_err());
+    speech.insert("section_1".into(), "Valid speech".into());
+    speech.insert("unknown_section".into(), "Extra speech".into());
+    assert!(build_validated_narration_qa("plan_1", &plan, &content, &outline, &speech).is_err());
+
+    speech.clear();
+    assert!(build_validated_narration_qa("plan_1", &plan, &content, &outline, &speech).is_err());
+    let mut invalid_plan = plan;
+    invalid_plan.sections[0].source_refs = vec!["fabricated".into()];
+    speech.insert("section_1".into(), "Valid speech".into());
+    assert!(
+        build_validated_narration_qa("plan_1", &invalid_plan, &content, &outline, &speech).is_err()
+    );
 }
 
 #[test]

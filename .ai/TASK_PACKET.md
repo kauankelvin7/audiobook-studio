@@ -205,3 +205,11 @@
 - Plan: (1) definir contrato de entrada QA no Rust/WASM; (2) exportar função; (3) regenerar bindings; (4) adapter TS fino; (5) fixtures/parity; (6) focused tests; (7) STANDARD + Rust gates + CI; (8) registrar handoff.
 - Verification: cargo fmt/test/clippy; npm wasm:build; teste real do bundle WASM; npm test:standard; npm audit quando dependências mudarem; CI quality.
 - Stop condition: se bindings não puderem ser regenerados, toolchain estiver indisponível ou qualquer gate falhar, registrar BLOCKED e não avançar para planner/modelo.
+
+## PRE-FLIGHT de execução — M4.3A (2026-09-22)
+- Base: `codex/m4-content-model` limpa em `c671945`; workflow `quality` desse HEAD concluiu com sucesso (run `35778466312`).
+- Objective: expor no WASM a validação contextual de NarrativePlan e o NarrationQA determinístico do core, com entrada explícita de falas por seção.
+- Evidence: `NarrativePlan::validate_against` e `build_narration_qa` já existem no Rust; `validate_narrative_plan_json` é a única exportação narrativa atual.
+- Constraints: único writer Lead; sem modelo, adapter TS ou TTS neste batch; source refs derivados do ContentModel validado; nenhum QA para plano contextual inválido.
+- Risks: serialização de fala ausente, contagens arbitrárias, deriva dos bindings gerados.
+- Verification: testes Rust de plano válido/inválido e QA; regeneração WASM; fmt/test/clippy; Web STANDARD; CI antes de M4.3B.

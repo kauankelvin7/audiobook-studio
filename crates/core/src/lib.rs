@@ -21,12 +21,12 @@ pub use document_v2::{
 };
 pub use job::{GenerationJob, JobState};
 pub use narrative::{
-    build_narration_qa, compare_heading_to_body, find_duplicated_spoken_headings,
-    find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
-    FormulaicFinding, HeadingFinding, HeadingOverlap, HeadingOverlapMethod, HeadingOverlapStatus,
-    NarrationQa, NarrationWarning, NarrativeError, NarrativeHeading, NarrativeMemory,
-    NarrativeMemoryDelta, NarrativePlan, NarrativeSection, NarrativeTransition, QaStatus,
-    SpokenChapter, SpokenHeadingPolicy,
+    build_narration_qa, build_validated_narration_qa, compare_heading_to_body,
+    find_duplicated_spoken_headings, find_repeated_formulaic_openers, normalize_narrative_text,
+    reduce_narrative_memory, FormulaicFinding, HeadingFinding, HeadingOverlap,
+    HeadingOverlapMethod, HeadingOverlapStatus, NarrationQa, NarrationWarning, NarrativeError,
+    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeSection,
+    NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
 };
 
 use thiserror::Error;

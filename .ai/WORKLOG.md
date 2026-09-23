@@ -153,3 +153,14 @@
 - Confirmado: Worker usa o WASM real para migrar DocumentIR v1→v2 e produzir ContentModel/SemanticOutline; CI cobre Rust/Web e integração do bundle.
 - Nenhum código de domínio foi alterado nesta sessão. Foi atualizado o handoff, o task packet seguinte e a gap analysis para impedir retrabalho/reexecução de M3/M4 runtime já concluídos.
 - Próximo batch autorizado: M4.3 NarrativePlan/NarrationQA via Rust/WASM, sem LLM/TTS. Regeneração do WASM e todos os gates são obrigatórios antes de avançar.
+
+## 2026-09-22 — M4.3A retomado e validado localmente
+- Estado inicial confirmado: checkout local limpo em `codex/m4-content-model`, HEAD `c671945b303036314221c6ebb6eefffa2f822a7e`; GitHub Actions `quality` run `35778466312` concluído com `success` para esse commit.
+- PRE-FLIGHT M4.3A registrado antes do código. O core ganhou uma entrada de QA que valida plano contra ContentModel/Outline, exige fala não vazia para cada seção e deriva source refs do ContentModel. A fachada WASM recebeu exportação JSON correspondente; um teste Rust cobre plano válido, fala incompleta e provenance inválida.
+- Gate tentado: `cargo fmt --all && cargo fmt --all -- --check && cargo test --workspace --locked && cargo clippy --workspace --all-targets -- -D warnings`. Falhou imediatamente: `zsh: command not found: cargo` (exit 127). Busca nos locais de toolchain conhecidos deste ambiente não encontrou executáveis. Nenhum teste Rust executou.
+- A toolchain Rust 1.94.1, target `wasm32-unknown-unknown`, `wasm-bindgen-cli` 0.2.128, Node 24.21.0 e dependências Web foram instaladas neste ambiente. As skills `context-mode`, `caveman` e `humanizer` foram instaladas; o MCP context-mode não aparece nesta sessão, mas seu CLI está disponível.
+- Primeiro compile Rust detectou `serde_json` ausente nas dependências diretas da fachada WASM; corrigido `crates/wasm/Cargo.toml` e lockfile. `cargo fmt --all -- --check`, `cargo test --workspace --locked` (25 testes) e clippy com `-D warnings` passaram após a correção.
+- A entrada QA contextual agora força `REVIEW` com `CLAIM_GROUNDING_NOT_EVALUATED` quando não há falha determinística, evitando sinalizar como aprovado um claim não analisado. Teste Rust cobre esse caso.
+- `npm run wasm:build` regenerou bindings e binário. Primeiro STANDARD Web falhou em teste preexistente de Web Locks porque Node 24 disponibiliza `navigator.locks`; o teste agora remove essa API explicitamente. STANDARD repetido passou: typecheck, 78/78 testes e build.
+- `git diff --check` passou. CI da publicação M4.3A ainda pendente; M4.3B, planner/modelo e TTS não iniciados.
+- QA independente revisou o diff M4.3A sem achados P0/P1. Casos adicionais de `plan_id` vazio, fala em branco e seção extra foram incorporados; Rust fmt/test/clippy foram repetidos e passaram. Teste do export com WASM real está alocado no M4.3C.
