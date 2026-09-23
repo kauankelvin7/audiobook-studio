@@ -124,3 +124,8 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - QA estrutural/heading rejeita mapeamento inválido e falha heading anunciado duplicado. Grounding semântico segue não avaliado: relatório fica em `review`; não liberar TTS com esse estado.
 - Revisão independente encontrou dois P1, ambos corrigidos; segunda revisão sem P0/P1. Gates locais finais: Rust fmt/test (28)/clippy, WASM build, Web STANDARD (88/typecheck/build), diff check passaram.
 - Publicação e CI M4.4B ainda pendentes neste checkpoint. Depois do CI verde: definir evidência e contrato de revisão semântica e avaliar modelo local real em batch separado, com corpus/golden quando disponível. TTS permanece bloqueado. Futuro plano persistido precisa vincular ID a conteúdo/provenance imutáveis.
+
+## CHECKPOINT M4.4B — bloqueio de publicação (2026-09-22)
+- Commit local `19d76931762f9e8ab20bc792e769ada29f5dfffc` criado após todos os gates locais e revisão independente. Branch local está à frente de `origin/codex/m4-content-model`.
+- Push HTTPS falhou por ausência de credencial (`could not read Username for 'https://github.com'`). O sandbox foi liberado para a tentativa, mas o Git não dispõe de autenticação. Não afirmar CI verde para M4.4B.
+- Não avançar para modelo real ou TTS. Retomar com autenticação GitHub disponível: publicar commits locais, verificar Rust/Web do workflow `quality`, registrar resultado e só então planejar o próximo batch.

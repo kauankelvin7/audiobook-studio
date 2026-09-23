@@ -263,3 +263,8 @@
 - Gates: Rust fmt/test (28 testes)/clippy, `npm run wasm:build`, Web STANDARD (88 testes, typecheck, build) e `git diff --check` passaram.
 - Limites: não há geração automática de roteiro, verificador semântico, golden mainframe real ou TTS. Futuro artefato persistido deve vincular plan ID a conteúdo/provenance imutáveis.
 - Próximo passo: commit/push/CI. Somente com CI verde iniciar próximo batch de avaliação de modelo local e contrato de revisão semântica; TTS permanece bloqueado.
+
+## CHECKPOINT M4.4B — publicação bloqueada (2026-09-22)
+- Commit local: `19d76931762f9e8ab20bc792e769ada29f5dfffc` contém o batch validado.
+- `git push origin codex/m4-content-model` alcançou o GitHub fora do sandbox, mas falhou com `could not read Username for 'https://github.com': No such device or address`. Nenhuma credencial/helper GitHub está configurada nesta sessão.
+- CI do commit M4.4B não existe enquanto o push não ocorrer. Stop condition aplicada: não iniciar o próximo batch nem TTS. Próxima retomada: configurar autenticação GitHub fora desta sessão, publicar commits locais e verificar workflow `quality` antes de avançar.
