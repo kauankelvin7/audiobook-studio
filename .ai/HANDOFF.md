@@ -200,3 +200,7 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 - Base limpa `e185a2f`; PRE-FLIGHT registrado. Core Rust valida identidade do candidato OCR e devolve recibo `pending` com hashes/sinais; não modifica DocumentIR, ContentModel ou elegibilidade. WASM/TS apenas fronteira; ADR 0014.
 - Gates locais: Rust 38 testes, fmt/clippy; build WASM; Web STANDARD 110 testes/typecheck/build (2 opt-in ignorados); audit 0 vulnerabilidades. Revisão independente inicial encontrou dois P2 de integridade, corrigidos e gates repetidos; segunda revisão read-only confirmou sem novo P0/P1/P2. Diff check passou; publicação/CI pendentes neste checkpoint.
 - Próximo passo após CI: definir captura limitada de pixels/região e provar vínculo entre crop e documento; avaliar engine OCR local com goldens revisados. Páginas sem região nativa continuam fora do contrato v1. Sem promoção automática de OCR, QA pass ou TTS.
+
+## M4.5D publicado — 2026-09-23
+- Commit `eefd9a7` publicado em `codex/m4-content-model`; workflow `quality` run `35877078233` concluiu com sucesso. OCR candidato permanece `pending`, sem engine ou promoção de texto.
+- Próximo batch: capturar e limitar pixels da região via PDF.js, persistir imagem/candidato/recibo com proveniência e revalidar identidade ativa; só depois medir OCR real contra goldens locais revisados. Sem TTS.
