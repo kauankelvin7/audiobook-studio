@@ -1,6 +1,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export function build_active_narrative_identity_json(expected_plan_id: string, script_json: string, plan_json: string, content_model_json: string, semantic_outline_json: string): string;
+
 export function build_content_model_json(document_json: string): string;
 
 export function build_narration_qa_json(plan_id: string, plan_json: string, content_model_json: string, semantic_outline_json: string, section_speech_json: string): string;
@@ -17,6 +19,8 @@ export function document_v2_has_source_units_json(input: string): boolean;
 
 export function migrate_document_v1_to_v2_json(input: string): string;
 
+export function validate_active_narrative_activation_json(job_json: string): void;
+
 export function validate_document_v2_json(input: string): string;
 
 export function validate_narrative_plan_json(plan_json: string, content_model_json: string, semantic_outline_json: string): void;
@@ -27,6 +31,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly build_active_narrative_identity_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly build_content_model_json: (a: number, b: number) => [number, number, number, number];
     readonly build_narration_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly build_script_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
@@ -35,6 +40,7 @@ export interface InitOutput {
     readonly core_version: () => [number, number];
     readonly document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
     readonly migrate_document_v1_to_v2_json: (a: number, b: number) => [number, number, number, number];
+    readonly validate_active_narrative_activation_json: (a: number, b: number) => [number, number];
     readonly validate_document_v2_json: (a: number, b: number) => [number, number, number, number];
     readonly validate_narrative_plan_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly validate_script_review_submission_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number, number];

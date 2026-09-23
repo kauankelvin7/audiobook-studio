@@ -31,9 +31,10 @@ pub use narrative::{
     NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
 };
 pub use review::{
-    build_script_review_packet, validate_script_review_submission, ReviewAttestationStatus,
-    ReviewDecisionError, ReviewSegment, ReviewSource, ReviewStatus, ReviewVerdict,
-    ScriptReviewPacket, ScriptReviewReceipt, ScriptReviewSubmission, SegmentReviewDecision,
+    build_active_narrative_identity, build_script_review_packet, validate_script_review_submission,
+    ActiveNarrativeIdentity, ReviewAttestationStatus, ReviewDecisionError, ReviewSegment,
+    ReviewSource, ReviewStatus, ReviewVerdict, ScriptReviewPacket, ScriptReviewReceipt,
+    ScriptReviewSubmission, SegmentReviewDecision,
 };
 pub use script::{NarrativeScript, ScriptSection, ScriptSegment};
 
@@ -75,4 +76,6 @@ pub enum DomainError {
     InvalidTransition { from: JobState, to: JobState },
     #[error("invalid serialized job state")]
     InvalidJobSnapshot,
+    #[error("active narrative can only be published while verifying, found {0:?}")]
+    InvalidNarrativeActivationState(JobState),
 }

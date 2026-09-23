@@ -162,3 +162,9 @@ Ao iniciar nova sessão, ler este CHECKPOINT primeiro, confirmar branch/HEAD/CI 
 ## M4.4E concluído — 2026-09-23
 - Commit `c513744` publicado em `codex/m4-content-model`; GitHub Actions `quality` run `35860380680` concluiu com sucesso.
 - Persistência histórica local de submissões está validada. `currentness: not_established` e `attestationStatus: unverified` continuam explícitos. Próximo batch: identidade ativa de plano/roteiro e desenho de atestação confiável; corpus/golden real ainda necessário antes de QA `pass`. TTS bloqueado.
+
+## M4.4F validado localmente — 2026-09-23
+- `ActiveNarrativeIdentity` é calculada pelo Rust, com fonte, conteúdo, outline, plano e roteiro. WASM e adapter Web publicam um ponteiro ativo OPFS/IndexedDB por checkpoint; histórico permanece. Troca exige estado `VERIFYING` validado pelo Rust e ausência de referências a áudio no checkpoint; não carrega `READY_FOR_AUDIO` nem artefatos de áudio de uma narrativa antiga.
+- Revisão independente inicial encontrou a retenção de estado/áudio; correção e regressões aplicadas. Rust fmt/test (35)/clippy, WASM build, Web STANDARD (103/typecheck/build), audit 0 vulnerabilidades e diff check passaram localmente. Publicação e CI ainda pendentes neste checkpoint.
+- Usuário forneceu apostila COBOL de 75 páginas para corpus local. Texto é extraível, mas nenhum golden semântico/narrativo foi definido; arquivo não foi publicado. Próximo passo: commit/push, verificar workflow `quality`, então integrar revisão histórica com o ponteiro ativo e definir atestação confiável. TTS só depois desse vínculo e avaliação semântica com casos esperados; não existe data estimada nem motivo para iniciar síntese agora.
+- Segunda revisão independente read-only após a correção confirmou o P2 resolvido e nenhum novo P0/P1/P2.

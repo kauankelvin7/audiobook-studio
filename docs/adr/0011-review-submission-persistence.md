@@ -14,6 +14,8 @@ Na leitura histórica, validar o manifest persistido e o hash dos bytes do OPFS 
 
 O checkpoint ainda não identifica o plano e o roteiro ativos. Assim, mesmo uma revalidação bem-sucedida contra o contexto fornecido não prova que ele seja o contexto ativo do projeto. A API retorna `currentness: not_established` e se chama `readHistoricalAgainstContext`; não fornece operação de aprovação ou declaração de atualidade. Uma etapa posterior terá de persistir e atualizar a identidade canônica do plano/roteiro ativo antes de avaliar qualquer revisão para QA ou TTS.
 
+Atualização: ADR 0012 introduz o ponteiro de identidade narrativa ativa no checkpoint, sem alterar a semântica histórica desta API. Uma integração posterior deverá vincular a submissão ao ponteiro ativo e definir atestação; `currentness` continua `not_established` neste adapter.
+
 Este registro é durável apenas dentro das garantias do armazenamento do navegador. Checksum e hash detectam corrupção e inconsistência, mas não atestam identidade humana nem protegem contra código malicioso executado na mesma origem. O campo `unverified` permanece inalterado. Nenhuma regra de QA passa para `pass` e nenhum TTS é liberado por este artefato.
 
 ## Próxima decisão necessária

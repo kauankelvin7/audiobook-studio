@@ -76,6 +76,10 @@ export class LocalProjectPersistence {
     return records.find(record => record.artifactKey === artifactKey) ?? null;
   }
 
+  async listArtifactRecords(projectIdInput: string): Promise<ArtifactManifestRecord[]> {
+    return await this.state.listArtifacts(storageIdSchema.parse(projectIdInput));
+  }
+
   async listProjectIds(): Promise<string[]> {
     return await this.state.listProjectIds();
   }

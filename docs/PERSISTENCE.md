@@ -52,6 +52,8 @@ Fuzz, browser matrix, soak e hardware/performance continuam como gates futuros/n
 
 ## Pendências pós-M3.2
 
+M4.4F adiciona um artefato não regenerável `active_narrative`. O core Rust calcula sua identidade; o checkpoint referencia somente a versão ativa. O adapter verifica OPFS, manifest e hashes na leitura. A integração com edição de plano/roteiro e invalidação de áudio ainda está pendente (ADR 0012).
+
 - browser matrix Chrome/Edge/Firefox conforme suporte real;
 - UI específica para escolha/retomada de múltiplos projetos;
 - integração do checkpoint com a máquina de estados Rust/WASM;

@@ -52,6 +52,59 @@ pub struct ScriptReviewPacket {
     pub method_version: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ActiveNarrativeIdentity {
+    pub schema_version: u32,
+    pub plan_id: String,
+    pub document_id: String,
+    pub source_hash: String,
+    pub content_hash: String,
+    pub outline_hash: String,
+    pub plan_hash: String,
+    pub script_hash: String,
+    pub identity_hash: String,
+    pub method_version: String,
+}
+
+pub fn build_active_narrative_identity(
+    expected_plan_id: &str,
+    script: &NarrativeScript,
+    plan: &NarrativePlan,
+    content: &ContentModel,
+    outline: &SemanticOutline,
+) -> Result<ActiveNarrativeIdentity, NarrativeError> {
+    let packet = build_script_review_packet(expected_plan_id, script, plan, content, outline)?;
+    let outline_bytes = serde_json::to_vec(outline)
+        .map_err(|error| NarrativeError::InvalidNarrative(error.to_string()))?;
+    let outline_hash = sha256_source(&outline_bytes);
+    let method_version = "active-narrative-rust-v1";
+    let identity_bytes = serde_json::to_vec(&(
+        1u32,
+        &packet.plan_id,
+        &packet.document_id,
+        &packet.source_hash,
+        &packet.content_hash,
+        &outline_hash,
+        &packet.plan_hash,
+        &packet.script_hash,
+        method_version,
+    ))
+    .map_err(|error| NarrativeError::InvalidNarrative(error.to_string()))?;
+    Ok(ActiveNarrativeIdentity {
+        schema_version: 1,
+        plan_id: packet.plan_id,
+        document_id: packet.document_id,
+        source_hash: packet.source_hash,
+        content_hash: packet.content_hash,
+        outline_hash,
+        plan_hash: packet.plan_hash,
+        script_hash: packet.script_hash,
+        identity_hash: sha256_source(&identity_bytes),
+        method_version: method_version.into(),
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewVerdict {

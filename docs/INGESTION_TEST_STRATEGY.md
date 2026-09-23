@@ -20,3 +20,9 @@
 5. Hardening: corpus multicoluna/rotação/idioma, fuzz PDF, memory bombs, browser matrix, soak e performance.
 
 Resultados de GPU, OCR, visão, storage e hardware permanecem `NOT TESTED` até existirem adapters e ambientes correspondentes.
+
+## Corpus local fornecido para avaliação (2026-09-23)
+
+- Uma apostila COBOL/ACUCOBOL de 75 páginas foi disponibilizada pelo usuário fora do repositório. SHA-256 do PDF: `34ed666f7e1c8e5291c7a01e4b46db4f869e16620b10568667980f21f2514332`. Não copiar o arquivo nem trechos extensos para o repositório público sem autorização específica.
+- Inspeção local por `pdfinfo` e PyMuPDF: PDF A4 não criptografado, com camada de texto nas 75 páginas; amostras das páginas 1, 10, 25, 50 e 75 incluem título, prosa, comandos/código e bibliografia. O terminal exibiu acentos incorretamente, mas a inspeção dos code points da página 10 confirmou caracteres Unicode íntegros; não classificar a camada de texto como corrompida por essa saída.
+- Isto demonstra apenas que a fonte está disponível e tem texto extraível. Ainda não há ingestão ponta a ponta, `DocumentIR`, outline, roteiro, comparação semântica ou golden de narração produzidos/validados com esta apostila. Selecionar páginas e expectativas de preservação de código/termos antes de transformá-la em caso de avaliação; manter o corpus local e registrar somente métricas e resultados verificáveis.

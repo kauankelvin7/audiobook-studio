@@ -1,14 +1,15 @@
 use std::collections::{BTreeMap, HashSet};
 
 use audiobook_core::{
-    build_narration_qa, build_script_review_packet, build_validated_narration_qa,
-    compare_heading_to_body, find_repeated_formulaic_openers, normalize_narrative_text,
-    reduce_narrative_memory, validate_script_review_submission, ContentModel, DocumentIr,
-    DocumentIrV2, HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility,
-    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
-    NarrativeSection, QaStatus, ReviewAttestationStatus, ReviewDecisionError, ReviewStatus,
-    ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
-    SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
+    build_active_narrative_identity, build_narration_qa, build_script_review_packet,
+    build_validated_narration_qa, compare_heading_to_body, find_repeated_formulaic_openers,
+    normalize_narrative_text, reduce_narrative_memory, validate_script_review_submission,
+    ContentModel, DocumentIr, DocumentIrV2, GenerationJob, HeadingOverlapMethod,
+    HeadingOverlapStatus, NarrationEligibility, NarrativeHeading, NarrativeMemory,
+    NarrativeMemoryDelta, NarrativePlan, NarrativeScript, NarrativeSection, QaStatus,
+    ReviewAttestationStatus, ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
+    ScriptReviewSubmission, SegmentReviewDecision, SemanticOutline, SpokenChapter,
+    SpokenHeadingPolicy,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -262,6 +263,64 @@ fn review_packet_preserves_all_source_evidence_and_tracks_changes() {
     let mut fabricated = script;
     fabricated.sections[0].segments[0].source_refs = vec!["fabricated".into()];
     assert!(build_script_review_packet("plan_1", &fabricated, &plan, &content, &outline).is_err());
+}
+
+#[test]
+fn active_narrative_identity_tracks_every_review_dependency() {
+    let content = ContentModel::from_json(CONTENT_MODEL_FIXTURE).expect("content fixture");
+    let outline =
+        SemanticOutline::from_json(SEMANTIC_OUTLINE_FIXTURE, &content).expect("outline fixture");
+    let plan = NarrativePlan::from_json(NARRATIVE_PLAN_FIXTURE).expect("plan fixture");
+    let script = NarrativeScript::from_json(NARRATIVE_SCRIPT_FIXTURE).expect("script fixture");
+    let identity = build_active_narrative_identity("plan_1", &script, &plan, &content, &outline)
+        .expect("valid active identity");
+    let packet = build_script_review_packet("plan_1", &script, &plan, &content, &outline)
+        .expect("review packet");
+    assert_eq!(identity.source_hash, packet.source_hash);
+    assert_eq!(identity.content_hash, packet.content_hash);
+    assert!(identity.outline_hash.starts_with("sha256:"));
+    assert_eq!(identity.plan_hash, packet.plan_hash);
+    assert_eq!(identity.script_hash, packet.script_hash);
+    assert!(identity.identity_hash.starts_with("sha256:"));
+    assert_eq!(
+        identity,
+        build_active_narrative_identity("plan_1", &script, &plan, &content, &outline).unwrap()
+    );
+
+    let mut changed_script = script.clone();
+    changed_script.sections[0].segments[0]
+        .speech_text
+        .push_str(" Outro texto.");
+    let changed =
+        build_active_narrative_identity("plan_1", &changed_script, &plan, &content, &outline)
+            .expect("changed script");
+    assert_ne!(identity.script_hash, changed.script_hash);
+    assert_ne!(identity.identity_hash, changed.identity_hash);
+    assert!(build_active_narrative_identity("other", &script, &plan, &content, &outline).is_err());
+}
+
+#[test]
+fn active_narrative_publication_requires_verifying_state() {
+    let verifying =
+        GenerationJob::from_json(r#"{"state":"VERIFYING","resumeState":null}"#).expect("valid job");
+    verifying
+        .ensure_narrative_activation_allowed()
+        .expect("verification can publish");
+    for state in [
+        "READY_FOR_AUDIO",
+        "SYNTHESIZING",
+        "COMPLETED",
+        "WAITING_USER",
+    ] {
+        let resume = if state == "WAITING_USER" {
+            "\"VERIFYING\""
+        } else {
+            "null"
+        };
+        let json = format!(r#"{{"state":"{state}","resumeState":{resume}}}"#);
+        let job = GenerationJob::from_json(&json).expect("valid job state");
+        assert!(job.ensure_narrative_activation_allowed().is_err());
+    }
 }
 
 fn supported_submission(packet: &ScriptReviewPacket) -> ScriptReviewSubmission {

@@ -8,6 +8,7 @@ import outline from "../../../../tests/fixtures/semantic_outline_v1.json";
 import plan from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import script from "../../../../tests/fixtures/narrative_script_content_v1.json";
 import { initSync } from "../generated/audiobook_wasm/audiobook_wasm.js";
+import { ActiveNarrativePersistence } from "./active_narrative_persistence";
 import { IndexedDbCheckpointRepository } from "./indexeddb_checkpoint_repository";
 import { LocalProjectPersistence } from "./local_project_persistence";
 import { OpfsArtifactStore } from "./opfs_artifact_store";
@@ -42,7 +43,7 @@ function setup(name: string) {
     }),
   });
   const persistence = new LocalProjectPersistence(state, artifacts, lock);
-  return { state, files, persistence, review: new ReviewSubmissionPersistence(persistence) };
+  return { state, files, persistence, review: new ReviewSubmissionPersistence(persistence), active: new ActiveNarrativePersistence(persistence) };
 }
 
 async function submission() {
@@ -143,6 +144,106 @@ describe("review submission persistence", () => {
       return await originalLoad(projectId);
     };
     await expect(review.readHistoricalAgainstContext("project_1", saved.artifact, context))
+      .rejects.toMatchObject({ code: "CHECKPOINT_CHANGED" });
+    state.close();
+  });
+});
+
+describe("active narrative persistence", () => {
+  it("rejects activation after verification or with audio artifacts", async () => {
+    const input = await submission();
+    const ready = setup("active-ready-state");
+    await ready.persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "READY_FOR_AUDIO", resumeState: null }, artifactKeys: [],
+    }, []);
+    await expect(ready.active.activate("project_1", context)).rejects.toMatchObject({ code: "CORE_REJECTED" });
+    ready.state.close();
+
+    const withAudio = setup("active-audio-reference");
+    await withAudio.persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: ["audio_1"],
+    }, [{
+      projectId: "project_1", artifactKey: "audio_1", kind: "audio_chunk",
+      value: new Blob(["old audio"]), mediaType: "audio/wav", createdAtMs: 1,
+      regenerable: true, pinned: false, finalArtifact: false, expiresAtMs: null,
+    }]);
+    await expect(withAudio.active.activate("project_1", context))
+      .rejects.toMatchObject({ code: "AUDIO_ARTIFACT_PRESENT" });
+    withAudio.state.close();
+  });
+
+  it("publishes one active Rust identity and rejects an old script after replacement", async () => {
+    const { state, persistence, active } = setup("active-narrative-swap");
+    const input = await submission();
+    await persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, []);
+    const first = await active.activate("project_1", context);
+    expect(first.artifact).toMatchObject({ kind: "active_narrative", pinned: true, regenerable: false });
+    await expect(active.loadActiveAgainstContext("project_1", context))
+      .resolves.toMatchObject({ identity: first.identity });
+    const changedContext = {
+      ...context, script: { ...script, sections: [{ ...script.sections[0], segments: [{
+        ...script.sections[0].segments[0], speechText: "Outro texto falado.",
+      }] }] },
+    };
+    await expect(active.loadActiveAgainstContext("project_1", changedContext))
+      .rejects.toMatchObject({ code: "IDENTITY_MISMATCH" });
+    const second = await active.activate("project_1", changedContext);
+    expect(second.identity.identityHash).not.toBe(first.identity.identityHash);
+    expect(second.checkpoint.artifactKeys).toContain(second.artifact.artifactKey);
+    expect(second.checkpoint.artifactKeys).not.toContain(first.artifact.artifactKey);
+    await expect(active.loadActiveAgainstContext("project_1", context))
+      .rejects.toMatchObject({ code: "IDENTITY_MISMATCH" });
+    await expect(active.loadActiveAgainstContext("project_1", changedContext))
+      .resolves.toMatchObject({ identity: second.identity });
+    expect(await persistence.loadArtifactRecord("project_1", first.artifact.artifactKey)).not.toBeNull();
+    const latest = await persistence.loadLatest("project_1");
+    const { sequence: _sequence, checksum: _checksum, ...draft } = latest!;
+    await persistence.persistNext({
+      ...draft, createdAtMs: latest!.createdAtMs + 1,
+      artifactKeys: [...latest!.artifactKeys, first.artifact.artifactKey],
+    }, [], latest!.checksum);
+    await expect(active.loadActiveAgainstContext("project_1", changedContext))
+      .rejects.toMatchObject({ code: "MULTIPLE_ACTIVE" });
+    state.close();
+  });
+
+  it("fails closed for a missing or corrupt active artifact", async () => {
+    const { state, files, persistence, active } = setup("active-narrative-corrupt");
+    const input = await submission();
+    await persistence.persist({
+      schemaVersion: 1, projectId: "project_1", sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4", sourceHash: input.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [],
+    }, []);
+    const record = await active.activate("project_1", context);
+    const original = files.get(record.artifact.fileName)!;
+    files.set(record.artifact.fileName, new Blob(["corrupt"]));
+    await expect(active.loadActiveAgainstContext("project_1", context))
+      .rejects.toMatchObject({ code: "INTEGRITY_MISMATCH" });
+    files.delete(record.artifact.fileName);
+    await expect(active.loadActiveAgainstContext("project_1", context))
+      .rejects.toMatchObject({ code: "READ_FAILED" });
+    files.set(record.artifact.fileName, original);
+    const originalLoad = persistence.loadLatest.bind(persistence);
+    let reads = 0;
+    persistence.loadLatest = async projectId => {
+      reads += 1;
+      if (reads === 2) {
+        const current = await originalLoad(projectId);
+        const { sequence: _sequence, checksum: _checksum, ...draft } = current!;
+        await persistence.persistNext({ ...draft, createdAtMs: current!.createdAtMs + 1 }, [], current!.checksum);
+      }
+      return await originalLoad(projectId);
+    };
+    await expect(active.loadActiveAgainstContext("project_1", context))
       .rejects.toMatchObject({ code: "CHECKPOINT_CHANGED" });
     state.close();
   });

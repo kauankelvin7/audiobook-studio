@@ -7,7 +7,7 @@ import outlineFixture from "../../../../tests/fixtures/semantic_outline_v1.json"
 import planFixture from "../../../../tests/fixtures/narrative_plan_content_v1.json";
 import scriptFixture from "../../../../tests/fixtures/narrative_script_content_v1.json";
 import { buildNarrationQa, validateNarrativePlan } from "./rust_narrative_pipeline";
-import { buildScriptQa, buildScriptReviewPacket, validateScriptReviewSubmission } from "./rust_script_pipeline";
+import { buildActiveNarrativeIdentity, buildScriptQa, buildScriptReviewPacket, validateActiveNarrativeActivation, validateScriptReviewSubmission } from "./rust_script_pipeline";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -108,6 +108,36 @@ describe("real Rust narrative WASM boundary", () => {
       sourceHash: `sha256:${"1".repeat(64)}`,
     };
     await expect(buildScriptReviewPacket("plan_1", scriptFixture, planFixture, forgedContent, outlineFixture))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+  });
+
+  it("builds active narrative identity from the real Rust/WASM dependency hashes", async () => {
+    const packet = await buildScriptReviewPacket("plan_1", scriptFixture, planFixture, contentFixture, outlineFixture);
+    const identity = await buildActiveNarrativeIdentity("plan_1", scriptFixture, planFixture, contentFixture, outlineFixture);
+    expect(identity).toMatchObject({
+      planId: packet.planId, documentId: packet.documentId, sourceHash: packet.sourceHash,
+      contentHash: packet.contentHash, planHash: packet.planHash, scriptHash: packet.scriptHash,
+      methodVersion: "active-narrative-rust-v1",
+    });
+    expect(identity.identityHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(identity.outlineHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const changed = {
+      ...scriptFixture,
+      sections: [{ ...scriptFixture.sections[0], segments: [{
+        ...scriptFixture.sections[0].segments[0], speechText: "Texto alterado.",
+      }] }],
+    };
+    const changedIdentity = await buildActiveNarrativeIdentity("plan_1", changed, planFixture, contentFixture, outlineFixture);
+    expect(changedIdentity.identityHash).not.toBe(identity.identityHash);
+    const changedOutline = {
+      ...outlineFixture,
+      sections: [{ ...outlineFixture.sections[0], requiresReview: false }],
+    };
+    const outlineIdentity = await buildActiveNarrativeIdentity("plan_1", scriptFixture, planFixture, contentFixture, changedOutline);
+    expect(outlineIdentity.outlineHash).not.toBe(identity.outlineHash);
+    expect(outlineIdentity.identityHash).not.toBe(identity.identityHash);
+    await expect(validateActiveNarrativeActivation({ state: "VERIFYING", resumeState: null })).resolves.toBeUndefined();
+    await expect(validateActiveNarrativeActivation({ state: "READY_FOR_AUDIO", resumeState: null }))
       .rejects.toMatchObject({ code: "CORE_REJECTED" });
   });
 

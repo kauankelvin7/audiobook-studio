@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const build_active_narrative_identity_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
 export const build_content_model_json: (a: number, b: number) => [number, number, number, number];
 export const build_narration_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
 export const build_script_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
@@ -9,6 +10,7 @@ export const build_semantic_outline_json: (a: number, b: number) => [number, num
 export const core_version: () => [number, number];
 export const document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
 export const migrate_document_v1_to_v2_json: (a: number, b: number) => [number, number, number, number];
+export const validate_active_narrative_activation_json: (a: number, b: number) => [number, number];
 export const validate_document_v2_json: (a: number, b: number) => [number, number, number, number];
 export const validate_narrative_plan_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
 export const validate_script_review_submission_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number, number];

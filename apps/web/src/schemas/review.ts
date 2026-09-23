@@ -37,6 +37,21 @@ export const scriptReviewPacketSchema = z.object({
 
 export type ScriptReviewPacket = z.infer<typeof scriptReviewPacketSchema>;
 
+export const activeNarrativeIdentitySchema = z.object({
+  schemaVersion: z.literal(1),
+  planId: id,
+  documentId: id,
+  sourceHash: hash,
+  contentHash: hash,
+  outlineHash: hash,
+  planHash: hash,
+  scriptHash: hash,
+  identityHash: hash,
+  methodVersion: z.literal("active-narrative-rust-v1"),
+}).strict();
+
+export type ActiveNarrativeIdentity = z.infer<typeof activeNarrativeIdentitySchema>;
+
 export const scriptReviewSubmissionSchema = z.object({
   schemaVersion: z.literal(1),
   planId: id,

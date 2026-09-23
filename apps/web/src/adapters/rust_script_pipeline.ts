@@ -1,7 +1,8 @@
-import { build_script_qa_json, build_script_review_packet_json, validate_script_review_submission_json } from "../generated/audiobook_wasm/audiobook_wasm.js";
+import { build_active_narrative_identity_json, build_script_qa_json, build_script_review_packet_json, validate_active_narrative_activation_json, validate_script_review_submission_json } from "../generated/audiobook_wasm/audiobook_wasm.js";
+import { generationJobSnapshotSchema } from "../schemas/persistence";
 import { contentModelSchema, semanticOutlineSchema } from "../schemas/content_model";
 import { narrativePlanSchema, narrativeScriptSchema, narrationQaSchema, type NarrationQa } from "../schemas/narrative";
-import { scriptReviewPacketSchema, scriptReviewReceiptSchema, scriptReviewSubmissionSchema, type ScriptReviewPacket, type ScriptReviewReceipt, type ScriptReviewSubmission } from "../schemas/review";
+import { activeNarrativeIdentitySchema, scriptReviewPacketSchema, scriptReviewReceiptSchema, scriptReviewSubmissionSchema, type ActiveNarrativeIdentity, type ScriptReviewPacket, type ScriptReviewReceipt, type ScriptReviewSubmission } from "../schemas/review";
 import { RustNarrativeError } from "./rust_narrative_pipeline";
 import { ensureRustWasm } from "./rust_wasm_runtime";
 
@@ -24,6 +25,86 @@ const reviewWasmPort: ReviewWasmPort = {
   initialize: ensureRustWasm,
   buildPacket: build_script_review_packet_json,
 };
+
+type ActiveIdentityWasmPort = {
+  initialize(): Promise<void>;
+  buildIdentity(expectedPlanId: string, script: string, plan: string, content: string, outline: string): string;
+};
+
+const activeIdentityWasmPort: ActiveIdentityWasmPort = {
+  initialize: ensureRustWasm,
+  buildIdentity: build_active_narrative_identity_json,
+};
+
+type ActivationWasmPort = {
+  initialize(): Promise<void>;
+  validateJob(job: string): void;
+};
+
+const activationWasmPort: ActivationWasmPort = {
+  initialize: ensureRustWasm,
+  validateJob: validate_active_narrative_activation_json,
+};
+
+export async function validateActiveNarrativeActivation(
+  job: unknown,
+  port: ActivationWasmPort = activationWasmPort,
+): Promise<void> {
+  let input: string;
+  try {
+    input = JSON.stringify(generationJobSnapshotSchema.parse(job));
+  } catch (error) {
+    throw new RustNarrativeError("INVALID_INPUT", "O estado do projeto está inválido.", { cause: error });
+  }
+  try {
+    await port.initialize();
+  } catch (error) {
+    throw new RustNarrativeError("WASM_INIT_FAILED", "O núcleo Rust/WASM não pôde ser carregado.", { cause: error });
+  }
+  try {
+    port.validateJob(input);
+  } catch (error) {
+    throw new RustNarrativeError("CORE_REJECTED", "O estado do projeto não permite ativar a narrativa.", { cause: error });
+  }
+}
+
+export async function buildActiveNarrativeIdentity(
+  expectedPlanId: string,
+  script: unknown,
+  plan: unknown,
+  content: unknown,
+  outline: unknown,
+  port: ActiveIdentityWasmPort = activeIdentityWasmPort,
+): Promise<ActiveNarrativeIdentity> {
+  let input: [string, string, string, string];
+  try {
+    if (typeof expectedPlanId !== "string" || !expectedPlanId.trim()) throw new Error("invalid plan ID");
+    input = [
+      JSON.stringify(narrativeScriptSchema.parse(script)),
+      JSON.stringify(narrativePlanSchema.parse(plan)),
+      JSON.stringify(contentModelSchema.parse(content)),
+      JSON.stringify(semanticOutlineSchema.parse(outline)),
+    ];
+  } catch (error) {
+    throw new RustNarrativeError("INVALID_INPUT", "Os dados da narrativa ativa são inválidos.", { cause: error });
+  }
+  try {
+    await port.initialize();
+  } catch (error) {
+    throw new RustNarrativeError("WASM_INIT_FAILED", "O núcleo Rust/WASM não pôde ser carregado.", { cause: error });
+  }
+  let output: string;
+  try {
+    output = port.buildIdentity(expectedPlanId, ...input);
+  } catch (error) {
+    throw new RustNarrativeError("CORE_REJECTED", "O núcleo Rust rejeitou a narrativa ativa.", { cause: error });
+  }
+  try {
+    return activeNarrativeIdentitySchema.parse(JSON.parse(output));
+  } catch (error) {
+    throw new RustNarrativeError("INVALID_CORE_OUTPUT", "A identidade da narrativa ativa está inválida.", { cause: error });
+  }
+}
 
 type SubmissionWasmPort = {
   initialize(): Promise<void>;

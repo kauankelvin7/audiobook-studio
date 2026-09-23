@@ -11,6 +11,7 @@ export const artifactKindSchema = z.enum([
   "audio_chunk",
   "final_audio",
   "review_submission",
+  "active_narrative",
   "temporary",
 ]);
 

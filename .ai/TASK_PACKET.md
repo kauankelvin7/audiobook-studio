@@ -328,3 +328,21 @@
 - Revisão independente encontrou risco de contexto antigo com mesma fonte e corrida durante a leitura. API histórica explícita e segunda checagem do checkpoint aplicadas. Segunda revisão apontou bloqueio da leitura histórica após troca de fonte ativa; removida a exigência de vínculo com o checkpoint atual, preservando manifest e integridade. Regressões adicionadas.
 - Gates após correções: Rust fmt/test (33)/clippy; Web STANDARD (97 testes, typecheck, build); audit 0 vulnerabilidades. Publicação/CI pendentes. Sem atestação, QA `pass` ou TTS.
 - Publicação: commit `c513744` no remoto; workflow `quality` run `35860380680` concluído com sucesso. O próximo batch permanece bloqueado para TTS até identidade ativa, atestação e avaliação semântica.
+
+## PRE-FLIGHT — M4.4F identidade ativa de narrativa (2026-09-23)
+- Base: branch `codex/m4-content-model` limpa, HEAD local/remoto `cf4d66e9`; handoff, ADRs 0010–0011, contexto Rust/WASM e storage lidos antes de editar.
+- Objetivo: definir no Rust a identidade canônica do plano/roteiro validado e publicá-la como ponteiro ativo persistente no checkpoint local. Revisão histórica continua `unverified`; nenhuma liberação de QA/TTS.
+- Evidência: M4.4E salva recibo, mas `currentness` permanece `not_established` porque checkpoint não identifica plano/roteiro ativos. O core já calcula hashes de conteúdo, plano e roteiro no pacote de revisão.
+- Restrições: Rust calcula hashes/identidade; TS somente valida fronteira e opera IndexedDB/OPFS/Web Locks. Um único writer. Sem UI, modelo real, atestação ou TTS. Mudanças pequenas e com paridade WASM real.
+- Desconhecidos: revisor confiável, política de atestação, corpus mainframe real e fluxo de edição de roteiro na UI. O registro ativo não equivale a revisão semântica.
+- Riscos: ponteiro stale após troca de fonte, múltiplos ativos, artefato ausente/corrupto, corrida ao publicar checkpoint, reinterpretar identidade ativa como aprovação.
+- Plano: contrato Rust e testes; export WASM/schema/adapters Web; persistir ponteiro ativo com troca explícita e teste de recuperação/corrida; revisão independente; gates, worklog/handoff, commit e push após validação.
+- Verificação: Rust fmt/test/clippy, build WASM, Web STANDARD e audit, diff check, CI do commit remoto. Não iniciar TTS.
+- Risco: HIGH; Lead único writer e QA independente read-only.
+
+## RESULT — M4.4F validação local (2026-09-23)
+- Identidade narrativa canônica calculada em Rust, incluindo hash do outline, plano, roteiro, conteúdo e fonte; WASM e schema TS espelham a fronteira. Adapter Web publica um único ponteiro ativo OPFS/IndexedDB e detecta identidade antiga, corrupção e corrida.
+- Revisão independente apontou risco de conservar estado `READY_FOR_AUDIO` e referências a áudio após troca. Rust agora só permite ativação em `VERIFYING`; adapter rejeita áudio referenciado ou manifest ausente. Regressões Web/Rust adicionadas.
+- Apostila COBOL do usuário inspecionada apenas localmente; 75 páginas com texto. Não há golden semântico nem execução do pipeline nessa fonte. A primeira aparência de acentos quebrados foi erro de exibição do terminal, não evidência de corrupção do PDF.
+- Gates: Rust 35 testes, fmt check e clippy `-D warnings`; build WASM; Web STANDARD 103 testes/typecheck/build; `npm audit --audit-level=high` sem vulnerabilidades; `git diff --check` passaram. O primeiro Vitest no sandbox falhou com `spawn EPERM`; a repetição com permissão para subprocessos passou. Publicação/CI ainda pendentes neste registro. Não há atestação, QA `pass` ou TTS.
+- Segunda revisão independente read-only confirmou a correção do P2 de estado/áudio e não encontrou novo P0/P1/P2. O revisor inspecionou testes; execução dos gates foi feita pelo Lead.
