@@ -8,7 +8,7 @@
     "predev": "node scripts/stage-tts-runtime.mjs && node scripts/stage-ocr-runtime.mjs",
     "dev": "vite",
     "prebuild": "node scripts/stage-tts-runtime.mjs && node scripts/stage-ocr-runtime.mjs",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/verify-deploy-output.mjs",
     "wasm:build": "node ../../scripts/build-wasm.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
@@ -22,7 +22,8 @@
     "test:browser:scanned-ocr": "node scripts/stage-ocr-runtime.mjs && node scripts/smoke-scanned-page-ocr.mjs",
     "test:browser:ocr-learning": "node scripts/stage-ocr-runtime.mjs && node scripts/smoke-ocr-learning.mjs",
     "test:standard": "npm run typecheck && npm test && npm run build",
-    "test:full": "npm run test:standard && npm audit --audit-level=high"
+    "test:full": "npm run test:standard && npm audit --audit-level=high",
+    "deploy:verify": "node scripts/verify-deploy-output.mjs"
   },
   "dependencies": {
     "@diffusionstudio/piper-wasm": "1.0.0",
@@ -48,5 +49,8 @@
     "fake-indexeddb": "6.2.5",
     "playwright-core": "1.63.0",
     "vitest": "5.0.1"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }
