@@ -50,11 +50,11 @@ export function NarrativeQaPanel({
 }) {
   const statusLabel = !qa ? "Não conferido" : qa.status === "pass" ? "Pronto" : qa.status === "review" ? "Revisão humana" : "Correção necessária";
   return <aside className="narrative-qa-panel" aria-label="QA do roteiro">
-    <div className="narrative-column-heading"><div><p className="summary-kicker">QA</p><h3>Conferência</h3></div>
+    <div className="narrative-column-heading"><div><p className="summary-kicker">CONFERÊNCIA</p><h3>Revisão do roteiro</h3></div>
       <span className={"status-badge " + (qa?.status === "fail" ? "danger" : qa?.status === "review" ? "warning" : qa?.status === "pass" ? "success" : "")}>{statusLabel}</span></div>
     <div className="qa-check-list">
-      <p><StudioIcon name={qa && qa.duplicatedSpokenHeadings === 0 ? "check" : "warning"} size={16} /><span>Headings duplicados</span><strong>{qa?.duplicatedSpokenHeadings ?? "—"}</strong></p>
-      <p><StudioIcon name={qa && qa.unsupportedClaims === 0 ? "check" : "warning"} size={16} /><span>Claims críticos</span><strong>{qa?.unsupportedClaims ?? "—"}</strong></p>
+      <p><StudioIcon name={qa && qa.duplicatedSpokenHeadings === 0 ? "check" : "warning"} size={16} /><span>Títulos falados duplicados</span><strong>{qa?.duplicatedSpokenHeadings ?? "—"}</strong></p>
+      <p><StudioIcon name={qa && qa.unsupportedClaims === 0 ? "check" : "warning"} size={16} /><span>Afirmações sem suporte</span><strong>{qa?.unsupportedClaims ?? "—"}</strong></p>
       <p><StudioIcon name={qa?.status === "pass" ? "check" : "review"} size={16} /><span>Fidelidade</span><strong>{qa?.status === "pass" ? "OK" : qa ? "Revisar" : "—"}</strong></p>
     </div>
     {warningMessages.length > 0 && <ul className="qa-warning-list">{warningMessages.map((message, index) => <li key={index}>{message}</li>)}</ul>}

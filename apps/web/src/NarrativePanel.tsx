@@ -106,7 +106,7 @@ export function NarrativePanel({ document, persistence, onApproved }: {
   return <section className="panel narrative-panel" aria-labelledby="narrative-title">
     <header className="narrative-panel-header">
       <div><p className="section-kicker">NARRATIVA</p><h2 id="narrative-title">Roteiro narrativo</h2>
-        <p>Revise o que será dito, confira a fonte aprovada e valide o QA antes de enviar o roteiro para áudio.</p></div>
+        <p>Revise o que será dito, confira a fonte aprovada e os alertas antes de enviar o roteiro para áudio.</p></div>
       <span className={"status-badge " + (approved ? "success" : qa?.status === "fail" ? "danger" : "warning")}>
         {approved ? "Aprovado" : qa?.status === "fail" ? "Correção necessária" : "Em revisão"}
       </span>
@@ -132,7 +132,7 @@ export function NarrativePanel({ document, persistence, onApproved }: {
 
       <section className="narrative-approval-bar" aria-labelledby="narrative-approval-title">
         <div><p className="summary-kicker">APROVAÇÃO</p><h3 id="narrative-approval-title">Confirmar roteiro para áudio</h3>
-          <p>Registre por que o texto está fiel à fonte antes de promover os SpeechUnits.</p></div>
+          <p>Registre por que o texto está fiel à fonte antes de liberar os trechos aprovados para a geração de áudio.</p></div>
         <div className="narrative-approval-form">
           <label htmlFor="narrative-rationale">Justificativa da revisão</label>
           <textarea id="narrative-rationale" value={rationale}
@@ -161,7 +161,7 @@ export function NarrativePanel({ document, persistence, onApproved }: {
           reviewReceipt: approved.approved.reviewReceipt,
           approval: approved.approved.approval,
           speechUnits: approved.approved.speechUnits,
-        }))} download="audiobook-studio-roteiro-narrativo.json">Baixar roteiro, fontes e QA</a>
+        }))} download="audiobook-studio-roteiro-narrativo.json">Baixar roteiro, fontes e relatório de revisão</a>
       </div>}
     </> : <p className="notice">O texto aprovado ainda não produziu um roteiro utilizável.</p>}
     {status && <p role="status" className="narrative-status">{status}</p>}

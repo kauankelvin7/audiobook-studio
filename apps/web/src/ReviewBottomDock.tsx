@@ -24,7 +24,7 @@ export function ReviewBottomDock({
   audioProgress: { current: number; total: number } | null;
   exportReady: boolean;
 }) {
-  const qaLabel = narrativeQaStatus === "pass" ? "QA concluído"
+  const qaLabel = narrativeQaStatus === "pass" ? "Conferência concluída"
     : narrativeQaStatus === "review" ? "Revisão humana necessária"
       : narrativeQaStatus === "fail" ? "Correção necessária" : "Aguardando roteiro";
 
