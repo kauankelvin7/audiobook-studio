@@ -37,6 +37,8 @@ pub enum OcrCandidateError {
     Serialization,
     #[error("OCR comparison input exceeds the size limit")]
     ComparisonInputTooLarge,
+    #[error("OCR review submission is invalid or does not match the candidate")]
+    InvalidReviewSubmission,
 }
 
 struct BoundedJsonWriter(usize);
@@ -132,6 +134,107 @@ pub struct OcrComparisonReport {
     pub truncated: bool,
     pub status: OcrComparisonStatus,
     pub method_version: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OcrReviewDisposition {
+    KeepNative,
+    RetainCandidateForReview,
+    ProposeCorrection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OcrReviewSubmission {
+    pub schema_version: u32,
+    pub receipt_hash: String,
+    pub disposition: OcrReviewDisposition,
+    pub rationale: String,
+    pub proposed_text: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OcrReviewStatus {
+    Unverified,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OcrReviewReceipt {
+    pub schema_version: u32,
+    pub document_id: String,
+    pub source_hash: String,
+    pub page_number: u32,
+    pub region_id: String,
+    pub candidate_receipt_hash: String,
+    pub comparison_hash: String,
+    pub disposition: OcrReviewDisposition,
+    pub rationale: String,
+    pub proposed_text: Option<String>,
+    pub status: OcrReviewStatus,
+    pub review_hash: String,
+    pub method_version: String,
+}
+
+pub fn build_ocr_review_receipt(
+    document: &DocumentIrV2,
+    candidate: &OcrCandidate,
+    submission: &OcrReviewSubmission,
+) -> Result<OcrReviewReceipt, OcrCandidateError> {
+    let comparison = compare_ocr_candidate(document, candidate)?;
+    if submission.schema_version != 1
+        || submission.receipt_hash != comparison.receipt_hash
+        || submission.rationale.trim().is_empty()
+        || submission.rationale.len() > 2_000
+        || match submission.disposition {
+            OcrReviewDisposition::ProposeCorrection => submission
+                .proposed_text
+                .as_ref()
+                .is_none_or(|text| text.trim().is_empty() || text.len() > MAX_OCR_TEXT_BYTES),
+            _ => submission.proposed_text.is_some(),
+        }
+    {
+        return Err(OcrCandidateError::InvalidReviewSubmission);
+    }
+    let comparison_hash = sha256_source(
+        &serde_json::to_vec(&comparison).map_err(|_| OcrCandidateError::Serialization)?,
+    );
+    let status = OcrReviewStatus::Unverified;
+    let method_version = "ocr-review-rust-v1";
+    let review_hash = sha256_source(
+        &serde_json::to_vec(&(
+            submission.schema_version,
+            &candidate.document_id,
+            &candidate.source_hash,
+            candidate.page_number,
+            &candidate.region_id,
+            &submission.receipt_hash,
+            &comparison_hash,
+            submission.disposition,
+            &submission.rationale,
+            &submission.proposed_text,
+            status,
+            method_version,
+        ))
+        .map_err(|_| OcrCandidateError::Serialization)?,
+    );
+    Ok(OcrReviewReceipt {
+        schema_version: 1,
+        document_id: candidate.document_id.clone(),
+        source_hash: candidate.source_hash.clone(),
+        page_number: candidate.page_number,
+        region_id: candidate.region_id.clone(),
+        candidate_receipt_hash: comparison.receipt_hash,
+        comparison_hash,
+        disposition: submission.disposition,
+        rationale: submission.rationale.clone(),
+        proposed_text: submission.proposed_text.clone(),
+        status,
+        review_hash,
+        method_version: method_version.to_owned(),
+    })
 }
 
 fn ascii_token_counts(text: &str) -> (BTreeMap<String, u32>, bool) {

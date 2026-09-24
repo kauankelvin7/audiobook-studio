@@ -2,16 +2,17 @@ use std::collections::{BTreeMap, HashSet};
 
 use audiobook_core::{
     build_active_narrative_identity, build_narration_qa, build_ocr_candidate_receipt,
-    build_script_review_packet, build_validated_narration_qa, compare_heading_to_body,
-    compare_ocr_candidate, evaluate_review_against_active, find_repeated_formulaic_openers,
-    normalize_narrative_text, reduce_narrative_memory, validate_script_review_submission,
-    ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2, GenerationJob,
-    HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility, NarrativeHeading,
-    NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript, NarrativeSection,
-    OcrCandidate, OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus, QaStatus,
-    ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError, ReviewStatus,
-    ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
-    SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
+    build_ocr_review_receipt, build_script_review_packet, build_validated_narration_qa,
+    compare_heading_to_body, compare_ocr_candidate, evaluate_review_against_active,
+    find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
+    validate_script_review_submission, ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2,
+    GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility,
+    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
+    NarrativeSection, OcrCandidate, OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus,
+    OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission, QaStatus, ReviewAttestationStatus,
+    ReviewBindingReference, ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
+    ScriptReviewSubmission, SegmentReviewDecision, SemanticOutline, SpokenChapter,
+    SpokenHeadingPolicy,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -224,6 +225,80 @@ fn ocr_comparison_is_bounded_and_reports_only_observed_differences() {
     assert_eq!(limited_output.differences.len(), 256);
     assert_eq!(limited_output.differences[0].token, "A000");
     assert!(limited_output.truncated);
+}
+
+#[test]
+fn ocr_review_receipt_binds_explicit_unverified_decision() {
+    let document = document_v2();
+    let native = document.pages[0].regions[0]
+        .sources
+        .raw_text
+        .as_ref()
+        .unwrap();
+    let candidate = OcrCandidate {
+        schema_version: 1,
+        document_id: document.document_id.clone(),
+        source_hash: document.source_hash.clone(),
+        page_number: 1,
+        region_id: document.pages[0].regions[0].id.clone(),
+        native_text_hash: audiobook_core::sha256_source(native.as_bytes()),
+        image_hash: audiobook_core::sha256_source(b"pixels"),
+        engine_id: "fixture".into(),
+        engine_version: "1".into(),
+        text: "PROCEDURE DIVISION".into(),
+    };
+    let before = document.clone();
+    let receipt_hash = build_ocr_candidate_receipt(&document, &candidate)
+        .unwrap()
+        .receipt_hash;
+    let mut submission = OcrReviewSubmission {
+        schema_version: 1,
+        receipt_hash,
+        disposition: OcrReviewDisposition::ProposeCorrection,
+        rationale: "Corrigir token técnico após conferir a imagem.".into(),
+        proposed_text: Some("PR0CEDURE DIVISION".into()),
+    };
+    let receipt = build_ocr_review_receipt(&document, &candidate, &submission).unwrap();
+    assert_eq!(receipt.status, OcrReviewStatus::Unverified);
+    assert_eq!(
+        receipt,
+        build_ocr_review_receipt(&document, &candidate, &submission).unwrap()
+    );
+    assert_eq!(document, before);
+    submission.rationale.push('!');
+    assert_ne!(
+        receipt.review_hash,
+        build_ocr_review_receipt(&document, &candidate, &submission)
+            .unwrap()
+            .review_hash
+    );
+    submission.receipt_hash = audiobook_core::sha256_source(b"forged");
+    assert_eq!(
+        build_ocr_review_receipt(&document, &candidate, &submission),
+        Err(OcrCandidateError::InvalidReviewSubmission)
+    );
+    submission.receipt_hash = receipt.candidate_receipt_hash;
+    submission.rationale = " ".into();
+    assert_eq!(
+        build_ocr_review_receipt(&document, &candidate, &submission),
+        Err(OcrCandidateError::InvalidReviewSubmission)
+    );
+    submission.rationale = "review".into();
+    submission.disposition = OcrReviewDisposition::KeepNative;
+    assert_eq!(
+        build_ocr_review_receipt(&document, &candidate, &submission),
+        Err(OcrCandidateError::InvalidReviewSubmission)
+    );
+    submission.proposed_text = None;
+    let kept = build_ocr_review_receipt(&document, &candidate, &submission).unwrap();
+    assert_eq!(kept.status, OcrReviewStatus::Unverified);
+    assert_ne!(kept.review_hash, receipt.review_hash);
+    let mut stale = candidate.clone();
+    stale.text.push('!');
+    assert_eq!(
+        build_ocr_review_receipt(&document, &stale, &submission),
+        Err(OcrCandidateError::InvalidReviewSubmission)
+    );
 }
 
 #[test]

@@ -6,7 +6,7 @@ import { initSync } from "../generated/audiobook_wasm/audiobook_wasm.js";
 import documentV2Fixture from "../../../../tests/fixtures/document_ir_v2.json";
 import { documentIrV2Schema } from "../schemas/ingestion";
 import { ocrCandidateSchema } from "../schemas/ocr_candidate";
-import { buildOcrCandidateReceipt, compareOcrCandidate } from "./rust_ocr_candidate";
+import { buildOcrCandidateReceipt, buildOcrReviewReceipt, compareOcrCandidate } from "./rust_ocr_candidate";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -85,5 +85,21 @@ describe("real Rust/WASM OCR candidate contract", () => {
     const report = await compareOcrCandidate(document, observed);
     expect(report.status).toBe("review_required");
     expect(report.ocrTextHash).toBe(hash(observed.text));
+  });
+
+  it("binds an explicit OCR review without changing document or approving it", async () => {
+    const receipt = await buildOcrCandidateReceipt(document, candidate);
+    const submission = { schemaVersion: 1 as const, receiptHash: receipt.receiptHash,
+      disposition: "propose_correction" as const, rationale: "Conferido contra a imagem.", proposedText: "RECOVERED CODE" };
+    const before = JSON.stringify(document);
+    const reviewed = await buildOcrReviewReceipt(document, candidate, submission);
+    expect(reviewed).toMatchObject({ status: "unverified", candidateReceiptHash: receipt.receiptHash,
+      disposition: "propose_correction", proposedText: "RECOVERED CODE" });
+    expect(await buildOcrReviewReceipt(document, candidate, submission)).toEqual(reviewed);
+    expect(JSON.stringify(document)).toBe(before);
+    await expect(buildOcrReviewReceipt(document, candidate, { ...submission, receiptHash: hash("forged") }))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+    await expect(buildOcrReviewReceipt(document, candidate, { ...submission, rationale: " " }))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 });

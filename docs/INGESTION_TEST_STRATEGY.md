@@ -14,6 +14,8 @@ Rust/WASM agora compara tokens técnicos do texto nativo e do candidato OCR com 
 
 ## Estado atual
 
+M4.5J adiciona teste Rust e paridade WASM real para submissão de revisão OCR. O teste confere vínculo ao recibo, hash determinístico, rejeição de recibo forjado, justificativa vazia e disposição incompatível com texto proposto. O resultado permanece `unverified` e o DocumentIR de entrada fica inalterado. Ver ADR 0022.
+
 - `text_and_blank.pdf`: fixture sintética real, texto nativo + página sem texto; testada em Vitest e Chrome local.
 - `document_ir_v1.json`: contrato v1 compartilhado Rust/TypeScript.
 - `document_ir_v2.json`: contrato v2 com código corrompido e três camadas; TypeScript testado.

@@ -1,7 +1,8 @@
-import { build_ocr_candidate_receipt_json, compare_ocr_candidate_json } from "../generated/audiobook_wasm/audiobook_wasm.js";
+import { build_ocr_candidate_receipt_json, build_ocr_review_receipt_json, compare_ocr_candidate_json } from "../generated/audiobook_wasm/audiobook_wasm.js";
 import { documentIrV2Schema, type DocumentIrV2 } from "../schemas/ingestion";
 import { ocrCandidateReceiptSchema, ocrCandidateSchema, ocrComparisonReportSchema,
-  type OcrCandidate, type OcrCandidateReceipt, type OcrComparisonReport } from "../schemas/ocr_candidate";
+  ocrReviewReceiptSchema, ocrReviewSubmissionSchema, type OcrCandidate, type OcrCandidateReceipt,
+  type OcrComparisonReport, type OcrReviewReceipt, type OcrReviewSubmission } from "../schemas/ocr_candidate";
 import { ensureRustWasm } from "./rust_wasm_runtime";
 
 export type RustOcrCandidateErrorCode = "INVALID_INPUT" | "WASM_INIT_FAILED" | "CORE_REJECTED" | "INVALID_CORE_OUTPUT";
@@ -92,6 +93,41 @@ export async function compareOcrCandidate(document: DocumentIrV2, candidate: Ocr
   if (parsed.data.nativeTextHash !== parsedCandidate.data.nativeTextHash
     || parsed.data.ocrTextHash !== ocrTextHash) {
     throw new RustOcrCandidateError("INVALID_CORE_OUTPUT", "A comparação OCR não confere com o recibo.");
+  }
+  return parsed.data;
+}
+
+export async function buildOcrReviewReceipt(document: DocumentIrV2, candidate: OcrCandidate,
+  submission: OcrReviewSubmission): Promise<OcrReviewReceipt> {
+  const parsedDocument = documentIrV2Schema.safeParse(document);
+  const parsedCandidate = ocrCandidateSchema.safeParse(candidate);
+  const parsedSubmission = ocrReviewSubmissionSchema.safeParse(submission);
+  if (!parsedDocument.success || !parsedCandidate.success || !parsedSubmission.success) {
+    throw new RustOcrCandidateError("INVALID_INPUT", "A submissão OCR não passou na validação.");
+  }
+  const documentJson = JSON.stringify(parsedDocument.data);
+  const candidateJson = JSON.stringify(parsedCandidate.data);
+  const submissionJson = JSON.stringify(parsedSubmission.data);
+  if (new TextEncoder().encode(documentJson).length > 32_000_000
+    || new TextEncoder().encode(candidateJson).length > 8_000_000
+    || new TextEncoder().encode(submissionJson).length > 8_000_000) {
+    throw new RustOcrCandidateError("INVALID_INPUT", "A revisão OCR excede o limite de entrada.");
+  }
+  try { await ensureRustWasm(); }
+  catch (error) { throw new RustOcrCandidateError("WASM_INIT_FAILED", "Não foi possível carregar o núcleo Rust/WASM.", { cause: error }); }
+  let decoded: unknown;
+  try { decoded = JSON.parse(build_ocr_review_receipt_json(documentJson, candidateJson, submissionJson)); }
+  catch (error) { throw new RustOcrCandidateError("CORE_REJECTED", "O núcleo Rust rejeitou a revisão OCR.", { cause: error }); }
+  const parsed = ocrReviewReceiptSchema.safeParse(decoded);
+  if (!parsed.success) {
+    throw new RustOcrCandidateError("INVALID_CORE_OUTPUT", "O recibo de revisão OCR não passou na validação.", { cause: parsed.error });
+  }
+  if (parsed.data.documentId !== parsedDocument.data.documentId || parsed.data.sourceHash !== parsedDocument.data.sourceHash
+    || parsed.data.pageNumber !== parsedCandidate.data.pageNumber || parsed.data.regionId !== parsedCandidate.data.regionId
+    || parsed.data.candidateReceiptHash !== parsedSubmission.data.receiptHash
+    || parsed.data.disposition !== parsedSubmission.data.disposition || parsed.data.rationale !== parsedSubmission.data.rationale
+    || parsed.data.proposedText !== parsedSubmission.data.proposedText) {
+    throw new RustOcrCandidateError("INVALID_CORE_OUTPUT", "O recibo de revisão OCR diverge da submissão.");
   }
   return parsed.data;
 }

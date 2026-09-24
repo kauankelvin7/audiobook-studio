@@ -1,8 +1,8 @@
 # Arquitetura de ingestão, OCR e conteúdo complexo
 
-Status geral: `DESIGNED`; contratos centrais `SCAFFOLDED/TESTED`; extração nativa `IMPLEMENTED/TESTED`; captura limitada de região `IMPLEMENTED/TESTED` em Chrome; engine OCR e visão `NOT STARTED`.
+Status geral: `DESIGNED`; extração nativa, captura limitada e engine OCR local `IMPLEMENTED/TESTED` em Chromium; evidência OCR histórica e comparação Rust `IMPLEMENTED/TESTED`; visão e reconciliação aplicada `NOT STARTED`.
 
-M4.5D acrescenta a fronteira de candidato OCR: recibo `pending` vinculado no Rust a documento, região, texto nativo e hash da imagem declarada (ADR 0014). O adapter Web agora captura um crop PNG limitado e confere o hash dos bytes do PDF antes de renderizar (ADR 0018). Ainda não há engine OCR, persistência de candidato/recibo, reconciliação ou promoção de qualidade. A correção semântica da bbox não foi validada por revisão humana.
+M4.5D–J vinculam candidato, crop PNG e fonte (ADRs 0014/0018), executam Tesseract local, preservam evidência em OPFS/IndexedDB (ADR 0020), comparam tokens no Rust (ADR 0021) e registram submissão de revisão não atestada (ADR 0022). Não há reconciliação aplicada nem promoção de qualidade. A correção semântica da bbox não foi validada por revisão humana.
 
 ## Pipeline
 
@@ -18,7 +18,7 @@ Code validator preserva whitespace e marca tokens suspeitos sem correção silen
 
 ## Segurança e recursos
 
-Limites atuais: PDF 32 MB e 500 páginas. Antes de OCR real, adicionar limite de pixels por página/região, resolução, dimensões, timeout, concorrência e memória. Conteúdo importado nunca executa script, HTML ou comandos. UI renderiza texto, não HTML. Formatos futuros com arquivo compactado exigem limite de expansão e path traversal guard. Logs não contêm texto integral.
+Limites atuais: PDF 32 MB e 500 páginas; captura OCR limitada por tamanho do PDF, pixels e prazo; engine local por região com cancelamento. Concorrência global e memória total ainda exigem medição. Conteúdo importado nunca executa script, HTML ou comandos. UI renderiza texto, não HTML. Formatos futuros com arquivo compactado exigem limite de expansão e path traversal guard. Logs não contêm texto integral.
 
 ## Revisão humana e auditoria
 

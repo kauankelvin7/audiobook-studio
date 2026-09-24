@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-24 — M4.5J submissão de revisão OCR
+- Base `fd80455` limpa e alinhada ao remoto; PRE-FLIGHT registrado antes do código. Rust recalcula candidato e comparação antes de aceitar escolha explícita com justificativa, emitindo recibo hash-bound `unverified`. Proposta de correção é texto declarado, não fonte confirmada; DocumentIR, ContentModel, checkpoint e elegibilidade não mudam.
+- Fachada WASM aplica limites JSON; schema/adapter TS validam a fronteira. Testes Rust cobrem hash determinístico, replay de recibo, decisão incompatível, justificativa vazia, candidato alterado e ausência de mutação. Vitest usa WASM real e confere recibo forjado. ADR 0022 e status da arquitetura OCR atualizados.
+- Gates: `cargo fmt --all -- --check`, `cargo test --workspace` (45), Clippy `-D warnings`, WASM build, Web typecheck/141 testes/build e `git diff --check` passaram. Revisão independente sem P0–P2. Build preserva avisos Piper de `fs`/`path`/`crypto`. Sem corpus privado/goldens revisados, autenticação de revisor ou persistência da submissão nesta etapa.
+- Publicação e CI remoto a confirmar após commit.
+
 ## 2026-09-23 — M4.5H medição pública de código OCR
 - Usuário informou que não dispõe dos PDFs/goldens privados no momento e autorizou exemplos públicos. Sintaxe conferida com manual oficial GnuCOBOL; caso de cinco linhas foi criado no smoke sem copiar PDF ou código privado.
 - Primeira medição real no Chromium: sete de oito tokens técnicos preservados; `SAMPLE01` foi transcrito como `SAMPLEO1`. O caso não é um golden de produção; a divergência demonstra por que OCR de código permanece em revisão e não libera narração.

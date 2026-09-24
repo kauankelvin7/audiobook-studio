@@ -58,3 +58,36 @@ export const ocrComparisonReportSchema = z.object({
 export type OcrCandidate = z.infer<typeof ocrCandidateSchema>;
 export type OcrCandidateReceipt = z.infer<typeof ocrCandidateReceiptSchema>;
 export type OcrComparisonReport = z.infer<typeof ocrComparisonReportSchema>;
+
+const reviewDisposition = z.enum(["keep_native", "retain_candidate_for_review", "propose_correction"]);
+const proposedText = z.string().refine(value => value.trim().length > 0 && new TextEncoder().encode(value).length <= 1_000_000);
+export const ocrReviewSubmissionSchema = z.object({
+  schemaVersion: z.literal(1),
+  receiptHash: hash,
+  disposition: reviewDisposition,
+  rationale: z.string().refine(value => value.trim().length > 0 && new TextEncoder().encode(value).length <= 2_000),
+  proposedText: proposedText.nullable(),
+}).strict().superRefine((value, context) => {
+  if ((value.disposition === "propose_correction") !== (value.proposedText !== null)) {
+    context.addIssue({ code: "custom", message: "A proposta textual deve corresponder à decisão." });
+  }
+});
+
+export const ocrReviewReceiptSchema = z.object({
+  schemaVersion: z.literal(1),
+  documentId: z.string().regex(/^doc_[0-9a-f]{64}$/),
+  sourceHash: hash,
+  pageNumber: z.number().int().positive(),
+  regionId: z.string().min(1),
+  candidateReceiptHash: hash,
+  comparisonHash: hash,
+  disposition: reviewDisposition,
+  rationale: z.string().min(1),
+  proposedText: z.string().nullable(),
+  status: z.literal("unverified"),
+  reviewHash: hash,
+  methodVersion: z.literal("ocr-review-rust-v1"),
+}).strict();
+
+export type OcrReviewSubmission = z.infer<typeof ocrReviewSubmissionSchema>;
+export type OcrReviewReceipt = z.infer<typeof ocrReviewReceiptSchema>;

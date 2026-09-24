@@ -1,5 +1,12 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5J submissão de revisão OCR (2026-09-24)
+- Base: `codex/m4-content-model` limpa em `fd80455`, alinhada ao remoto; CI do HEAD anterior verde. Recibo OCR, evidência histórica e comparação Rust estão implementados, mas não existe decisão de revisão vinculada.
+- Objetivo: registrar em Rust submissão explícita e determinística sobre uma evidência OCR, com hash do recibo/comparação, escolha e justificativa; estado sempre não atestado. Expor por WASM e adapter/schema Web.
+- Restrições: não alterar DocumentIR, ContentModel, source layers, elegibilidade, checkpoint nem TTS. Entrada local não prova identidade de revisor. PDFs/goldens privados pendentes.
+- Riscos: replay em documento/candidato alterado, decisão ambígua, texto arbitrário sem vínculo, falsa aprovação. Recalcular recibo/comparação no core, limitar texto, rejeitar mismatch e exigir justificativa. A opção de texto corrigido fica como proposta com hash, nunca promoção.
+- Verificação: Rust fmt/test/clippy, WASM build, Web typecheck/test/build, paridade real, diff check e revisão independente. Risco HIGH; Lead writer único, Explorer read-only e QA read-only.
+
 ## PRE-FLIGHT — M4.5I comparação OCR canônica (2026-09-23)
 - Base: commits M4.5E–H locais, gates verdes; não publicados por ausência de credenciais GitHub. Caso público sintético identificou `SAMPLE01` lido como `SAMPLEO1`.
 - Objetivo: produzir no Rust um relatório determinístico de diferenças entre texto nativo e OCR para revisão humana, ligado ao recibo e limitado em tamanho. Nunca promover texto ou aprovar automaticamente.
