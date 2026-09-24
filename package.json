@@ -1,0 +1,14 @@
+{
+  "name": "audiobook-studio",
+  "private": true,
+  "packageManager": "npm@11.19.1",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "build": "npm --prefix apps/web run build",
+    "dev": "npm --prefix apps/web run dev",
+    "test:web": "npm --prefix apps/web test",
+    "typecheck:web": "npm --prefix apps/web run typecheck"
+  }
+}
