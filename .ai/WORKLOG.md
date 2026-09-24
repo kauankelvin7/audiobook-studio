@@ -118,3 +118,11 @@
 - STANDARD final: typecheck + 83/83 testes Web + build passaram em 16,94 s.
 - Sem dependências novas e sem TTS/OCR/modelo externo.
 - Próxima fatia M4: ContentModel/SemanticOutline + planner adapter estruturado e golden real quando o manual estiver disponível.
+
+
+## 2026-09-24 — Handoff operacional
+- Adicionado `.ai/HANDOFF.md` como resumo curto de retomada, sem substituir `.ai/TASK_PACKET.md` ou `.ai/WORKLOG.md`.
+- Baseline funcional registrada: `8bbf5055d35ed73eda284f663902cb83c7d1139b` (M4.1 Narrative Quality determinístico).
+- Próximo passo registrado: M4.2 ContentModel/SemanticOutline + planner adapter estruturado, mantendo TTS real fora da fatia.
+- `AGENTS.md` passa a exigir leitura do handoff na retomada e atualização ao encerrar sessão relevante ou mudar o próximo passo.
+- `docs/CONTEXT_INDEX.md` passa a incluir o handoff na rota de governança/retomada.
