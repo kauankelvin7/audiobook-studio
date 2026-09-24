@@ -1,5 +1,13 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5O memória local de ambiguidades OCR (2026-09-24)
+- Base: `c7bc98a` publicada, árvore limpa. Usuário solicitou entrega grande, linear e voltada a reduzir erros, incluindo loop local de feedback para ambiguidades OCR. A avaliação pública confirmou troca concreta `0`/`O` em código.
+- Objetivo deste batch: implementar a primeira metade operacional do loop: extrair exemplos de correções explícitas, validar e agregar regras de ambiguidade no Rust/WASM, armazená-las localmente no navegador e oferecer sugestões para revisão humana. Nenhuma sugestão altera automaticamente o DocumentIR, o candidato ou a elegibilidade de narração.
+- Decisão: não incorporar `ort`, `tch-rs`, SQLite ou fine-tuning de rede neste batch. O produto é PWA local-first e sua execução é WASM/browser; IndexedDB é o armazenamento local existente. Um classificador pequeno só será avaliado depois de corpus revisado, métricas, formato de modelo e política de atualização. O algoritmo inicial é determinístico e limitado a tokens técnicos ASCII que mudam somente em pares ambíguos conhecidos.
+- Invariantes: criar memória apenas após ação explícita do usuário; exigir proposta de correção e recibo Rust vinculado; preservar origem e hashes; três evidências OCR distintas são necessárias antes de sugerir um token; sugestões seguem `review_required`; nenhuma correção é aplicada ou exportada em silêncio.
+- Riscos: ensinar texto incorreto, extrair prosa como código, replay ou duplicação de evidência, perfil corrompido, crescer sem limite, sugestão desatualizada e regressão WASM. Limitar tamanho/quantidade, deduplicar por hash de revisão, aceitar somente substituições de mesmo comprimento nos pares 0/O, 1/I/L, 5/S e 8/B, usar hashes canônicos e testar rejeições, limiar, persistência e UI.
+- Verificação: testes Rust/WASM/Web, typecheck/build, smoke Chromium de sugestão local sem rede externa, diff/revisão independente e gates completos disponíveis.
+
 ## PRE-FLIGHT — M4.5N avaliação pública de OCR (2026-09-24)
 - Base: `cbe4294`, árvore limpa. Usuário escolheu avaliação pública como próxima frente. Manual público *GnuCOBOL guide to interfacing COBOL and C*, de Ron Norman, obtido do repositório `OCamlPro/gnucobol-docs`; PDF local de 29 páginas, fora do Git. Páginas 2 (prosa) e 4 (código) renderizadas e conferidas visualmente.
 - Objetivo: medir o Tesseract local sobre páginas reais do PDF e registrar tokens visíveis preservados ou ausentes, com script opt-in reproduzível e identidade SHA-256 da fonte.

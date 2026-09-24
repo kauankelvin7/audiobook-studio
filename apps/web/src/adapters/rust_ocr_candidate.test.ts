@@ -7,6 +7,7 @@ import documentV2Fixture from "../../../../tests/fixtures/document_ir_v2.json";
 import { documentIrV2Schema } from "../schemas/ingestion";
 import { ocrCandidateSchema, PAGE_OCR_TARGET_ID } from "../schemas/ocr_candidate";
 import { buildOcrCandidateReceipt, buildOcrReviewReceipt, compareOcrCandidate } from "./rust_ocr_candidate";
+import { buildOcrCorrectionTrainingRecord, suggestOcrCorrections } from "./rust_ocr_learning";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -101,6 +102,29 @@ describe("real Rust/WASM OCR candidate contract", () => {
       .rejects.toMatchObject({ code: "CORE_REJECTED" });
     await expect(buildOcrReviewReceipt(document, candidate, { ...submission, rationale: " " }))
       .rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("learns only repeated technical ambiguity corrections and returns a review-required suggestion", async () => {
+    const observed = { ...candidate, text: "M0VE T0 SAMPLE01" };
+    const records = await Promise.all(["um", "dois", "três"].map(async (rationale, index) => {
+      const reviewed = { ...observed, imageHash: hash(`ambiguity image ${index}`) };
+      const receipt = await buildOcrCandidateReceipt(document, reviewed);
+      return buildOcrCorrectionTrainingRecord(document, reviewed, {
+        schemaVersion: 1, receiptHash: receipt.receiptHash, disposition: "propose_correction",
+        rationale, proposedText: "MOVE TO SAMPLE01",
+      });
+    }));
+    expect((await suggestOcrCorrections(document, observed, records.slice(0, 2))).suggestions).toEqual([]);
+    const report = await suggestOcrCorrections(document, observed, records);
+    expect(report).toMatchObject({ status: "review_required", suggestedText: "MOVE TO SAMPLE01", acceptedRuleCount: 2 });
+    expect(report.suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ observedToken: "M0VE", suggestedToken: "MOVE", evidenceCount: 3 }),
+      expect.objectContaining({ observedToken: "T0", suggestedToken: "TO", evidenceCount: 3 }),
+    ]));
+    await expect(buildOcrCorrectionTrainingRecord(document, observed, {
+      schemaVersion: 1, receiptHash: (await buildOcrCandidateReceipt(document, observed)).receiptHash, disposition: "propose_correction",
+      rationale: "amplo", proposedText: "WRITE SOMETHING ELSE",
+    })).rejects.toMatchObject({ code: "CORE_REJECTED" });
   });
 
   it("accepts a no-text page target but never treats its OCR as native or verified", async () => {

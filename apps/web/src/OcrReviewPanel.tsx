@@ -3,11 +3,14 @@ import type { LocalProjectPersistence } from "./adapters/local_project_persisten
 import { proposeLocalOcrCandidate } from "./adapters/local_ocr_candidate";
 import { OcrEvidencePersistence, type SavedOcrEvidence } from "./adapters/ocr_evidence_persistence";
 import { OcrReviewPersistence } from "./adapters/ocr_review_persistence";
+import { OcrLearningRepository } from "./adapters/ocr_learning_repository";
 import { hasHiddenOcrControls, visibleOcrText } from "./adapters/ocr_display_text";
 import { compareOcrCandidate } from "./adapters/rust_ocr_candidate";
+import { buildOcrCorrectionTrainingRecord, suggestOcrCorrections } from "./adapters/rust_ocr_learning";
 import type { ArtifactManifestRecord } from "./schemas/persistence";
 import type { DocumentIrV2 } from "./schemas/ingestion";
 import type { OcrComparisonReport, OcrReviewSubmission } from "./schemas/ocr_candidate";
+import type { OcrCorrectionSuggestionReport } from "./schemas/ocr_learning";
 import { PAGE_OCR_TARGET_ID } from "./schemas/ocr_candidate";
 
 type Disposition = OcrReviewSubmission["disposition"];
@@ -25,6 +28,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
   const [sourceState, setSourceState] = useState<SourceState>("checking");
   const [evidence, setEvidence] = useState<SavedOcrEvidence | null>(null);
   const [comparison, setComparison] = useState<OcrComparisonReport | null>(null);
+  const [suggestion, setSuggestion] = useState<OcrCorrectionSuggestionReport | null>(null);
   const [cropUrl, setCropUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -33,6 +37,10 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
   const [disposition, setDisposition] = useState<Disposition>("retain_candidate_for_review");
   const [rationale, setRationale] = useState("");
   const [proposedText, setProposedText] = useState("");
+  const [learnFromCorrection, setLearnFromCorrection] = useState(false);
+  const [learningCount, setLearningCount] = useState(0);
+  const [learningIssue, setLearningIssue] = useState("");
+  const [clearingLearning, setClearingLearning] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [history, setHistory] = useState<ArtifactManifestRecord[]>([]);
@@ -66,6 +74,11 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       setHistory(records.filter(record => record.kind === "ocr_review_submission")
         .sort((left, right) => right.createdAtMs - left.createdAtMs).slice(0, 100));
     })().catch(() => { if (!cancelled) setSourceState("missing"); });
+    void new OcrLearningRepository().list().then(records => {
+      if (!cancelled) { setLearningCount(records.length); setLearningIssue(""); }
+    }).catch(cause => {
+      if (!cancelled) setLearningIssue(cause instanceof Error ? cause.message : "A memória OCR local não pode ser aberta.");
+    });
     return () => { cancelled = true; requestRef.current++; abortRef.current?.abort(); onCommitChange?.(false); };
   }, [document, persistence]);
 
@@ -83,10 +96,12 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
     setBusy(false);
     setEvidence(null);
     setComparison(null);
+    setSuggestion(null);
     setSavedHash(null);
     setDisposition("retain_candidate_for_review");
     setRationale("");
     setProposedText("");
+    setLearnFromCorrection(false);
     setError("");
     setStatus("");
   }
@@ -127,9 +142,22 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       if (controller.signal.aborted || request !== requestRef.current) return;
       const report = await compareOcrCandidate(document, saved.candidate);
       if (controller.signal.aborted || request !== requestRef.current) return;
+      let learned: OcrCorrectionSuggestionReport | null = null;
+      try {
+        const records = await new OcrLearningRepository().list();
+        learned = await suggestOcrCorrections(document, saved.candidate, records);
+        setLearningCount(records.length);
+        setLearningIssue("");
+      } catch (cause) {
+        setLearningIssue(cause instanceof Error ? cause.message : "A memória OCR local não pode ser consultada.");
+      }
+      if (controller.signal.aborted || request !== requestRef.current) return;
       setEvidence(saved);
       setComparison(report);
-      setStatus("Candidato OCR salvo. Compare os textos antes de registrar uma decisão.");
+      setSuggestion(learned);
+      setStatus(learned && learned.suggestions.length > 0
+        ? "Candidato OCR salvo. Há sugestões locais que exigem revisão."
+        : "Candidato OCR salvo. Compare os textos antes de registrar uma decisão.");
     } catch (cause) {
       if (controller.signal.aborted || request !== requestRef.current) return;
       setError(cause instanceof Error ? cause.message : "Não foi possível gerar OCR.");
@@ -153,8 +181,27 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       const saved = await new OcrReviewPersistence(persistence).save(document.documentId, document,
         evidence.imageArtifact, evidence.recordArtifact, submission);
       if (request !== requestRef.current) return;
+      let learned = false;
+      if (learnFromCorrection && disposition === "propose_correction") {
+        try {
+          const record = await buildOcrCorrectionTrainingRecord(document, evidence.candidate, submission);
+          const repository = new OcrLearningRepository();
+          await repository.save(record);
+          setLearningCount((await repository.list()).length);
+          setLearningIssue("");
+          learned = true;
+        } catch (cause) {
+          if (request === requestRef.current) {
+            setSavedHash(saved.receipt.reviewHash);
+            setStatus(`Revisão salva. A correção não entrou na memória local: ${cause instanceof Error ? cause.message : "falha desconhecida"}`);
+          }
+          return;
+        }
+      }
       setSavedHash(saved.receipt.reviewHash);
-      setStatus("Revisão salva como não verificada. O texto do documento não foi alterado.");
+      setStatus(learned
+        ? "Revisão salva. A correção ficou disponível para futuras sugestões, sempre com revisão humana."
+        : "Revisão salva como não verificada. O texto do documento não foi alterado.");
       const records = await persistence.listArtifactRecords(document.documentId);
       if (request === requestRef.current) setHistory(records.filter(record => record.kind === "ocr_review_submission")
         .sort((left, right) => right.createdAtMs - left.createdAtMs).slice(0, 100));
@@ -179,9 +226,11 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       setRegionId(saved.evidence.candidate.regionId);
       setEvidence(saved.evidence);
       setComparison(report);
+      setSuggestion(null);
       setDisposition(saved.submission.disposition);
       setRationale(saved.submission.rationale);
       setProposedText(saved.submission.proposedText ?? "");
+      setLearnFromCorrection(false);
       setSavedHash(saved.receipt.reviewHash);
       setStatus("Revisão histórica aberta. Atualidade e identidade do revisor não foram verificadas.");
     } catch (cause) {
@@ -189,6 +238,20 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
     } finally {
       if (request === requestRef.current) setOpening(false);
     }
+  }
+
+  async function clearLearning() {
+    if (clearingLearning || !window.confirm("Apagar todas as correções aprendidas neste navegador? Essa ação não altera revisões OCR salvas.")) return;
+    setClearingLearning(true);
+    try {
+      await new OcrLearningRepository().clear();
+      setLearningCount(0);
+      setLearningIssue("");
+      setSuggestion(null);
+      setStatus("Memória local de ambiguidades apagada.");
+    } catch (cause) {
+      setLearningIssue(cause instanceof Error ? cause.message : "Não foi possível apagar a memória OCR local.");
+    } finally { setClearingLearning(false); }
   }
 
   return <section className="panel" aria-labelledby="ocr-title">
@@ -245,6 +308,24 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
           <th scope="row">{item.token}</th><td>{item.nativeCount}</td><td>{item.ocrCount}</td>
         </tr>)}</tbody>
       </table></div>}
+      {suggestion && suggestion.suggestions.length > 0 && <section className="notice" aria-labelledby="ocr-learning-title">
+        <h4 id="ocr-learning-title">Sugestões da memória local</h4>
+        <p>Estas trocas vieram de pelo menos três correções salvas neste dispositivo. Confira o recorte antes de usar.</p>
+        <ul>{suggestion.suggestions.map(item => <li key={item.observedToken}>
+          <code>{item.observedToken}</code> para <code>{item.suggestedToken}</code> ({item.evidenceCount} revisões)
+        </li>)}</ul>
+        <button type="button" disabled={saving || busy || opening} onClick={() => {
+          setDisposition("propose_correction"); setProposedText(suggestion.suggestedText); setSavedHash(null);
+        }}>Usar texto sugerido na revisão</button>
+      </section>}
+      {(learningCount > 0 || learningIssue) && <section className="footnote" aria-labelledby="ocr-learning-memory-title">
+        <h4 id="ocr-learning-memory-title">Memória de ambiguidades</h4>
+        {learningIssue ? <p role="alert">A memória local precisa de atenção: {learningIssue}</p>
+          : <p>{learningCount} {learningCount === 1 ? "correção local salva" : "correções locais salvas"}. Elas só geram sugestões após confirmação suficiente.</p>}
+        <button type="button" disabled={clearingLearning || busy || saving || opening} onClick={() => void clearLearning()}>
+          {clearingLearning ? "Apagando memória…" : "Apagar memória local"}
+        </button>
+      </section>}
       <form onSubmit={event => void saveReview(event)}>
         <fieldset disabled={saving || busy || opening}>
           <legend>{pageOnly ? "Registrar decisão sobre esta página" : "Registrar decisão sobre esta região"}</legend>
@@ -266,6 +347,9 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
             {hasHiddenOcrControls(proposedText) && <p className="notice">O texto proposto contém controles invisíveis:
               <code>{visibleOcrText(proposedText)}</code>
             </p>}
+            <label className="check-label"><input type="checkbox" checked={learnFromCorrection}
+              onChange={event => setLearnFromCorrection(event.target.checked)} />Usar esta correção para futuras sugestões locais</label>
+            <p className="footnote">A correção entra na memória somente após salvar. Ela precisa aparecer em três revisões diferentes antes de virar sugestão.</p>
           </>}
           <p id="ocr-review-help" className="footnote">A decisão fica salva como não verificada. Ela não altera o documento nem a leitura.</p>
           <button type="submit" disabled={!rationale.trim() || (disposition === "propose_correction" && !proposedText.trim())}>

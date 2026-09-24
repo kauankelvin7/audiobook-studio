@@ -1,5 +1,10 @@
 # HANDOFF — retorno ao Codex Work
 
+## M4.5O — memória local de ambiguidades OCR (2026-09-24)
+- Correções explícitas podem criar regras locais para tokens técnicos nos pares `0/O`, `1/I/L`, `5/S` e `8/B`. Rust deriva e valida o registro; IndexedDB guarda apenas hashes e pares de tokens. Três evidências OCR distintas, sem empate, são necessárias para uma sugestão `review_required`.
+- A interface exige ação explícita para usar o texto sugerido e para salvar uma correção na memória. Nenhuma sugestão muda candidato, DocumentIR, leitura ou TTS. ADR 0025 e estratégia de teste registram o contrato e os limites.
+- Gates: Rust 47/fmt, WASM, Web typecheck/155 testes/build e smoke Chromium Rust/WASM/IndexedDB sem rede externa passaram. Três revisões da mesma evidência não contam para o limiar; limpeza total confirmada e remoção por hash existem. Próximo marco: corpus público em português, goldens revisados, métricas de falso positivo e retenção da memória; não avaliar ONNX/fine-tuning antes dessas evidências.
+
 ## M4.5M — OCR de página sem texto nativo (2026-09-24)
 - Página `no_text` sem regiões ou texto usa alvo reservado `__page__` validado pelo Rust. PDF.js captura página inteira sob limites; evidência salva e relida confere geometria, dimensões e fonte PDF. UI permite revisar o OCR como `unverified`, sem `keep_native`, sem alterar DocumentIR ou liberar TTS. ADR 0024.
 - Smoke funcional Chromium com PDF sintético só de imagem cobriu captura, Tesseract, recibo Rust/WASM, persistência, recarga e revisão histórica, sem requisições externas observadas. Verificações completas e publicação estão registradas no WORKLOG.

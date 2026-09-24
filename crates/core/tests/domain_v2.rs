@@ -2,17 +2,18 @@ use std::collections::{BTreeMap, HashSet};
 
 use audiobook_core::{
     build_active_narrative_identity, build_narration_qa, build_ocr_candidate_receipt,
-    build_ocr_review_receipt, build_script_review_packet, build_validated_narration_qa,
-    compare_heading_to_body, compare_ocr_candidate, evaluate_review_against_active,
-    find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
-    validate_script_review_submission, ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2,
-    ExtractionQuality, GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus,
-    NarrationEligibility, NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan,
-    NarrativeScript, NarrativeSection, OcrCandidate, OcrCandidateError, OcrCandidateStatus,
-    OcrComparisonStatus, OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission, QaStatus,
-    ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError, ReviewStatus,
-    ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
-    SemanticOutline, SpokenChapter, SpokenHeadingPolicy, PAGE_OCR_TARGET_ID,
+    build_ocr_correction_training_record, build_ocr_review_receipt, build_script_review_packet,
+    build_validated_narration_qa, compare_heading_to_body, compare_ocr_candidate,
+    evaluate_review_against_active, find_repeated_formulaic_openers, normalize_narrative_text,
+    reduce_narrative_memory, suggest_ocr_corrections, validate_script_review_submission,
+    ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2, ExtractionQuality, GenerationJob,
+    HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility, NarrativeHeading,
+    NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript, NarrativeSection,
+    OcrCandidate, OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus, OcrLearningError,
+    OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission, QaStatus, ReviewAttestationStatus,
+    ReviewBindingReference, ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
+    ScriptReviewSubmission, SegmentReviewDecision, SemanticOutline, SpokenChapter,
+    SpokenHeadingPolicy, PAGE_OCR_TARGET_ID,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -397,6 +398,108 @@ fn ocr_review_receipt_binds_explicit_unverified_decision() {
     assert_eq!(
         build_ocr_review_receipt(&document, &stale, &submission),
         Err(OcrCandidateError::InvalidReviewSubmission)
+    );
+}
+
+#[test]
+fn ambiguity_memory_requires_three_distinct_explicit_reviews_and_never_auto_applies() {
+    let document = document_v2();
+    let native = document.pages[0].regions[0]
+        .sources
+        .raw_text
+        .as_ref()
+        .unwrap();
+    let candidate = OcrCandidate {
+        schema_version: 1,
+        document_id: document.document_id.clone(),
+        source_hash: document.source_hash.clone(),
+        page_number: 1,
+        region_id: document.pages[0].regions[0].id.clone(),
+        native_text_hash: audiobook_core::sha256_source(native.as_bytes()),
+        image_hash: audiobook_core::sha256_source(b"ambiguity pixels"),
+        engine_id: "fixture".into(),
+        engine_version: "1".into(),
+        text: "M0VE T0 SAMPLE01".into(),
+    };
+    let records = (1..=3)
+        .map(|index| {
+            let reviewed_candidate = OcrCandidate {
+                image_hash: audiobook_core::sha256_source(
+                    format!("ambiguity pixels {index}").as_bytes(),
+                ),
+                ..candidate.clone()
+            };
+            let receipt_hash = build_ocr_candidate_receipt(&document, &reviewed_candidate)
+                .unwrap()
+                .receipt_hash;
+            build_ocr_correction_training_record(
+                &document,
+                &reviewed_candidate,
+                &OcrReviewSubmission {
+                    schema_version: 1,
+                    receipt_hash: receipt_hash.clone(),
+                    disposition: OcrReviewDisposition::ProposeCorrection,
+                    rationale: format!("Conferência explícita {index}."),
+                    proposed_text: Some("MOVE TO SAMPLE01".into()),
+                },
+            )
+            .unwrap()
+        })
+        .collect::<Vec<_>>();
+    let two = suggest_ocr_corrections(&document, &candidate, &records[..2]).unwrap();
+    assert!(two.suggestions.is_empty());
+    assert_eq!(two.suggested_text, candidate.text);
+
+    let same_evidence_reviews = (1..=3)
+        .map(|index| {
+            let receipt_hash = build_ocr_candidate_receipt(&document, &candidate)
+                .unwrap()
+                .receipt_hash;
+            build_ocr_correction_training_record(
+                &document,
+                &candidate,
+                &OcrReviewSubmission {
+                    schema_version: 1,
+                    receipt_hash,
+                    disposition: OcrReviewDisposition::ProposeCorrection,
+                    rationale: format!("Mesma evidência {index}."),
+                    proposed_text: Some("MOVE TO SAMPLE01".into()),
+                },
+            )
+            .unwrap()
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        suggest_ocr_corrections(&document, &candidate, &same_evidence_reviews)
+            .unwrap()
+            .suggestions
+            .is_empty()
+    );
+
+    let report = suggest_ocr_corrections(&document, &candidate, &records).unwrap();
+    assert_eq!(report.suggested_text, "MOVE TO SAMPLE01");
+    assert_eq!(report.suggestions.len(), 2);
+    assert!(report
+        .suggestions
+        .iter()
+        .all(|item| item.evidence_count == 3));
+    assert_eq!(
+        report.status,
+        audiobook_core::OcrCorrectionSuggestionStatus::ReviewRequired
+    );
+
+    let invalid = OcrReviewSubmission {
+        schema_version: 1,
+        receipt_hash: build_ocr_candidate_receipt(&document, &candidate)
+            .unwrap()
+            .receipt_hash,
+        disposition: OcrReviewDisposition::ProposeCorrection,
+        rationale: "Mudança ampla.".into(),
+        proposed_text: Some("WRITE A DIFFERENT SENTENCE".into()),
+    };
+    assert_eq!(
+        build_ocr_correction_training_record(&document, &candidate, &invalid),
+        Err(OcrLearningError::NoEligibleCorrection)
     );
 }
 

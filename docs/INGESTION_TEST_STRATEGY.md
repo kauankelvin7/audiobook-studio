@@ -13,6 +13,14 @@ Fonte: [GnuCOBOL guide to interfacing COBOL and C](https://github.com/OCamlPro/g
 
 O conjunto pequeno de alvos mede apenas recuperação literal dessas frases; não mede CER/WER, ordem completa, fidelidade semântica, fontes COBOL/CICS do usuário nem desempenho em português. O manual é inglês e o modelo OCR é português. A divergência `0`/`O` confirma a necessidade de revisão humana para código. Nenhum candidato é promovido para DocumentIR ou narração. Goldens reais do domínio, com recortes e transcrição revisada, continuam pendentes.
 
+## M4.5O — memória local de ambiguidades OCR
+
+O loop de feedback local começa com regras determinísticas, não com um modelo neural. O Rust aceita uma regra apenas quando uma proposta explícita, vinculada ao recibo OCR, troca tokens técnicos ASCII de mesmo tamanho nos pares `0/O`, `1/I/L`, `5/S` ou `8/B`. Uma alteração ampla de texto, de ordem ou de whitespace não produz regra.
+
+O navegador salva somente hashes e pares de tokens em IndexedDB. Cada regra precisa aparecer em três evidências OCR diferentes e sem empate para gerar uma sugestão. A sugestão continua em `review_required`, nunca reescreve o candidato ou o DocumentIR e só preenche o texto proposto depois de clique explícito. Testes Rust/WASM cobrem o limiar, a deduplicação por recibo de candidato, a rejeição de mudança ampla e o resultado sem aplicação automática. O teste de repositório cobre persistência idempotente e conflito de hash.
+
+O limiar não transforma uma revisão local em atestação de identidade. A memória pode refletir uma correção humana errada e deve ser tratada como auxílio. Métricas em corpus revisado, limpeza controlada da memória, auditoria de falsos positivos, versões de pesos e rollback são necessários antes de avaliar um classificador ONNX ou retreinamento offline.
+
 ## M4.5F–G — OCR local e evidência histórica
 
 Tesseract.js 7 com dados portugueses roda no navegador usando assets da própria origem. Um smoke em Chromium sobre `text_and_blank.pdf` reconheceu o título e produziu candidato/recibo Rust `pending`, com hash de PNG vinculado e zero requisições externas observadas. Isso testa execução, não fidelidade em COBOL/CICS. O par PNG e envelope OCR pode ser salvo como evidência histórica fixada em OPFS/IndexedDB; a leitura reconfere hash, geometria, documento e recibo pelo WASM real. Nenhuma etapa promove o texto ou libera fala. Os dois PDFs privados e goldens revisados não estavam acessíveis neste checkout; a medição de recuperação e falsos positivos continua pendente.

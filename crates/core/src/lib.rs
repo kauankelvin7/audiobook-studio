@@ -6,6 +6,7 @@ mod document_v2;
 mod job;
 mod narrative;
 mod ocr;
+mod ocr_learning;
 mod reading;
 mod review;
 mod script;
@@ -37,6 +38,11 @@ pub use ocr::{
     OcrCandidateError, OcrCandidateReceipt, OcrCandidateStatus, OcrComparisonReport,
     OcrComparisonStatus, OcrReviewDisposition, OcrReviewReceipt, OcrReviewStatus,
     OcrReviewSubmission, OcrTokenDifference, PAGE_OCR_TARGET_ID,
+};
+pub use ocr_learning::{
+    build_ocr_correction_training_record, suggest_ocr_corrections, OcrCorrectionRule,
+    OcrCorrectionSuggestion, OcrCorrectionSuggestionReport, OcrCorrectionSuggestionStatus,
+    OcrCorrectionTrainingRecord, OcrLearningError,
 };
 pub use reading::{
     build_reading_preview, build_reading_session, ReadingChunk, ReadingError, ReadingPreview,

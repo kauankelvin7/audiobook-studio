@@ -9,7 +9,7 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 | DocumentIR v1 | PARTIAL | TESTED | Contrato Rust/TS e fixture testados; corpus real amplo ausente. |
 | DocumentIR v2/migração | PARTIAL | TESTED | Contrato/migração canônicos em Rust, schemas TS de fronteira e integração Rust/WASM/Web passaram no workflow `quality`; corpus real amplo e migrações futuras ainda faltam. |
 | PDF nativo/layout | PARTIAL | TESTED | Extração, agrupamento e margens conservadoras testados; PDFs reais complexos/matriz de browsers faltam. |
-| OCR seletivo | PARTIAL | SCAFFOLDED | Policy pura testada; engine, adapter, benchmarks e reconciliação real não iniciados. |
+| OCR seletivo | PARTIAL | TESTED | Engine local, captura limitada, evidência, revisão persistida e memória de ambiguidades com sugestão humana foram testadas; goldens reais, reconciliação canônica e métricas amplas ainda faltam. |
 | Conteúdo visual | PARTIAL | SCAFFOLDED | Contratos de disposition/proveniência existem; adapter visual não existe. |
 | Código/tabelas/fórmulas | PARTIAL | SCAFFOLDED | Schemas validam forma; extração e validadores reais faltam. |
 | Narrative Compiler/IA | PARTIAL | IMPLEMENTED | M4.1/M4.2 movem guards, memória, source validation, ContentModel e SemanticOutline determinísticos para Rust; planner/modelo IA, coesão semântica e evals reais ainda faltam. |

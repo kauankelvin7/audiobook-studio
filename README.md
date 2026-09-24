@@ -36,6 +36,8 @@ Após mudar código Rust usado no navegador, rode `npm run wasm:build` em `apps/
 
 O smoke opt-in `npm run test:browser:local-ocr` executa a engine OCR em uma fixture pública e exige Chromium ou um canal definido por `AUDIO_BROWSER_CHANNEL`. Os assets OCR são copiados das dependências fixadas em `predev` e `prebuild`, sem CDN em tempo de uso. O resultado permanece candidato pendente de revisão.
 
+Correções explicitamente salvas podem alimentar uma memória local de ambiguidades OCR. Ela só aceita pares técnicos limitados, como `0`/`O`, e precisa de três revisões distintas antes de mostrar uma sugestão. A sugestão nunca altera o documento nem é aplicada automaticamente. O smoke `npm run test:browser:ocr-learning` valida Rust/WASM, IndexedDB e ausência de requisições externas.
+
 O smoke funcional de áudio é opt-in porque baixa o modelo de voz na primeira execução e requer Chrome ou Edge instalado. Ele não faz inspeção visual:
 
 ```text
