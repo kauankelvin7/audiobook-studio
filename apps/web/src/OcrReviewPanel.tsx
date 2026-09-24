@@ -8,6 +8,7 @@ import { compareOcrCandidate } from "./adapters/rust_ocr_candidate";
 import type { ArtifactManifestRecord } from "./schemas/persistence";
 import type { DocumentIrV2 } from "./schemas/ingestion";
 import type { OcrComparisonReport, OcrReviewSubmission } from "./schemas/ocr_candidate";
+import { PAGE_OCR_TARGET_ID } from "./schemas/ocr_candidate";
 
 type Disposition = OcrReviewSubmission["disposition"];
 type SourceState = "checking" | "ready" | "missing" | "oversize";
@@ -37,11 +38,17 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
   const [history, setHistory] = useState<ArtifactManifestRecord[]>([]);
   const [savedHash, setSavedHash] = useState<string | null>(null);
 
-  const eligiblePages = document.pages.filter(page => page.regions.some(region =>
+  const pageWithoutText = (page: DocumentIrV2["pages"][number] | undefined) =>
+    page?.extractionQuality === "no_text" && page.regions.length === 0 && page.rawText.length === 0;
+  const eligiblePages = document.pages.filter(page => pageWithoutText(page) || page.regions.some(region =>
     region.bbox !== null && !!region.sources.rawText?.trim()));
-  const regions = document.pages[pageNumber - 1]?.regions.filter(region =>
+  const selectedPage = document.pages[pageNumber - 1];
+  const regions = selectedPage?.regions.filter(region =>
     region.bbox !== null && !!region.sources.rawText?.trim()) ?? [];
-  const selectedRegion = regions.find(region => region.id === regionId) ?? null;
+  const selectedRegion = regionId === PAGE_OCR_TARGET_ID && pageWithoutText(selectedPage)
+    ? { id: PAGE_OCR_TARGET_ID } : regions.find(region => region.id === regionId) ?? null;
+  const pageOnly = evidence?.candidate.regionId === PAGE_OCR_TARGET_ID
+    && pageWithoutText(document.pages[evidence.candidate.pageNumber - 1]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +84,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
     setEvidence(null);
     setComparison(null);
     setSavedHash(null);
+    setDisposition("retain_candidate_for_review");
     setRationale("");
     setProposedText("");
     setError("");
@@ -90,7 +98,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
     abortRef.current = controller;
     setBusy(true);
     setError("");
-    setStatus("Gerando OCR da região neste dispositivo…");
+    setStatus(regionId === PAGE_OCR_TARGET_ID ? "Gerando OCR da página neste dispositivo…" : "Gerando OCR da região neste dispositivo…");
     setEvidence(null);
     setComparison(null);
     setSavedHash(null);
@@ -99,7 +107,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       const source = await persistence.loadArtifactRecord(document.documentId, "source_pdf");
       if (!latest || latest.sourceHash !== document.sourceHash || !latest.artifactKeys.includes("source_pdf")
         || !source || source.kind !== "source_pdf" || source.contentHash !== document.sourceHash
-        || source.sizeBytes > 8_000_000) throw new Error("O PDF salvo não está disponível para OCR desta região.");
+        || source.sizeBytes > 8_000_000) throw new Error("O PDF salvo não está disponível para este OCR.");
       const blob = await persistence.readArtifact(source);
       if (controller.signal.aborted || request !== requestRef.current) return;
       const { TesseractLocalOcrEngine } = await import("./adapters/tesseract_local_ocr");
@@ -124,7 +132,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       setStatus("Candidato OCR salvo. Compare os textos antes de registrar uma decisão.");
     } catch (cause) {
       if (controller.signal.aborted || request !== requestRef.current) return;
-      setError(cause instanceof Error ? cause.message : "Não foi possível gerar OCR desta região.");
+      setError(cause instanceof Error ? cause.message : "Não foi possível gerar OCR.");
       setStatus("");
     } finally {
       if (request === requestRef.current) { setBusy(false); abortRef.current = null; }
@@ -133,7 +141,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
 
   async function saveReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!persistence || !evidence || !comparison || saving) return;
+    if (!persistence || !evidence || !comparison || saving || (pageOnly && disposition === "keep_native")) return;
     const request = requestRef.current;
     const submission: OcrReviewSubmission = {
       schemaVersion: 1, receiptHash: evidence.receipt.receiptHash, disposition,
@@ -185,8 +193,8 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
 
   return <section className="panel" aria-labelledby="ocr-title">
     <h2 id="ocr-title">Comparar texto com OCR</h2>
-    <p>Escolha uma região com texto extraído e coordenadas. O OCR usa o PDF salvo neste dispositivo; a comparação exige revisão.</p>
-    {eligiblePages.length === 0 ? <p className="notice">Este documento não tem região nativa com coordenadas para comparar.</p>
+    <p>Escolha uma região com texto extraído ou uma página sem texto. O OCR usa o PDF salvo neste dispositivo; o resultado exige revisão.</p>
+    {eligiblePages.length === 0 ? <p className="notice">Este documento não tem região com coordenadas nem página sem texto para OCR.</p>
       : <>
         <label htmlFor="ocr-page">Página</label>
         <select id="ocr-page" value={pageNumber} disabled={busy || saving || opening} onChange={event => {
@@ -195,15 +203,16 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
           <option value={0}>Selecione a página</option>
           {eligiblePages.map(page => <option key={page.number} value={page.number}>Página {page.number}</option>)}
         </select>
-        <label htmlFor="ocr-region">Região</label>
-        <select id="ocr-region" value={regionId} disabled={busy || saving || opening || regions.length === 0}
+        <label htmlFor="ocr-region">Área para OCR</label>
+        <select id="ocr-region" value={regionId} disabled={busy || saving || opening || (regions.length === 0 && !pageWithoutText(selectedPage))}
           onChange={event => { clearSelection(); setRegionId(event.target.value); }}>
-          <option value="">Selecione a região</option>
+          <option value="">Selecione a área</option>
+          {pageWithoutText(selectedPage) && <option value={PAGE_OCR_TARGET_ID}>Página inteira sem texto extraído</option>}
           {regions.map((region, index) => <option key={region.id} value={region.id}>
             {index + 1}. {region.type}: {visibleOcrText((region.sources.rawText ?? "").slice(0, 70)).replace(/\s+/g, " ")}
           </option>)}
         </select>
-        {sourceState === "oversize" && <p className="notice">Este PDF excede 8 MB, limite da captura OCR por região.</p>}
+        {sourceState === "oversize" && <p className="notice">Este PDF excede 8 MB, limite da captura OCR.</p>}
         {sourceState === "missing" && <p className="notice">O PDF salvo não está disponível para OCR.</p>}
         <div className="reading-actions">
           <button type="button" onClick={() => void generate()} disabled={!selectedRegion || sourceState !== "ready" || busy || saving || opening}>
@@ -216,21 +225,21 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
     {error && <p role="alert" className="notice">{error}</p>}
     {status && <p role="status" aria-live="polite">{status}</p>}
     {evidence && comparison && <div className="ocr-review">
-      <h3>Comparação da região</h3>
+      <h3>{pageOnly ? "Revisão da página" : "Comparação da região"}</h3>
       {(hasHiddenOcrControls(evidence.candidate.text) || hasHiddenOcrControls(document.pages[evidence.candidate.pageNumber - 1]?.regions
         .find(region => region.id === evidence.candidate.regionId)?.sources.rawText ?? ""))
         && <p className="notice">Caracteres invisíveis aparecem como códigos Unicode nesta comparação. Os textos originais foram preservados.</p>}
       {cropUrl && <img className="ocr-crop" src={cropUrl}
-        alt={`Recorte da página ${evidence.candidate.pageNumber} usado no OCR desta região`} />}
+        alt={pageOnly ? `Página ${evidence.candidate.pageNumber} inteira usada no OCR` : `Recorte da página ${evidence.candidate.pageNumber} usado no OCR desta região`} />}
       <div className="ocr-columns">
-        <section aria-label="Texto extraído do PDF"><h4>Texto extraído</h4><pre>{visibleOcrText(document.pages[evidence.candidate.pageNumber - 1]?.regions
-          .find(region => region.id === evidence.candidate.regionId)?.sources.rawText ?? "")}</pre></section>
+        <section aria-label="Texto extraído do PDF"><h4>Texto extraído</h4>{pageOnly ? <p>Sem texto extraído nesta página.</p> : <pre>{visibleOcrText(document.pages[evidence.candidate.pageNumber - 1]?.regions
+          .find(region => region.id === evidence.candidate.regionId)?.sources.rawText ?? "")}</pre>}</section>
         <section aria-label="Texto candidato do OCR"><h4>Texto candidato do OCR</h4><pre>{visibleOcrText(evidence.candidate.text)}</pre></section>
       </div>
-      <p>Diferenças de tokens observadas: {comparison.differingTokenLowerBound}. Estado: revisão necessária.</p>
+      <p>{pageOnly ? "Tokens OCR observados" : "Diferenças de tokens observadas"}: {comparison.differingTokenLowerBound}. Estado: revisão necessária.</p>
       {comparison.truncated && <p className="notice">A comparação foi truncada. A contagem é um limite inferior.</p>}
       {comparison.differences.length > 0 && <div className="ocr-table-wrap"><table>
-        <caption>Tokens diferentes entre texto extraído e OCR</caption>
+        <caption>{pageOnly ? "Tokens encontrados pelo OCR nesta página sem texto extraído" : "Tokens diferentes entre texto extraído e OCR"}</caption>
         <thead><tr><th scope="col">Token</th><th scope="col">Extraído</th><th scope="col">OCR</th></tr></thead>
         <tbody>{comparison.differences.map(item => <tr key={item.token}>
           <th scope="row">{item.token}</th><td>{item.nativeCount}</td><td>{item.ocrCount}</td>
@@ -238,12 +247,12 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       </table></div>}
       <form onSubmit={event => void saveReview(event)}>
         <fieldset disabled={saving || busy || opening}>
-          <legend>Registrar decisão sobre esta região</legend>
+          <legend>{pageOnly ? "Registrar decisão sobre esta página" : "Registrar decisão sobre esta região"}</legend>
           {([
             ["keep_native", "Manter o texto extraído"],
             ["retain_candidate_for_review", "Guardar o candidato para revisão"],
             ["propose_correction", "Propor texto corrigido"],
-          ] as const).map(([value, label]) => <label className="check-label" key={value}>
+          ] as const).filter(([value]) => !pageOnly || value !== "keep_native").map(([value, label]) => <label className="check-label" key={value}>
             <input type="radio" name="ocr-disposition" value={value} checked={disposition === value}
               onChange={() => { setDisposition(value); setSavedHash(null); }} />{label}
           </label>)}

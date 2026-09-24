@@ -1,5 +1,14 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — OCR local de página sem camada de texto (2026-09-24)
+- Base: `codex/m4-content-model` limpa, HEAD local/remoto `99018f9`; oito commits remotos foram incorporados por fast-forward. `AGENTS.md`, índice de contexto, handoff, worklog, ADRs OCR e contratos Rust/Web consultados. Workflow remoto do HEAD anterior concluiu com sucesso.
+- Objetivo: permitir OCR local de página digitalizada sem região nativa, incluindo captura integral limitada, recibo Rust `pending`, evidência persistida, comparação, revisão histórica e interface acessível.
+- Evidência: DocumentIR v2 representa página `no_text` com lista de regiões vazia. O fluxo atual exige região existente com bbox e rawText, excluindo essa página apesar de já possuir Tesseract e persistência histórica.
+- Restrições: Rust define e valida o alvo canônico de página inteira. TypeScript cuida de PDF.js, OPFS/IndexedDB e interface. Não alterar DocumentIR, ContentModel, elegibilidade narrativa ou TTS. Não interpretar OCR como transcrição aprovada.
+- Riscos: alvo virtual confundido com região real, crop de página errada, bbox não revalidada após reload, trabalho excessivo, revisão `keep_native` de página vazia, regressão em evidência regional. Testar recusa de identidades inválidas, limites, persistência, retry, cancelamento e fluxo Chrome com PDF digitalizado sintético.
+- Plano: estender contrato Rust de candidato/comparação/revisão para alvo reservado de página vazia; capturar `page.view` via PDF.js sob limites atuais; revalidar geometria contra PDF salvo ao gravar/ler; expor escolha no painel e histórico; registrar ADR, resultados e handoff.
+- Verificação: Rust fmt/test/clippy, rebuild WASM e paridade Web, typecheck/test/build/audit, smoke Chrome sem inspeção visual, diff check e revisão independente. Risco HIGH; um writer.
+
 ## PRE-FLIGHT — M4.5L interface local de revisão OCR (2026-09-24)
 - Base: `4aeae68` publicado; CI `quality` 35973083543 verde. Evidência OCR e submissão `unverified` já persistem, mas usuário não consegue operar o fluxo na interface. Skill `humanizer` lida para textos de UI.
 - Objetivo: selecionar região existente com bbox e texto nativo, gerar OCR a partir do PDF salvo, mostrar recorte/nativo/OCR/diferenças, salvar decisão explícita e reabrir revisão histórica verificada.

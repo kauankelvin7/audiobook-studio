@@ -3,9 +3,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 use thiserror::Error;
 
-use crate::{sha256_source, DocumentIrV2};
+use crate::{sha256_source, DocumentIrV2, ExtractionQuality};
 
 const OCR_CANDIDATE_SCHEMA_VERSION: u32 = 1;
+pub const PAGE_OCR_TARGET_ID: &str = "__page__";
 const MAX_OCR_TEXT_BYTES: usize = 1_000_000;
 const MAX_COMPARISON_NATIVE_TEXT_BYTES: usize = 1_000_000;
 const MAX_COMPARISON_DOCUMENT_JSON_BYTES: usize = 32_000_000;
@@ -188,6 +189,13 @@ pub fn build_ocr_review_receipt(
         || submission.receipt_hash != comparison.receipt_hash
         || submission.rationale.trim().is_empty()
         || submission.rationale.len() > 2_000
+        || (candidate.region_id == PAGE_OCR_TARGET_ID
+            && document
+                .pages
+                .iter()
+                .find(|page| page.number == candidate.page_number)
+                .is_some_and(|page| page.regions.is_empty())
+            && submission.disposition == OcrReviewDisposition::KeepNative)
         || match submission.disposition {
             OcrReviewDisposition::ProposeCorrection => submission
                 .proposed_text
@@ -276,17 +284,7 @@ pub fn compare_ocr_candidate(
 ) -> Result<OcrComparisonReport, OcrCandidateError> {
     serde_json::to_writer(BoundedJsonWriter(0), document)
         .map_err(|_| OcrCandidateError::ComparisonInputTooLarge)?;
-    let native_text = document
-        .pages
-        .iter()
-        .find(|page| page.number == candidate.page_number)
-        .and_then(|page| {
-            page.regions
-                .iter()
-                .find(|region| region.id == candidate.region_id)
-        })
-        .and_then(|region| region.sources.raw_text.as_deref())
-        .ok_or(OcrCandidateError::StaleNativeText)?;
+    let native_text = candidate_native_text(document, candidate)?;
     if native_text.len() > MAX_COMPARISON_NATIVE_TEXT_BYTES {
         return Err(OcrCandidateError::ComparisonInputTooLarge);
     }
@@ -344,21 +342,7 @@ pub fn build_ocr_candidate_receipt(
     {
         return Err(OcrCandidateError::WrongDocument);
     }
-    let region = document
-        .pages
-        .iter()
-        .find(|page| page.number == candidate.page_number)
-        .and_then(|page| {
-            page.regions
-                .iter()
-                .find(|region| region.id == candidate.region_id)
-        })
-        .ok_or(OcrCandidateError::UnknownRegion)?;
-    let native_text = region
-        .sources
-        .raw_text
-        .as_deref()
-        .ok_or(OcrCandidateError::StaleNativeText)?;
+    let native_text = candidate_native_text(document, candidate)?;
     if candidate.native_text_hash != sha256_source(native_text.as_bytes()) {
         return Err(OcrCandidateError::StaleNativeText);
     }
@@ -417,6 +401,38 @@ pub fn build_ocr_candidate_receipt(
         receipt_hash: sha256_source(&receipt_bytes),
         method_version: method_version.to_owned(),
     })
+}
+
+fn candidate_native_text<'a>(
+    document: &'a DocumentIrV2,
+    candidate: &OcrCandidate,
+) -> Result<&'a str, OcrCandidateError> {
+    let page = document
+        .pages
+        .iter()
+        .find(|page| page.number == candidate.page_number)
+        .ok_or(OcrCandidateError::UnknownRegion)?;
+    if let Some(region) = page
+        .regions
+        .iter()
+        .find(|region| region.id == candidate.region_id)
+    {
+        return region
+            .sources
+            .raw_text
+            .as_deref()
+            .ok_or(OcrCandidateError::StaleNativeText);
+    }
+    if candidate.region_id == PAGE_OCR_TARGET_ID {
+        if page.extraction_quality != ExtractionQuality::NoText
+            || !page.regions.is_empty()
+            || !page.raw_text.is_empty()
+        {
+            return Err(OcrCandidateError::UnknownRegion);
+        }
+        return Ok(&page.raw_text);
+    }
+    Err(OcrCandidateError::UnknownRegion)
 }
 
 fn valid_engine_part(value: &str) -> bool {

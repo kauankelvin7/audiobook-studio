@@ -1,6 +1,7 @@
 import { AnnotationMode, getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { documentIrV2Schema, type DocumentIrV2 } from "../schemas/ingestion";
+import { PAGE_OCR_TARGET_ID } from "../schemas/ocr_candidate";
 
 const MAX_OCR_PDF_BYTES = 8_000_000;
 const MAX_CROP_PIXELS = 4_000_000;
@@ -31,7 +32,7 @@ export type OcrRegionCrop = {
   pixelWidth: number;
   pixelHeight: number;
   renderScale: number;
-  methodVersion: "pdfjs-region-crop-v1";
+  methodVersion: "pdfjs-region-crop-v1" | "pdfjs-page-crop-v1";
 };
 
 async function hash(bytes: BufferSource): Promise<string> {
@@ -62,6 +63,41 @@ export function planPdfRegionCrop(
   return { left, top, width, height };
 }
 
+export async function readPdfPageCropPlan(pdfBytes: Uint8Array, sourceHash: string, pageNumber: number): Promise<{
+  bbox: [number, number, number, number]; pixelWidth: number; pixelHeight: number;
+}> {
+  if (pdfBytes.byteLength < 5 || pdfBytes.byteLength > MAX_OCR_PDF_BYTES
+    || String.fromCharCode(...pdfBytes.subarray(0, 5)) !== "%PDF-"
+    || !Number.isSafeInteger(pageNumber) || pageNumber < 1) {
+    throw new PdfOcrCropError("INVALID_INPUT", "A fonte PDF da página OCR é inválida.");
+  }
+  if (await hash(pdfBytes.slice().buffer) !== sourceHash) {
+    throw new PdfOcrCropError("SOURCE_MISMATCH", "A fonte PDF da página OCR não confere.");
+  }
+  const task = getDocument({ data: pdfBytes.slice(), stopAtErrors: true, maxImageSize: MAX_CROP_PIXELS, isEvalSupported: false });
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const geometry = await Promise.race([
+      (async () => {
+        const pdf = await task.promise;
+        if (pageNumber > pdf.numPages) throw new PdfOcrCropError("UNKNOWN_REGION", "A página OCR não existe no PDF.");
+        const page = await pdf.getPage(pageNumber);
+        try {
+          const bbox = [...page.view] as [number, number, number, number];
+          const viewport = page.getViewport({ scale: RENDER_SCALE });
+          const crop = planPdfRegionCrop(bbox, page.view, viewport.convertToViewportRectangle(bbox));
+          return { bbox, pixelWidth: crop.width, pixelHeight: crop.height };
+        } finally { page.cleanup(); }
+      })(),
+      new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new PdfOcrCropError("RESOURCE_LIMIT", "A leitura da página OCR excedeu o tempo seguro.")), CAPTURE_TIMEOUT_MS); }),
+    ]);
+    return geometry;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    await task.destroy();
+  }
+}
+
 export async function capturePdfOcrRegion(
   pdfBytes: Uint8Array,
   documentInput: DocumentIrV2,
@@ -83,13 +119,15 @@ export async function capturePdfOcrRegion(
   if (await hash(pdfBytes.slice().buffer) !== document.sourceHash) {
     throw new PdfOcrCropError("SOURCE_MISMATCH", "O PDF não corresponde à fonte ativa do documento.");
   }
-  const region = document.pages[pageNumber - 1]?.regions.find(item => item.id === regionId);
-  if (!region || region.sources.rawText === null) {
+  const documentPage = document.pages[pageNumber - 1];
+  const pageTarget = regionId === PAGE_OCR_TARGET_ID && documentPage?.extractionQuality === "no_text"
+    && documentPage.regions.length === 0 && documentPage.rawText.length === 0;
+  const region = documentPage?.regions.find(item => item.id === regionId);
+  if (!pageTarget && (!region || region.sources.rawText === null)) {
     throw new PdfOcrCropError("UNKNOWN_REGION", "A região não existe ou não possui texto nativo para comparação.");
   }
-  if (!region.bbox) throw new PdfOcrCropError("INVALID_BOUNDS", "A região não possui coordenadas para captura.");
-  const bbox = region.bbox;
-  const nativeText = region.sources.rawText;
+  if (!pageTarget && !region?.bbox) throw new PdfOcrCropError("INVALID_BOUNDS", "A região não possui coordenadas para captura.");
+  const nativeText = pageTarget ? documentPage.rawText : region!.sources.rawText!;
 
   const loadingTask = getDocument({ data: pdfBytes.slice(), stopAtErrors: true, maxImageSize: MAX_CROP_PIXELS, isEvalSupported: false });
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -114,6 +152,7 @@ export async function capturePdfOcrRegion(
     if (pageNumber > pdf.numPages) throw new PdfOcrCropError("UNKNOWN_REGION", "A página não existe no PDF.");
     const page = await pdf.getPage(pageNumber);
     try {
+      const bbox = pageTarget ? [...page.view] as [number, number, number, number] : region!.bbox!;
       const viewport = page.getViewport({ scale: RENDER_SCALE });
       const rectangle = viewport.convertToViewportRectangle(bbox);
       const crop = planPdfRegionCrop(bbox, page.view, rectangle);
@@ -134,7 +173,8 @@ export async function capturePdfOcrRegion(
         schemaVersion: 1, documentId: document.documentId, sourceHash: document.sourceHash,
         pageNumber, regionId, nativeTextHash: await hash(new TextEncoder().encode(nativeText)),
         imageHash: await hash(await image.arrayBuffer()), image, bbox,
-        pixelWidth: crop.width, pixelHeight: crop.height, renderScale: RENDER_SCALE, methodVersion: "pdfjs-region-crop-v1",
+        pixelWidth: crop.width, pixelHeight: crop.height, renderScale: RENDER_SCALE,
+        methodVersion: pageTarget ? "pdfjs-page-crop-v1" : "pdfjs-region-crop-v1",
       };
     } finally {
       page.cleanup();

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// Boundary mirror of audiobook_core::ocr::PAGE_OCR_TARGET_ID.
+export const PAGE_OCR_TARGET_ID = "__page__";
+
 const hash = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const identity = z.string().min(1).refine(value => value.trim().length > 0
   && new TextEncoder().encode(value).length <= 128 && !/\p{Cc}/u.test(value));

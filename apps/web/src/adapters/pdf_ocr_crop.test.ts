@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { extractPdf } from "./pdf";
-import { capturePdfOcrRegion, planPdfRegionCrop } from "./pdf_ocr_crop";
+import { capturePdfOcrRegion, planPdfRegionCrop, readPdfPageCropPlan } from "./pdf_ocr_crop";
+import { PAGE_OCR_TARGET_ID } from "../schemas/ocr_candidate";
 
 const fixture = new URL("../../../../tests/fixtures/text_and_blank.pdf", import.meta.url);
 
@@ -37,5 +38,8 @@ describe("PDF OCR region crop", () => {
     await expect(capturePdfOcrRegion(oversized, document, 1, block!.id)).rejects.toMatchObject({ code: "RESOURCE_LIMIT" });
     await expect(capturePdfOcrRegion(bytes, document, 2, block!.id)).rejects.toMatchObject({ code: "UNKNOWN_REGION" });
     await expect(capturePdfOcrRegion(bytes, document, 1, block!.id, AbortSignal.abort())).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(capturePdfOcrRegion(bytes, document, 1, PAGE_OCR_TARGET_ID)).rejects.toMatchObject({ code: "UNKNOWN_REGION" });
+    await expect(readPdfPageCropPlan(bytes, v1.sourceHash, 2)).resolves.toEqual({ bbox: [0, 0, 595, 842], pixelWidth: 1190, pixelHeight: 1684 });
+    await expect(readPdfPageCropPlan(altered, v1.sourceHash, 2)).rejects.toMatchObject({ code: "SOURCE_MISMATCH" });
   });
 });

@@ -36,7 +36,7 @@ pub use ocr::{
     build_ocr_candidate_receipt, build_ocr_review_receipt, compare_ocr_candidate, OcrCandidate,
     OcrCandidateError, OcrCandidateReceipt, OcrCandidateStatus, OcrComparisonReport,
     OcrComparisonStatus, OcrReviewDisposition, OcrReviewReceipt, OcrReviewStatus,
-    OcrReviewSubmission, OcrTokenDifference,
+    OcrReviewSubmission, OcrTokenDifference, PAGE_OCR_TARGET_ID,
 };
 pub use reading::{
     build_reading_preview, build_reading_session, ReadingChunk, ReadingError, ReadingPreview,

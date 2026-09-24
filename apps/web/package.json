@@ -18,6 +18,7 @@
     "test:browser:ocr-crop": "node scripts/smoke-ocr-crop.mjs",
     "test:browser:local-ocr": "node scripts/stage-ocr-runtime.mjs && node scripts/smoke-local-ocr.mjs",
     "test:browser:ocr-review-ui": "node scripts/stage-ocr-runtime.mjs && node scripts/smoke-ocr-review-ui.mjs",
+    "test:browser:scanned-ocr": "node scripts/stage-ocr-runtime.mjs && node scripts/smoke-scanned-page-ocr.mjs",
     "test:standard": "npm run typecheck && npm test && npm run build",
     "test:full": "npm run test:standard && npm audit --audit-level=high"
   },

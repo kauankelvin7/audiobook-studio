@@ -1,5 +1,10 @@
 # HANDOFF — retorno ao Codex Work
 
+## M4.5M — OCR de página sem texto nativo (2026-09-24)
+- Página `no_text` sem regiões ou texto usa alvo reservado `__page__` validado pelo Rust. PDF.js captura página inteira sob limites; evidência salva e relida confere geometria, dimensões e fonte PDF. UI permite revisar o OCR como `unverified`, sem `keep_native`, sem alterar DocumentIR ou liberar TTS. ADR 0024.
+- Smoke funcional Chromium com PDF sintético só de imagem cobriu captura, Tesseract, recibo Rust/WASM, persistência, recarga e revisão histórica, sem requisições externas observadas. Verificações completas e publicação estão registradas no WORKLOG.
+- Próximo marco: goldens reais revisados para prosa/código, política de identidade/atestação e reconciliação canônica Rust antes de qualquer promoção de OCR para narração. Não declarar conteúdo digitalizado como aprovado por este smoke.
+
 ## M4.5L — interface local de revisão OCR (2026-09-24)
 - O app permite escolher uma região com texto nativo e bbox, gerar OCR local a partir do PDF salvo (até 8 MB), comparar recorte/nativo/candidato/tokens, registrar decisão `unverified` e reabrir o histórico validado após recarga. Texto original permanece intacto e OCR não habilita leitura/TTS.
 - Cancelamento vale até o commit da evidência; durante a publicação OPFS/IndexedDB, a UI bloqueia cancelamento/importação. Caracteres de controle invisíveis são marcados na tela sem mudar bytes/hashes. O fluxo OCR é carregado sob demanda para preservar o bundle inicial.

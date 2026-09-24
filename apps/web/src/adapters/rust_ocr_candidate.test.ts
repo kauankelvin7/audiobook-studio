@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { initSync } from "../generated/audiobook_wasm/audiobook_wasm.js";
 import documentV2Fixture from "../../../../tests/fixtures/document_ir_v2.json";
 import { documentIrV2Schema } from "../schemas/ingestion";
-import { ocrCandidateSchema } from "../schemas/ocr_candidate";
+import { ocrCandidateSchema, PAGE_OCR_TARGET_ID } from "../schemas/ocr_candidate";
 import { buildOcrCandidateReceipt, buildOcrReviewReceipt, compareOcrCandidate } from "./rust_ocr_candidate";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
@@ -101,5 +101,33 @@ describe("real Rust/WASM OCR candidate contract", () => {
       .rejects.toMatchObject({ code: "CORE_REJECTED" });
     await expect(buildOcrReviewReceipt(document, candidate, { ...submission, rationale: " " }))
       .rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("accepts a no-text page target but never treats its OCR as native or verified", async () => {
+    const blankDocument = { ...document, pages: [...document.pages, {
+      ...document.pages[0], number: 2, extractionQuality: "no_text" as const,
+      rawText: "", regions: [],
+    }] };
+    const observed = { ...candidate, pageNumber: 2, regionId: PAGE_OCR_TARGET_ID,
+      nativeTextHash: hash(""), text: "COBOL PROCEDURE DIVISION" };
+    const receipt = await buildOcrCandidateReceipt(blankDocument, observed);
+    expect(receipt).toMatchObject({ status: "pending", pageNumber: 2, regionId: PAGE_OCR_TARGET_ID });
+    const comparison = await compareOcrCandidate(blankDocument, observed);
+    expect(comparison).toMatchObject({ status: "review_required", nativeTextHash: hash("") });
+    await expect(buildOcrReviewReceipt(blankDocument, observed, { schemaVersion: 1,
+      receiptHash: receipt.receiptHash, disposition: "keep_native", rationale: "Sem texto", proposedText: null }))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+    await expect(buildOcrCandidateReceipt(document, { ...observed, pageNumber: 1 }))
+      .rejects.toMatchObject({ code: "CORE_REJECTED" });
+  });
+
+  it("does not shadow a real region whose ID matches the virtual page target", async () => {
+    const realDocument = { ...document, pages: [{ ...document.pages[0], regions: [{ ...region, id: PAGE_OCR_TARGET_ID }] }] };
+    const observed = { ...candidate, regionId: PAGE_OCR_TARGET_ID };
+    const receipt = await buildOcrCandidateReceipt(realDocument, observed);
+    expect(receipt.status).toBe("pending");
+    await expect(buildOcrReviewReceipt(realDocument, observed, { schemaVersion: 1,
+      receiptHash: receipt.receiptHash, disposition: "keep_native", rationale: "Região real", proposedText: null }))
+      .resolves.toMatchObject({ status: "unverified" });
   });
 });

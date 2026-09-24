@@ -6,13 +6,13 @@ use audiobook_core::{
     compare_heading_to_body, compare_ocr_candidate, evaluate_review_against_active,
     find_repeated_formulaic_openers, normalize_narrative_text, reduce_narrative_memory,
     validate_script_review_submission, ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2,
-    GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility,
-    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
-    NarrativeSection, OcrCandidate, OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus,
-    OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission, QaStatus, ReviewAttestationStatus,
-    ReviewBindingReference, ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
-    ScriptReviewSubmission, SegmentReviewDecision, SemanticOutline, SpokenChapter,
-    SpokenHeadingPolicy,
+    ExtractionQuality, GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus,
+    NarrationEligibility, NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan,
+    NarrativeScript, NarrativeSection, OcrCandidate, OcrCandidateError, OcrCandidateStatus,
+    OcrComparisonStatus, OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission, QaStatus,
+    ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError, ReviewStatus,
+    ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
+    SemanticOutline, SpokenChapter, SpokenHeadingPolicy, PAGE_OCR_TARGET_ID,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -27,6 +27,105 @@ const NARRATIVE_SCRIPT_FIXTURE: &str =
 
 fn document_v2() -> DocumentIrV2 {
     DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
+}
+
+#[test]
+fn page_without_native_text_accepts_only_pending_full_page_ocr() {
+    let mut document = document_v2();
+    let mut page = document.pages[0].clone();
+    page.number = 2;
+    page.extraction_quality = ExtractionQuality::NoText;
+    page.raw_text.clear();
+    page.ocr_text = None;
+    page.reconstructed_text = None;
+    page.regions.clear();
+    document.pages.push(page);
+    document.validate().unwrap();
+    let candidate = OcrCandidate {
+        schema_version: 1,
+        document_id: document.document_id.clone(),
+        source_hash: document.source_hash.clone(),
+        page_number: 2,
+        region_id: PAGE_OCR_TARGET_ID.into(),
+        native_text_hash: audiobook_core::sha256_source(b""),
+        image_hash: audiobook_core::sha256_source(b"full page PNG"),
+        engine_id: "fixture-engine".into(),
+        engine_version: "1".into(),
+        text: "Texto da pagina digitalizada".into(),
+    };
+    let original = document.clone();
+    let receipt = build_ocr_candidate_receipt(&document, &candidate).unwrap();
+    assert_eq!(receipt.status, OcrCandidateStatus::Pending);
+    assert_eq!(receipt.native_private_use_count, 0);
+    let comparison = compare_ocr_candidate(&document, &candidate).unwrap();
+    assert_eq!(comparison.status, OcrComparisonStatus::ReviewRequired);
+    assert!(comparison
+        .differences
+        .iter()
+        .all(|difference| difference.native_count == 0));
+    let mut submission = OcrReviewSubmission {
+        schema_version: 1,
+        receipt_hash: receipt.receipt_hash,
+        disposition: OcrReviewDisposition::RetainCandidateForReview,
+        rationale: "Sem camada de texto nativa para comparar.".into(),
+        proposed_text: None,
+    };
+    assert_eq!(
+        build_ocr_review_receipt(&document, &candidate, &submission)
+            .unwrap()
+            .status,
+        OcrReviewStatus::Unverified
+    );
+    submission.disposition = OcrReviewDisposition::KeepNative;
+    assert_eq!(
+        build_ocr_review_receipt(&document, &candidate, &submission),
+        Err(OcrCandidateError::InvalidReviewSubmission)
+    );
+    let mut stale = candidate.clone();
+    stale.native_text_hash = audiobook_core::sha256_source(b"invented native text");
+    assert_eq!(
+        build_ocr_candidate_receipt(&document, &stale),
+        Err(OcrCandidateError::StaleNativeText)
+    );
+    let mut wrong_target = candidate.clone();
+    wrong_target.region_id = "__page__:other".into();
+    assert_eq!(
+        build_ocr_candidate_receipt(&document, &wrong_target),
+        Err(OcrCandidateError::UnknownRegion)
+    );
+    let mut wrong_page = candidate.clone();
+    wrong_page.page_number = 1;
+    assert_eq!(
+        build_ocr_candidate_receipt(&document, &wrong_page),
+        Err(OcrCandidateError::UnknownRegion)
+    );
+    let mut whitespace_page = document.clone();
+    whitespace_page.pages[1].raw_text = " ".into();
+    assert_eq!(
+        build_ocr_candidate_receipt(&whitespace_page, &candidate),
+        Err(OcrCandidateError::UnknownRegion)
+    );
+    let mut real_region_document = document_v2();
+    real_region_document.pages[0].regions[0].id = PAGE_OCR_TARGET_ID.into();
+    let mut real_region_candidate = candidate.clone();
+    real_region_candidate.page_number = 1;
+    real_region_candidate.native_text_hash = audiobook_core::sha256_source(
+        real_region_document.pages[0].regions[0]
+            .sources
+            .raw_text
+            .as_ref()
+            .unwrap()
+            .as_bytes(),
+    );
+    assert!(build_ocr_candidate_receipt(&real_region_document, &real_region_candidate).is_ok());
+    let real_region_receipt =
+        build_ocr_candidate_receipt(&real_region_document, &real_region_candidate).unwrap();
+    submission.receipt_hash = real_region_receipt.receipt_hash;
+    assert!(
+        build_ocr_review_receipt(&real_region_document, &real_region_candidate, &submission)
+            .is_ok()
+    );
+    assert_eq!(document, original);
 }
 
 #[test]

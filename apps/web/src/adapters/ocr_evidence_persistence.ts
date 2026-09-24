@@ -5,6 +5,8 @@ import type { DocumentIrV2 } from "../schemas/ingestion";
 import type { LocalOcrCandidateResult } from "./local_ocr_candidate";
 import { LocalProjectPersistence } from "./local_project_persistence";
 import { buildOcrCandidateReceipt } from "./rust_ocr_candidate";
+import { PAGE_OCR_TARGET_ID } from "../schemas/ocr_candidate";
+import { readPdfPageCropPlan } from "./pdf_ocr_crop";
 
 const cropMetadataSchema = z.object({
   schemaVersion: z.literal(1), documentId: z.string(), sourceHash: sourceHashSchema,
@@ -12,7 +14,7 @@ const cropMetadataSchema = z.object({
   nativeTextHash: sourceHashSchema, imageHash: sourceHashSchema,
   bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
   pixelWidth: z.number().int().positive(), pixelHeight: z.number().int().positive(),
-  renderScale: z.number().positive(), methodVersion: z.literal("pdfjs-region-crop-v1"),
+  renderScale: z.number().positive(), methodVersion: z.enum(["pdfjs-region-crop-v1", "pdfjs-page-crop-v1"]),
 }).strict();
 
 const envelopeSchema = z.object({
@@ -94,7 +96,8 @@ function validPngStructure(bytes: Uint8Array, width: number, height: number): bo
   return false;
 }
 
-async function validateEvidence(document: DocumentIrV2, input: LocalOcrCandidateResult): Promise<ReturnType<typeof envelopeSchema.parse>> {
+async function validateEvidence(document: DocumentIrV2, input: LocalOcrCandidateResult,
+  pagePlan?: { bbox: [number, number, number, number]; pixelWidth: number; pixelHeight: number }): Promise<ReturnType<typeof envelopeSchema.parse>> {
   const { image, ...metadata } = input.crop;
   const parsed = envelopeSchema.parse({ schemaVersion: 1, crop: metadata, candidate: input.candidate, receipt: input.receipt });
   if (image.type !== "image/png" || image.size < 57 || image.size > 16_000_000) {
@@ -129,9 +132,17 @@ async function validateEvidence(document: DocumentIrV2, input: LocalOcrCandidate
     || candidate.nativeTextHash !== crop.nativeTextHash || candidate.imageHash !== crop.imageHash) {
     throw new OcrEvidenceError("INVALID_EVIDENCE", "O candidato OCR não corresponde à captura.");
   }
-  const region = document.pages.find(page => page.number === crop.pageNumber)?.regions.find(item => item.id === crop.regionId);
+  const page = document.pages.find(item => item.number === crop.pageNumber);
+  const region = page?.regions.find(item => item.id === crop.regionId);
+  const validTarget = crop.regionId === PAGE_OCR_TARGET_ID && !region
+    ? crop.methodVersion === "pdfjs-page-crop-v1" && page?.extractionQuality === "no_text"
+      && page.regions.length === 0 && page.rawText.length === 0 && !!pagePlan
+      && JSON.stringify(pagePlan.bbox) === JSON.stringify(crop.bbox)
+      && pagePlan.pixelWidth === crop.pixelWidth && pagePlan.pixelHeight === crop.pixelHeight
+    : crop.methodVersion === "pdfjs-region-crop-v1" && !!region?.bbox
+      && JSON.stringify(region.bbox) === JSON.stringify(crop.bbox);
   if (crop.documentId !== document.documentId || crop.sourceHash !== document.sourceHash
-    || !region?.bbox || JSON.stringify(region.bbox) !== JSON.stringify(crop.bbox)
+    || !validTarget
     || crop.renderScale !== 2) {
     throw new OcrEvidenceError("INVALID_EVIDENCE", "A captura OCR não corresponde à região do documento.");
   }
@@ -145,6 +156,18 @@ async function validateEvidence(document: DocumentIrV2, input: LocalOcrCandidate
 export class OcrEvidencePersistence {
   constructor(private readonly persistence: LocalProjectPersistence) {}
 
+  private async pagePlan(projectId: string, document: DocumentIrV2, regionId: string,
+    pageNumber: number): Promise<{ bbox: [number, number, number, number]; pixelWidth: number; pixelHeight: number } | undefined> {
+    if (regionId !== PAGE_OCR_TARGET_ID || document.pages.find(page => page.number === pageNumber)
+      ?.regions.some(region => region.id === regionId)) return undefined;
+    const source = await this.persistence.loadArtifactRecord(projectId, "source_pdf");
+    if (!source || source.kind !== "source_pdf" || source.contentHash !== document.sourceHash) {
+      throw new OcrEvidenceError("SOURCE_CHANGED", "O PDF de origem da página OCR não está disponível.");
+    }
+    const blob = await this.persistence.readArtifact(source);
+    return readPdfPageCropPlan(new Uint8Array(await blob.arrayBuffer()), document.sourceHash, pageNumber);
+  }
+
   async save(projectIdInput: string, document: DocumentIrV2, input: LocalOcrCandidateResult,
     signal?: AbortSignal): Promise<SavedOcrEvidence> {
     const requireActive = () => {
@@ -152,7 +175,8 @@ export class OcrEvidencePersistence {
     };
     requireActive();
     const projectId = storageIdSchema.parse(projectIdInput);
-    const envelope = await validateEvidence(document, input);
+    const envelope = await validateEvidence(document, input,
+      await this.pagePlan(projectId, document, input.candidate.regionId, input.candidate.pageNumber));
     requireActive();
     const latest = await this.persistence.loadLatest(projectId);
     requireActive();
@@ -228,7 +252,8 @@ export class OcrEvidencePersistence {
       throw new OcrEvidenceError("WRONG_ARTIFACT", "As chaves OCR não correspondem ao recibo.");
     }
     const typedImage = new Blob([image], { type: "image/png" });
-    await validateEvidence(document, { crop: { ...envelope.crop, image: typedImage }, candidate: envelope.candidate, receipt: envelope.receipt });
+    await validateEvidence(document, { crop: { ...envelope.crop, image: typedImage }, candidate: envelope.candidate, receipt: envelope.receipt },
+      await this.pagePlan(projectId, document, envelope.candidate.regionId, envelope.candidate.pageNumber));
     if ((await this.persistence.loadLatest(projectId))?.checksum !== latest?.checksum) {
       throw new OcrEvidenceError("CHECKPOINT_CHANGED", "O projeto mudou durante a leitura OCR.");
     }
