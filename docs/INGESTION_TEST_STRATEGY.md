@@ -1,5 +1,18 @@
 # Estratégia de testes de ingestão
 
+## M4.5N — medição OCR em manual PDF público
+
+Fonte: [GnuCOBOL guide to interfacing COBOL and C](https://github.com/OCamlPro/gnucobol-docs/blob/master/GnuCOBOL_C_Interaction.pdf), Ron Norman, agosto de 2020. Cópia obtida de `raw.githubusercontent.com/OCamlPro/gnucobol-docs/master/GnuCOBOL_C_Interaction.pdf`; SHA-256 `97a8bb7e95ad0538aaced88aba469fae3ba02d8045831538333a57711164ee69`, 313.579 bytes, 29 páginas. O PDF não entra no Git. As páginas 2 e 4 foram renderizadas e conferidas visualmente; a primeira contém prosa e um pequeno exemplo, a segunda contém listagem COBOL.
+
+`apps/web/scripts/evaluate-public-ocr.mjs` confere o hash da fonte, renderiza as páginas no PDF.js em Chromium (1224×1584 px), usa a engine Tesseract portuguesa empacotada localmente e compara frases/tokens visíveis predeterminados. Execução opt-in: em `apps/web`, `node scripts/stage-ocr-runtime.mjs` e `node scripts/evaluate-public-ocr.mjs <caminho-do-PDF>`. BrowserContext observou zero requisições externas. Resultado nesta execução:
+
+| Página | Tipo | Tokens/frases encontrados | Ausentes | Divergência observada |
+|---|---|---:|---:|---|
+| 2 | Prosa | 4/4 | 0 | Nenhuma nos quatro alvos escolhidos. |
+| 4 | Código | 6/7 | 1 | `STOP RUN RETURNING 0.` visual saiu como `STOP RUN RETURNING O.` no OCR. |
+
+O conjunto pequeno de alvos mede apenas recuperação literal dessas frases; não mede CER/WER, ordem completa, fidelidade semântica, fontes COBOL/CICS do usuário nem desempenho em português. O manual é inglês e o modelo OCR é português. A divergência `0`/`O` confirma a necessidade de revisão humana para código. Nenhum candidato é promovido para DocumentIR ou narração. Goldens reais do domínio, com recortes e transcrição revisada, continuam pendentes.
+
 ## M4.5F–G — OCR local e evidência histórica
 
 Tesseract.js 7 com dados portugueses roda no navegador usando assets da própria origem. Um smoke em Chromium sobre `text_and_blank.pdf` reconheceu o título e produziu candidato/recibo Rust `pending`, com hash de PNG vinculado e zero requisições externas observadas. Isso testa execução, não fidelidade em COBOL/CICS. O par PNG e envelope OCR pode ser salvo como evidência histórica fixada em OPFS/IndexedDB; a leitura reconfere hash, geometria, documento e recibo pelo WASM real. Nenhuma etapa promove o texto ou libera fala. Os dois PDFs privados e goldens revisados não estavam acessíveis neste checkout; a medição de recuperação e falsos positivos continua pendente.

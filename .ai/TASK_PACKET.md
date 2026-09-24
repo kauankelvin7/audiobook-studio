@@ -1,5 +1,12 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5N avaliação pública de OCR (2026-09-24)
+- Base: `cbe4294`, árvore limpa. Usuário escolheu avaliação pública como próxima frente. Manual público *GnuCOBOL guide to interfacing COBOL and C*, de Ron Norman, obtido do repositório `OCamlPro/gnucobol-docs`; PDF local de 29 páginas, fora do Git. Páginas 2 (prosa) e 4 (código) renderizadas e conferidas visualmente.
+- Objetivo: medir o Tesseract local sobre páginas reais do PDF e registrar tokens visíveis preservados ou ausentes, com script opt-in reproduzível e identidade SHA-256 da fonte.
+- Restrições: idioma OCR disponível é português; manual está em inglês. Métrica exploratória, sem promoção de texto, golden de produção, QA `pass` ou TTS. Nenhum PDF ou transcrição extensa no Git.
+- Riscos: quebra de linha, fonte pequena, inglês com modelo português, variação entre browsers. Registrar tokens e resultado bruto apenas em `work/`, conferir ausência de rede externa e não transformar esta amostra em aprovação.
+- Verificação: executar script Chromium e gates Rust/Web aplicáveis; registrar hash, páginas, resultado e limites no worklog/estratégia.
+
 ## PRE-FLIGHT — OCR local de página sem camada de texto (2026-09-24)
 - Base: `codex/m4-content-model` limpa, HEAD local/remoto `99018f9`; oito commits remotos foram incorporados por fast-forward. `AGENTS.md`, índice de contexto, handoff, worklog, ADRs OCR e contratos Rust/Web consultados. Workflow remoto do HEAD anterior concluiu com sucesso.
 - Objetivo: permitir OCR local de página digitalizada sem região nativa, incluindo captura integral limitada, recibo Rust `pending`, evidência persistida, comparação, revisão histórica e interface acessível.
