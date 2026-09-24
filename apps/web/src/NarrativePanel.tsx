@@ -97,7 +97,8 @@ export function NarrativePanel({ document, persistence, onApproved }: {
     ? canonical.draft.plan.spokenChapters.find(item => item.sectionIds.includes(selectedSection.id)) : null;
   const sourceTexts = selectedSegment && canonical ? canonical.draft.contentModel.sourceUnits
     .filter(unit => unit.sourceRefs.some(ref => selectedSegment.sourceRefs.includes(ref)))
-    .map(unit => unit.analysisText) : [];
+    .map(unit => unit.analysisText)
+    .filter((text): text is string => text !== null) : [];
   const warningMessages = qa?.warnings.map(warning => warning.code === "CLAIM_GROUNDING_NOT_EVALUATED"
     ? "Confira se cada afirmação do roteiro corresponde ao texto aprovado. Essa verificação depende de você."
     : userError(new Error(warning.message), "Confira este trecho e sua fonte antes de aprovar.")) ?? [];
