@@ -15,6 +15,7 @@ import type { OcrCorrectionSuggestionReport } from "./schemas/ocr_learning";
 import { PAGE_OCR_TARGET_ID } from "./schemas/ocr_candidate";
 import { userError } from "./adapters/user_error";
 import { StudioIcon } from "./StudioIcon";
+import { OcrInspectorTabs, OcrReviewHistoryList, type OcrInspectorTab } from "./OcrReviewViews";
 
 type Disposition = OcrReviewSubmission["disposition"];
 type SourceState = "checking" | "ready" | "missing" | "oversize";
@@ -56,7 +57,7 @@ export function OcrReviewPanel({ document, persistence, activePageNumber, onComm
   const [savedReview, setSavedReview] = useState<SavedOcrReview | null>(null);
   const [approving, setApproving] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState("");
-  const [inspectorTab, setInspectorTab] = useState<"native" | "ocr" | "reconciled" | "history">("ocr");
+  const [inspectorTab, setInspectorTab] = useState<OcrInspectorTab>("ocr");
 
   const pageWithoutText = (page: DocumentIrV2["pages"][number] | undefined) =>
     page?.extractionQuality === "no_text" && page.regions.length === 0 && page.rawText.length === 0;
@@ -322,9 +323,7 @@ export function OcrReviewPanel({ document, persistence, activePageNumber, onComm
   }
 
   return <section className="panel evidence-inspector" aria-labelledby="ocr-title">
-    <div className="inspector-tabs" role="tablist" aria-label="Fonte do trecho">
-      {(["native", "ocr", "reconciled", "history"] as const).map(tab => <button key={tab} type="button" role="tab" aria-selected={inspectorTab === tab} onClick={() => setInspectorTab(tab)}>{({native:"Nativo",ocr:"OCR",reconciled:"Reconciliado",history:"Histórico"})[tab]}</button>)}
-    </div>
+    <OcrInspectorTabs value={inspectorTab} onChange={setInspectorTab} />
     <div className="inspector-heading"><div><p className="inspector-label">{inspectorTab === "history" ? "Histórico de revisões" : "Trecho selecionado"}</p><h2 id="ocr-title">{inspectorTab === "native" ? "Texto extraído" : inspectorTab === "reconciled" ? "Texto reconciliado" : "Comparar texto com OCR"}</h2></div><span>{pageNumber ? `Página ${pageNumber}` : "Selecione uma página"}</span></div>
     {inspectorTab === "native" && <p className="inspector-tip">Escolha uma região no documento ou uma página abaixo para revisar o texto extraído.</p>}
     {inspectorTab === "reconciled" && <p className="inspector-tip">A reconciliação só fica disponível após salvar uma proposta e aprová-la nesta revisão.</p>}
@@ -442,15 +441,6 @@ export function OcrReviewPanel({ document, persistence, activePageNumber, onComm
         {approvalStatus && <p role="status">{approvalStatus}</p>}
       </div>}
     </div>}
-    {history.length > 0 && <div className="ocr-history">
-      <h3>Revisões salvas neste dispositivo</h3>
-      <ul>{history.map(item => <li key={item.artifactKey}>
-        <span>{new Date(item.createdAtMs).toLocaleString("pt-BR")} · histórico não verificado</span>{" "}
-        <button type="button" disabled={busy || opening || saving} onClick={() => void openReview(item)}
-          aria-label={`Abrir revisão OCR salva em ${new Date(item.createdAtMs).toLocaleString("pt-BR")}`}>
-          Abrir revisão
-        </button>
-      </li>)}</ul>
-    </div>}
+    <OcrReviewHistoryList history={history} disabled={busy || opening || saving} onOpen={item => void openReview(item)} />
   </section>;
 }

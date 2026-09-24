@@ -9,7 +9,7 @@ import { listLiteralAudios, loadCompleteLiteralAudio, loadLiteralAudio, loadLite
   removeHistoricalLiteralAudio, saveCompleteLiteralAudio, saveLiteralAudio,
   type CompleteLiteralAudio, type LiteralAudioEntry, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
-import { loadLatestApprovedNarrative } from "./adapters/approved_narrative";
+import { loadLatestApprovedNarrative, type ApprovedNarrativeRecord } from "./adapters/approved_narrative";
 import { listNarrativeChapters, loadCompleteNarrativeAudio, narrativeReadingSession,
   saveCompleteNarrativeAudio, saveNarrativeChapter, type CompleteNarrativeAudio } from "./adapters/narrative_audio";
 import type { ArtifactWrite } from "./adapters/ports";
@@ -17,9 +17,12 @@ import { documentIrSchema, type DocumentIr } from "./schemas/document";
 import { documentIrV2Schema, type DocumentIrV2 } from "./schemas/ingestion";
 import { decodePipelineResponse } from "./workers/protocol";
 import { userError } from "./adapters/user_error";
-import { AppShell } from "./AppShell";
+import { AppShell, useProductStage } from "./AppShell";
 import { DocumentWorkspace } from "./DocumentWorkspace";
 import { NativeTextApprovalPanel } from "./NativeTextApprovalPanel";
+import { ProjectImportPanel } from "./ProjectImportPanel";
+import { ReviewBottomDock } from "./ReviewBottomDock";
+import { ExportPanel } from "./ExportPanel";
 import "@fontsource/geist-sans/latin-400.css";
 import "@fontsource/geist-sans/latin-600.css";
 import "@fontsource/geist-mono/latin-400.css";
@@ -32,6 +35,7 @@ const OcrReviewPanel = lazy(async () => ({ default: (await import("./OcrReviewPa
 const NarrativePanel = lazy(async () => ({ default: (await import("./NarrativePanel")).NarrativePanel }));
 
 function App() {
+  const stage = useProductStage();
   const workerRef = useRef<Worker | null>(null);
   const persistenceRef = useRef<BrowserLocalPersistence | null>(null);
   const speechRef = useRef<LocalSpeechPlayer | null>(null);
@@ -48,6 +52,8 @@ function App() {
   const [ocrSourceReady, setOcrSourceReady] = useState(false);
   const [ocrEpoch, setOcrEpoch] = useState(0);
   const [canonicalEpoch, setCanonicalEpoch] = useState(0);
+  const [narrativeEpoch, setNarrativeEpoch] = useState(0);
+  const [approvedNarrative, setApprovedNarrative] = useState<ApprovedNarrativeRecord | null>(null);
   const [ocrCommitBusy, setOcrCommitBusy] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [endPage, setEndPage] = useState(1);
@@ -624,21 +630,28 @@ function App() {
     }
   }
 
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!documentV2 || !ocrSourceReady || !persistenceRef.current) {
+      setApprovedNarrative(null);
+      return;
+    }
+    void loadLatestApprovedNarrative(persistenceRef.current.service, documentV2)
+      .then(value => { if (!cancelled) setApprovedNarrative(value); })
+      .catch(() => { if (!cancelled) setApprovedNarrative(null); });
+    return () => { cancelled = true; };
+  }, [documentV2, ocrSourceReady, canonicalEpoch, narrativeEpoch]);
+
   return <AppShell fileName={fileName} pageCount={document?.pages.length ?? 0} saved={ocrSourceReady}
-    hasDocument={!!document} audioBusy={wavBusy} chapterCount={completeWav?.chapters.length ?? 0}>
+    hasDocument={!!document} narrativeReady={!!approvedNarrative} audioBusy={wavBusy} chapterCount={completeWav?.chapters.length ?? 0}>
     {!document && <header className="intro">
       <p className="eyebrow">Audiobook Studio · leitura de PDF</p>
       <h1>Do documento à voz.</h1>
       <p>Importe seu PDF, confira o texto e prepare uma narração para ouvir e baixar.</p>
     </header>}
-    <section className="panel import-panel" id="project" aria-labelledby="import-title">
-      <div className="section-heading"><span className="section-number">01</span><div><p className="section-kicker">PROJETO</p><h2 id="import-title">{document ? "Documento importado" : "Comece com um PDF"}</h2></div></div>
-      {!document && <p>Escolha um arquivo de até 32 MB. O texto será processado neste dispositivo.</p>}
-      <label htmlFor="pdf-input">Arquivo PDF</label>
-      <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} />
-      {fileName && <p className="file-name">Arquivo: {fileName}</p>}
-      <p role="status" aria-live="polite">{status}</p>
-    </section>
+    <ProjectImportPanel hasDocument={!!document} fileName={fileName} status={status}
+      disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} onChange={importFile} />
     <div className="editor-grid">
     <section className="stage-section" id="document" aria-label="Documento">
     {document ? <DocumentWorkspace document={document} pageNumber={pageNumber} onPageChange={setPageNumber} />
@@ -656,11 +669,23 @@ function App() {
       onApproved={() => setCanonicalEpoch(value => value + 1)} />}
     </section>
     </div>
-    <div className="production-grid">
+    {stage === "review" && document && <ReviewBottomDock
+      narrativeReady={!!approvedNarrative}
+      narrativeChapters={approvedNarrative?.approved.plan.spokenChapters.length ?? 0}
+      narrativeQaStatus={approvedNarrative?.approved.qa.status ?? null}
+      audioUrl={completeWav?.url ?? null}
+      audioChapters={completeWav?.chapters.length ?? 0}
+      audioMode={completeWav ? ("mode" in completeWav ? completeWav.mode : "literal") : null}
+      audioBusy={wavBusy}
+      audioProgress={completeProgress !== null ? { current: completeProgress, total: completeTotal } : null}
+      exportReady={!!completeWav}
+    />}
+    <div className={"production-grid" + (stage === "review" && document ? " review-production-hidden" : "")}>
     <section className="stage-section" id="narrative" aria-label="Roteiro narrativo">
     {documentV2 ? <Suspense fallback={<p role="status">Carregando roteiro…</p>}>
       <NarrativePanel key={`${documentV2.documentId}:${canonicalEpoch}`} document={documentV2}
-        persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null} />
+        persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
+        onApproved={() => setNarrativeEpoch(value => value + 1)} />
     </Suspense> : <div className="stage-empty"><span className="section-number">04</span><div><h2>Narrativa</h2><p>Depois da revisão, prepare o roteiro de cada capítulo.</p></div></div>}
     </section>
     <section className="stage-section" id="audio" aria-label="Áudio e exportação">
@@ -785,22 +810,7 @@ function App() {
       </div>}
     </section>}
     </section>
-    <section className="panel export-stage" id="export" aria-labelledby="export-title">
-      <h2 id="export-title">Exportar audiobook</h2>
-      {completeWav ? <>
-        <p>{completeWav.chapters.length} {completeWav.chapters.length === 1 ? "capítulo pronto" : "capítulos prontos"} · {"mode" in completeWav && completeWav.mode === "narrative" ? "narração aprovada" : "leitura literal"}.</p>
-        <a href={completeWav.url} download="audiobook-studio-completo.wav">Baixar audiobook completo em WAV</a>
-        <a href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify({ schemaVersion: 1,
-          format: "audio/wav", mode: "mode" in completeWav ? completeWav.mode : "literal",
-          scriptHash: "scriptHash" in completeWav ? completeWav.scriptHash : null,
-          sourceHash: completeWav.sourceHash, documentHash: completeWav.documentHash,
-          audioHash: completeWav.audioHash,
-          pipelineVersion: completeWav.pipelineVersion, voiceId: "pt_BR-faber-medium",
-          chapters: completeWav.chapters }))}`} download="audiobook-studio-completo.manifest.json">
-          Baixar índice e manifesto do audiobook
-        </a>
-      </> : <p>Gere e confira o áudio na etapa Áudio. O download ficará disponível aqui.</p>}
-    </section>
+    <ExportPanel completeWav={completeWav} />
     </div>
   </AppShell>;
 }

@@ -19,6 +19,14 @@
   --color-review: #9a672b;
   --color-error: #9a4d4d;
   --color-success: #3f725b;
+  --color-paper-raised: #ffffff;
+  --color-studio-hover: #2b4050;
+  --color-border-strong: #bec8ce;
+  --radius-small: 8px;
+  --radius-shell: 22px;
+  --duration-fast: 110ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
   --font-reading: "Source Serif 4", Georgia, serif;
   --font-ui: "Geist Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Geist Mono", Consolas, monospace;
