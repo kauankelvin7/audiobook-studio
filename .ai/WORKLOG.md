@@ -134,5 +134,5 @@
 - Criadas fixtures COBOL/PIC para contratos semânticos.
 - Implementado `planner_boundary.ts`: structured output é validado antes do pipeline e falha fechado para schema inválido, documento divergente, conceito fora do conteúdo/outline ou source ref desconhecida.
 - Escopo factual: não há chamada a LLM, provider, TTS ou OCR; esta fatia valida contratos e grounding estrutural, não qualidade semântica do planner.
-- Testes novos: 11. CI `quality` run `35979288303` passou: Web 94/94 + typecheck + build + audit com 0 vulnerabilidades; Rust fmt + test + clippy `-D warnings`.
+- Testes novos: 12, incluindo regressão para ciclo de pré-requisitos. CI `quality` run `35979717099` passou: Web 95/95 + typecheck + build + audit com 0 vulnerabilidades; Rust fmt + test + clippy `-D warnings`.
 - Próximo passo: paridade Rust/TS e port provider-neutral do planner; provider/modelo real só após contratos/evals estáveis.
