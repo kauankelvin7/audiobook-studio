@@ -1,5 +1,12 @@
 # HANDOFF — retorno ao Codex Work
 
+## Redesign Studio Dark/Glass — 2026-09-24
+- Decisão explícita do autor: Studio & Paper foi substituído por tema escuro iOS/glass. Não reverter para paleta clara.
+- Canvas/sidebar: `#0B0D12`; surface: `#14171E`; accent: `#3F8CFF`; glass e hairlines translúcidos definidos em `tokens.css`.
+- Glass é aplicado a project bar, sidebar project card, review dock, navegação móvel e diálogos; documento/roteiro usam superfícies escuras opacas para legibilidade.
+- Acessibilidade anterior permanece obrigatória: foco, 44 px touch, tabs por teclado, reduced-motion e forced-colors.
+- Referência visual de aceite passa a ser a imagem escura iOS/glass da tarefa atual.
+
 ## Frontend Studio & Paper — refatoração estrutural (2026-09-24)
 
 - Base funcional preservada: importação PDF, revisão OCR, aprovação nativa/canônica, narrativa aprovada, áudio literal/narrativo, capítulos, exportação e reload continuam no mesmo pipeline. Esta rodada alterou UI/estrutura React, não domínio Rust, schemas canônicos ou persistência.

@@ -21,3 +21,10 @@ Foco atual: Product UX. Release hardening continua com composição OCR de vári
 - Verificações finais: 160 testes web passaram (2 ignorados), typecheck e build passaram; smoke OCR de revisão/aprovação/reload passou; E2E do mesmo PDF gerou WAV literal e narrativo, com capítulos e reload.
 
 O PDF de fixture contém uma página curta e outra sem texto, portanto a captura visual não reproduz a densidade de um manual com centenas de páginas. A interface mantém os controles reais de revisão e exportação; o acabamento dos estados densos precisa de avaliação com corpus maior.
+
+
+## Redesign Studio Dark/Glass — 2026-09-24
+
+Decisão de produto: a direção visual clara/editorial anterior foi substituída por uma superfície escura iOS/glass. A mudança é de apresentação; a árvore de componentes, contratos, fluxo OCR, narrativa, TTS, persistência, exportação e requisitos de acessibilidade permanecem invariantes.
+
+A paleta canônica e os seletores de glass estão documentados em `docs/DESIGN_SYSTEM.md`. O critério de aceite visual continua usando `#review` em 1440×960 e 390×844, agora comparado à referência escura aprovada. Build/testes de comportamento não substituem essa comparação.

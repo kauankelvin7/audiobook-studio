@@ -1,13 +1,14 @@
 # Audiobook Studio — Design System
 
-## Studio & Paper
+## Studio Dark/Glass
 
-O Audiobook Studio usa duas linguagens complementares:
+O Audiobook Studio usa uma superfície escura inspirada em interfaces iOS, com glass restrito a barras, navegação, drawers e superfícies operacionais elevadas.
 
-- **Studio**: navegação, shell, controles, áudio e áreas operacionais.
-- **Paper**: documento, roteiro, comparação textual e leitura prolongada.
+- **Canvas**: plano contínuo quase preto que integra sidebar e workspace.
+- **Glass**: barras e superfícies elevadas translúcidas com blur, sem substituir hierarquia ou legibilidade.
+- **Reading**: documento e roteiro continuam priorizando leitura prolongada, agora em cartões escuros com hairline.
 
-A interface deve parecer uma ferramenta editorial/técnica, não um dashboard genérico e não uma UI “AI-first”. Evitar gradientes decorativos, glass excessivo, sparkles e cards aninhados sem função.
+A interface deve parecer uma ferramenta editorial/técnica, não um dashboard genérico e não uma UI “AI-first”. Glass é linguagem de profundidade, não decoração; continuam proibidos sparkles, gradientes arbitrários e cards aninhados sem função.
 
 ## Fontes de verdade no código
 
@@ -42,29 +43,29 @@ Escala de referência:
 
 ## Paleta
 
-Baseline visual aprovado:
+Baseline visual atual: **Studio Dark/Glass**.
 
 | Token | Valor |
 | --- | --- |
-| Canvas | `#F3F1EB` |
-| Paper | `#FBFAF6` |
-| Paper raised | `#FFFFFF` |
-| Ink | `#17212B` |
-| Ink muted | `#586471` |
-| Ink subtle | `#7B8793` |
-| Studio | `#182531` |
-| Studio raised | `#22323F` |
-| Studio hover | `#2B4050` |
-| Primary | `#356A8A` |
-| Primary hover | `#285773` |
-| Primary soft | `#E1EDF3` |
-| Success | `#3F725B` |
-| Warning/review | `#9A672B` |
-| Danger | `#9A4D4D` |
-| Info | `#456C8C` |
-| Border strong | `#BEC8CE` |
+| Canvas | `#0B0D12` |
+| Surface | `#14171E` |
+| Paper raised | `#1C2029` |
+| Ink | `#F2F3F5` |
+| Ink muted | `rgba(242,243,245,0.62)` |
+| Studio | `#0B0D12` |
+| Primary | `#3F8CFF` |
+| Primary hover | `#67A6FF` |
+| Primary soft | `rgba(63,140,255,0.16)` |
+| Success | `#32D74B` |
+| Warning/review | `#FF9F0A` |
+| Danger | `#FF453A` |
+| Border | `rgba(255,255,255,0.08)` |
+| Border strong | `rgba(255,255,255,0.16)` |
+| Glass | `rgba(20,23,30,0.72)` |
+| Glass strong | `rgba(28,32,41,0.82)` |
+| Glass blur | `blur(24px) saturate(160%)` |
 
-O produto atual é **Studio escuro + workspace claro**. Não declarar dark mode completo automático enquanto não houver tokens/validação específicos para todas as superfícies.
+O tema é escuro por decisão de produto. Sidebar e canvas compartilham o mesmo plano; project bar, bottom dock, navegação móvel e diálogos podem usar glass. Conteúdo de leitura não deve depender de transparência para manter contraste previsível.
 
 ## Espaçamento, raio e motion
 
@@ -83,7 +84,11 @@ Motion:
 - fast: 110 ms
 - base: 180 ms
 - slow: 280 ms
-- `prefers-reduced-motion` deve remover transições/animações não essenciais.
+- spring UI: stiffness 300 / damping 30
+- spring tap: stiffness 500 / damping 25
+- spring sheet: stiffness 260 / damping 26
+- feedback de tap CSS pode usar `scale(.97)` quando não houver Motion.
+- `prefers-reduced-motion` deve neutralizar animações não essenciais e continua obrigatório.
 
 O arquivo legado ainda usa aliases antigos `--space-1..4`; não alterar toda a escala em massa sem comparação visual, pois isso muda a densidade do produto inteiro.
 
@@ -266,7 +271,7 @@ Após qualquer mudança relevante de layout:
 
 1. abrir `#review` com documento real;
 2. capturar 1440×960;
-3. comparar com a referência aprovada;
+3. comparar com a referência iOS/glass aprovada para esta refatoração;
 4. corrigir proporções, density, spacing e scroll;
 5. repetir em 390×844;
 6. executar fluxo import -> review -> narrative -> audio -> export -> reload.
