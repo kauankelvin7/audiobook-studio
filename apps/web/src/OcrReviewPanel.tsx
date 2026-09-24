@@ -18,6 +18,7 @@ import { OcrTargetPicker, type OcrSourceState } from "./OcrTargetPicker";
 import { OcrComparisonView } from "./OcrComparisonView";
 import { OcrLearningPanel } from "./OcrLearningPanel";
 import { OcrReviewDecisionForm } from "./OcrReviewDecisionForm";
+import { OcrNativeTextView, OcrReconciledTextView } from "./OcrInspectorContent";
 
 type Disposition = OcrReviewSubmission["disposition"];
 
@@ -322,82 +323,114 @@ export function OcrReviewPanel({ document, persistence, activePageNumber, onComm
     } finally { setTrainingModel(false); }
   }
 
+  const selectedNativeText = selectedPage?.regions.find(region => region.id === regionId)?.sources.rawText ?? "";
+
   return <section className="panel evidence-inspector" aria-labelledby="ocr-title">
     <OcrInspectorTabs value={inspectorTab} onChange={setInspectorTab} />
-    <div className="inspector-heading"><div><p className="inspector-label">{inspectorTab === "history" ? "Histórico de revisões" : "Trecho selecionado"}</p><h2 id="ocr-title">{inspectorTab === "native" ? "Texto extraído" : inspectorTab === "reconciled" ? "Texto reconciliado" : "Comparar texto com OCR"}</h2></div><span>{pageNumber ? `Página ${pageNumber}` : "Selecione uma página"}</span></div>
-    {inspectorTab === "native" && <p className="inspector-tip">Escolha uma região no documento ou uma página abaixo para revisar o texto extraído.</p>}
-    {inspectorTab === "reconciled" && <p className="inspector-tip">A reconciliação só fica disponível após salvar uma proposta e aprová-la nesta revisão.</p>}
-    {inspectorTab !== "history" && <p>Escolha uma região com texto extraído ou uma página sem texto. O OCR usa o PDF salvo neste dispositivo; o resultado exige revisão.</p>}
-    <OcrTargetPicker
-      eligiblePages={eligiblePages}
-      pageNumber={pageNumber}
-      regionId={regionId}
-      regions={regions}
-      pageHasNoText={pageWithoutText(selectedPage)}
-      disabled={busy || saving || opening}
-      sourceState={sourceState}
-      busy={busy}
-      committing={committing}
-      selectedRegion={!!selectedRegion}
-      onPageChange={value => { clearSelection(); setPageNumber(value); setRegionId(""); }}
-      onRegionChange={value => { clearSelection(); setRegionId(value); }}
-      onGenerate={() => void generate()}
-      onCancel={() => { clearSelection(); setStatus("OCR cancelado."); }}
-    />
-    {error && <p role="alert" className="notice">{error}</p>}
-    {status && <p role="status" aria-live="polite">{status}</p>}
-    {evidence && comparison && <div className="ocr-review">
-      <h3>{pageOnly ? "Revisão da página" : "Comparação da região"}</h3>
-      <OcrComparisonView
-        evidence={evidence}
-        comparison={comparison}
-        cropUrl={cropUrl}
-        pageOnly={!!pageOnly}
-        nativeText={document.pages[evidence.candidate.pageNumber - 1]?.regions
-          .find(region => region.id === evidence.candidate.regionId)?.sources.rawText ?? ""}
-      />
-      <OcrLearningPanel
-        suggestion={suggestion}
-        learningCount={learningCount}
-        modelRecordCount={modelRecordCount}
-        learningIssue={learningIssue}
-        trainingModel={trainingModel}
-        clearingLearning={clearingLearning}
-        disabled={saving || busy || opening}
-        onUseSuggestion={text => {
-          setDisposition("propose_correction");
-          setProposedText(text);
-          setSavedHash(null);
-        }}
-        onTrain={() => void trainModel()}
-        onClear={() => void clearLearning()}
-      />
-      <OcrReviewDecisionForm
-        pageOnly={!!pageOnly}
-        disposition={disposition}
-        rationale={rationale}
-        proposedText={proposedText}
-        learnFromCorrection={learnFromCorrection}
-        saving={saving}
-        busy={busy}
-        opening={opening}
-        savedHash={savedHash}
-        savedReview={savedReview}
-        approving={approving}
-        approvalStatus={approvalStatus}
-        canApprove={!approving && !busy && !saving && !opening
-          && savedReview?.submission.disposition === "propose_correction"
-          && savedReview.submission.rationale === rationale
-          && savedReview.submission.proposedText === proposedText
-          && savedHash === savedReview.receipt.reviewHash}
-        onSubmit={event => void saveReview(event)}
-        onDispositionChange={value => { setDisposition(value); setSavedHash(null); }}
-        onRationaleChange={value => { setRationale(value); setSavedHash(null); }}
-        onProposedTextChange={value => { setProposedText(value); setSavedHash(null); }}
-        onLearnFromCorrectionChange={setLearnFromCorrection}
-        onApprove={() => void approveReview()}
-      />
-    </div>}
-    <OcrReviewHistoryList history={history} disabled={busy || opening || saving} onOpen={item => void openReview(item)} />
+    <div id="ocr-inspector-panel" role="tabpanel" aria-labelledby={`ocr-tab-${inspectorTab}`}>
+      <div className="inspector-heading"><div>
+        <p className="inspector-label">{inspectorTab === "history" ? "Histórico de revisões" : "Trecho selecionado"}</p>
+        <h2 id="ocr-title">{inspectorTab === "native" ? "Texto extraído"
+          : inspectorTab === "reconciled" ? "Texto reconciliado"
+            : inspectorTab === "history" ? "Revisões salvas" : "Comparar texto com OCR"}</h2>
+      </div><span>{pageNumber ? `Página ${pageNumber}` : "Selecione uma página"}</span></div>
+
+      {inspectorTab === "history" ? <OcrReviewHistoryList
+        history={history}
+        disabled={busy || opening || saving}
+        onOpen={item => { void openReview(item); setInspectorTab("ocr"); }}
+      /> : <>
+        {inspectorTab === "native" && <p className="inspector-tip">Confira aqui o conteúdo original extraído do PDF antes de qualquer correção.</p>}
+        {inspectorTab === "ocr" && <p>Escolha uma região com texto extraído ou uma página sem texto. O OCR usa o PDF salvo neste dispositivo; o resultado exige revisão.</p>}
+        {inspectorTab === "reconciled" && <p className="inspector-tip">Esta aba mostra a proposta salva na revisão. A aprovação humana continua sendo obrigatória.</p>}
+
+        <OcrTargetPicker
+          eligiblePages={eligiblePages}
+          pageNumber={pageNumber}
+          regionId={regionId}
+          regions={regions}
+          pageHasNoText={pageWithoutText(selectedPage)}
+          disabled={busy || saving || opening}
+          sourceState={sourceState}
+          busy={busy}
+          committing={committing}
+          selectedRegion={!!selectedRegion}
+          showGenerate={inspectorTab === "ocr"}
+          onPageChange={value => { clearSelection(); setPageNumber(value); setRegionId(""); }}
+          onRegionChange={value => { clearSelection(); setRegionId(value); }}
+          onGenerate={() => void generate()}
+          onCancel={() => { clearSelection(); setStatus("OCR cancelado."); }}
+        />
+
+        {error && <p role="alert" className="notice">{error}</p>}
+        {status && <p role="status" aria-live="polite">{status}</p>}
+
+        {inspectorTab === "native" && <OcrNativeTextView
+          pageNumber={pageNumber}
+          regionId={regionId}
+          nativeText={selectedNativeText}
+          pageHasNoText={pageWithoutText(selectedPage)}
+        />}
+
+        {inspectorTab === "reconciled" && <OcrReconciledTextView
+          proposedText={proposedText}
+          savedReview={savedReview}
+          approvalStatus={approvalStatus}
+        />}
+
+        {inspectorTab === "ocr" && evidence && comparison && <div className="ocr-review">
+          <h3>{pageOnly ? "Revisão da página" : "Comparação da região"}</h3>
+          <OcrComparisonView
+            evidence={evidence}
+            comparison={comparison}
+            cropUrl={cropUrl}
+            pageOnly={!!pageOnly}
+            nativeText={document.pages[evidence.candidate.pageNumber - 1]?.regions
+              .find(region => region.id === evidence.candidate.regionId)?.sources.rawText ?? ""}
+          />
+          <OcrLearningPanel
+            suggestion={suggestion}
+            learningCount={learningCount}
+            modelRecordCount={modelRecordCount}
+            learningIssue={learningIssue}
+            trainingModel={trainingModel}
+            clearingLearning={clearingLearning}
+            disabled={saving || busy || opening}
+            onUseSuggestion={text => {
+              setDisposition("propose_correction");
+              setProposedText(text);
+              setSavedHash(null);
+            }}
+            onTrain={() => void trainModel()}
+            onClear={() => void clearLearning()}
+          />
+          <OcrReviewDecisionForm
+            pageOnly={!!pageOnly}
+            disposition={disposition}
+            rationale={rationale}
+            proposedText={proposedText}
+            learnFromCorrection={learnFromCorrection}
+            saving={saving}
+            busy={busy}
+            opening={opening}
+            savedHash={savedHash}
+            savedReview={savedReview}
+            approving={approving}
+            approvalStatus={approvalStatus}
+            canApprove={!approving && !busy && !saving && !opening
+              && savedReview?.submission.disposition === "propose_correction"
+              && savedReview.submission.rationale === rationale
+              && savedReview.submission.proposedText === proposedText
+              && savedHash === savedReview.receipt.reviewHash}
+            onSubmit={event => void saveReview(event)}
+            onDispositionChange={value => { setDisposition(value); setSavedHash(null); }}
+            onRationaleChange={value => { setRationale(value); setSavedHash(null); }}
+            onProposedTextChange={value => { setProposedText(value); setSavedHash(null); }}
+            onLearnFromCorrectionChange={setLearnFromCorrection}
+            onApprove={() => void approveReview()}
+          />
+        </div>}
+      </>}
+    </div>
   </section>;
 }

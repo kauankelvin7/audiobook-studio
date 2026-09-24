@@ -31,6 +31,8 @@ import "@fontsource/source-serif-4/latin-400.css";
 import "@fontsource/source-serif-4/latin-600.css";
 import "./styles/tokens.css";
 import "./styles/shell.css";
+import "./styles/review.css";
+import "./styles/narrative.css";
 
 const OcrReviewPanel = lazy(async () => ({ default: (await import("./OcrReviewPanel")).OcrReviewPanel }));
 const NarrativePanel = lazy(async () => ({ default: (await import("./NarrativePanel")).NarrativePanel }));

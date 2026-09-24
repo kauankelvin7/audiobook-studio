@@ -20,6 +20,7 @@ export function OcrTargetPicker({
   onRegionChange,
   onGenerate,
   onCancel,
+  showGenerate = true,
 }: {
   eligiblePages: DocumentIrV2["pages"];
   pageNumber: number;
@@ -35,6 +36,7 @@ export function OcrTargetPicker({
   onRegionChange: (regionId: string) => void;
   onGenerate: () => void;
   onCancel: () => void;
+  showGenerate?: boolean;
 }) {
   if (eligiblePages.length === 0) {
     return <p className="notice">Este documento não tem região com coordenadas nem página sem texto para OCR.</p>;
@@ -58,12 +60,14 @@ export function OcrTargetPicker({
       </option>)}
     </select>
 
-    {sourceState === "oversize" && <p className="notice">Este PDF excede 8 MB, limite da captura OCR.</p>}
-    {sourceState === "missing" && <p className="notice">O PDF salvo não está disponível para OCR.</p>}
-    <div className="reading-actions">
-      <button type="button" onClick={onGenerate} disabled={!selectedRegion || sourceState !== "ready" || busy || disabled}>Gerar candidato OCR</button>
-      {busy && !committing && <button type="button" onClick={onCancel}>Cancelar OCR</button>}
-    </div>
-    {committing && <p role="status">Salvando evidência OCR. Aguarde a conclusão.</p>}
+    {showGenerate && <>
+      {sourceState === "oversize" && <p className="notice">Este PDF excede 8 MB, limite da captura OCR.</p>}
+      {sourceState === "missing" && <p className="notice">O PDF salvo não está disponível para OCR.</p>}
+      <div className="reading-actions">
+        <button type="button" onClick={onGenerate} disabled={!selectedRegion || sourceState !== "ready" || busy || disabled}>Gerar candidato OCR</button>
+        {busy && !committing && <button type="button" onClick={onCancel}>Cancelar OCR</button>}
+      </div>
+      {committing && <p role="status">Salvando evidência OCR. Aguarde a conclusão.</p>}
+    </>}
   </>;
 }
