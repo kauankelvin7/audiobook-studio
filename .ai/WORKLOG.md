@@ -1,5 +1,18 @@
 # Worklog
 
+## 2026-09-23 — M4.5F engine OCR no navegador
+- Tesseract.js 7.0.0 e `@tesseract.js-data/por` 1.0.0 adicionados com versões fixas. Staging copia worker, três variantes LSTM do core e idioma português para assets locais no dev/build. O adapter configura apenas URLs da própria origem e encerra worker ao concluir ou cancelar.
+- Smoke em Chromium isolado executou PDF.js, captura, engine Tesseract real e recibo Rust/WASM: reconheceu o título da fixture pública, estado `pending`, hash da imagem igual no recibo e 0 requisições externas observadas. A primeira tentativa falhou por ausência de Chrome no host; um Chromium foi instalado em `/tmp` e a execução passou. Não houve teste de qualidade em PDF privado.
+- Gates: `cargo fmt --all -- --check`, `cargo test --workspace` (43), Web typecheck, 131 testes (2 opt-in ignorados), build, `npm audit --audit-level=high` (0 vulnerabilidades) e `git diff --check` passaram. Build mantém avisos Piper já existentes. Assets OCR acrescentam cerca de 21 MB ao build; carregamento ocorre sob demanda.
+- Próximo passo: medir engine em recortes revisados do corpus local, persistir imagem/candidato/recibo e definir reconciliação Rust. OCR permanece fora da UI e não libera texto para fala.
+
+## 2026-09-23 — M4.5E encadeamento local OCR
+- Repositório atualizado por fast-forward até `9f7e683` após fetch HTTPS; SSH não tinha chave neste ambiente. Árvore limpa antes da edição.
+- Novo adapter `proposeLocalOcrCandidate` captura uma região PDF verificada, entrega o Blob imutável a um port de engine local, vincula a saída ao hash da imagem e solicita recibo ao Rust/WASM. Cancelamento e prazo de 15 segundos cobrem a chamada da engine. O recibo permanece `pending`.
+- Teste com engine falsa confere que os mesmos bytes capturados chegam à engine e que o WASM real emite recibo vinculado; outro teste cobre cancelamento com engine pendente. Isso não comprova reconhecimento de texto real nem fidelidade de OCR.
+- Gates executados: `cargo fmt --all -- --check`, `cargo test --workspace` (43 testes), `npm run typecheck`, `npm test` (131 passed, 2 skipped), `npm run build`, `git diff --check`. `npm ci` exigiu acesso à rede fora do sandbox e instalou o lockfile sem vulnerabilidades reportadas. Build mantém avisos existentes de externalização `fs/path/crypto` do Piper.
+- Próxima etapa: escolher/empacotar engine OCR executável no navegador, validar recortes e goldens locais por prosa e código, e só depois projetar reconciliação canônica Rust. Nenhum texto foi promovido para fala.
+
 ## 2026-09-23 — validação Piper e persistência WAV literal
 - Base limpa `bbb8b15`; CI `quality` do commit concluiu `success`. PRE-FLIGHT registrado antes das alterações.
 - Teste funcional no navegador integrado: PDF local de 75 páginas importado; sessão Rust/WASM da página 10 aceita; Piper baixou modelo e gerou WAV reconhecido por `<audio>` com duração 105,534694 s. Fixture pública `text_and_blank.pdf` gerou WAV de 3,146304 s. Ao acionar reprodução nativa, a aba caiu nas duas tentativas; causa não isolada. Não houve escuta ou inspeção visual.

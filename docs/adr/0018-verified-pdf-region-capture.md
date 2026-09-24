@@ -1,6 +1,6 @@
 # ADR 0018 — Captura limitada de região PDF para OCR
 
-Status: accepted (captura de pixels; engine e persistência de candidato pendentes)
+Status: accepted (captura de pixels; engine local na ADR 0019; persistência de candidato pendente)
 
 ## Contexto
 

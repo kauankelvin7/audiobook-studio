@@ -1,5 +1,21 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5F engine OCR local (2026-09-23)
+- Base: `9f7e683` com mudanças M4.5E locais e gates verdes. Handoff, ADRs 0014/0018, segurança e documentação oficial Tesseract.js consultados.
+- Objetivo: executar OCR português no navegador com worker, core WASM e idioma servidos pelo próprio app; alimentar somente o candidato `pending` do Rust.
+- Evidência: port OCR injetável da M4.5E existe; Tesseract.js 7 suporta `workerPath`, `corePath` e `langPath` locais. Sem caminhos explícitos, seus defaults buscam CDNs.
+- Restrições: sem backend, CDN em runtime, promoção automática de texto ou alegação de fidelidade. Dependências exatas e assets reproduzíveis a partir do lockfile.
+- Riscos: core escolher variante SIMD ausente, worker carregar CDN, cancelamento não encerrar worker, peso de assets, OCR vazio e texto ruim. Plano: staging das variantes LSTM, port com worker descartável/cancelável, teste funcional navegador na fixture, gates e documentação.
+- Verificação: npm ci, stage, typecheck/test/build, smoke real Chrome se disponível, Rust fmt/test, diff check. Risco HIGH; Lead writer único, revisão de diff.
+
+## PRE-FLIGHT — M4.5E vínculo de captura e candidato OCR (2026-09-23)
+- Base: branch `codex/m4-content-model` avançada por fast-forward até `9f7e683`; árvore limpa. Handoff, ADR 0014/0018, contratos OCR e estratégia de ingestão consultados.
+- Objetivo: encadear captura PDF verificada, engine OCR local injetável e recibo Rust/WASM em uma operação limitada, sem promover texto automaticamente.
+- Evidência: a captura produz PNG/hash; o candidato Rust aceita esse hash, mas ainda não existe ligação operacional que garanta uso do mesmo crop na chamada da engine.
+- Restrições: TS apenas Web APIs e adapter da engine; Rust mantém validação canônica. Documento e saída da engine são não confiáveis. Sem backend ou liberação de narração.
+- Riscos: texto de outra imagem, mutação de bytes, engine travada, cancelamento tardio e candidato aceito sem checagem de identidade. Plano: port tipado, operação de uma região, limites/abort, teste com fake que prova a entrada e WASM real, gates e revisão de diff.
+- Verificação: cargo fmt/test, Web typecheck/test/build, diff check. Risco MEDIUM; Lead único writer.
+
 ## PRE-FLIGHT — captura verificável de região PDF para OCR (2026-09-23)
 - Base: `codex/m4-content-model`, HEAD `4b25d5edf86632cdd7f3aeb06ab4f14a5249c6e1`, árvore limpa. AGENTS, CONTEXT_INDEX, HANDOFF, WORKLOG, ADRs 0008/0009/0010/0014 e contratos PDF/OCR consultados.
 - Objetivo: capturar pixels de uma região v2 a partir do PDF original, com limites de área e vínculo ao hash da fonte, e testar um caminho real do arquivo até imagem verificável. Sem alegar reconhecimento de texto ou aprovação semântica.

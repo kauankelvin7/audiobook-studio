@@ -1,6 +1,6 @@
 # Audiobook Studio
 
-Projeto local-first para transformar documentos em audiolivros. A interface importa PDFs com texto selecionável, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa somente vozes que o navegador declara locais. Também é possível gerar e salvar um WAV literal com a voz Faber pt-BR em um Worker local. Não há OCR funcional, modelo narrativo real ou audiolivro final nesta versão.
+Projeto local-first para transformar documentos em audiolivros. A interface importa PDFs com texto selecionável, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa somente vozes que o navegador declara locais. Também é possível gerar e salvar um WAV literal com a voz Faber pt-BR em um Worker local. Existe uma engine OCR local para gerar candidatos por região, ainda sem integração à interface ou substituição automática do texto. Não há modelo narrativo real nem audiolivro final nesta versão.
 
 ## Estrutura
 
@@ -33,6 +33,8 @@ cargo test --workspace
 ```
 
 Após mudar código Rust usado no navegador, rode `npm run wasm:build` em `apps/web` antes dos testes Web. Consulte `docs/CONTEXT_INDEX.md` antes de iniciar uma tarefa.
+
+O smoke opt-in `npm run test:browser:local-ocr` executa a engine OCR em uma fixture pública e exige Chromium ou um canal definido por `AUDIO_BROWSER_CHANNEL`. Os assets OCR são copiados das dependências fixadas em `predev` e `prebuild`, sem CDN em tempo de uso. O resultado permanece candidato pendente de revisão.
 
 O smoke funcional de áudio é opt-in porque baixa o modelo de voz na primeira execução e requer Chrome ou Edge instalado. Ele não faz inspeção visual:
 

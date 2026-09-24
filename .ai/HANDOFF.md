@@ -1,5 +1,15 @@
 # HANDOFF — retorno ao Codex Work
 
+## M4.5F — engine OCR local validada (2026-09-23)
+- Tesseract.js e idioma português fixados no lockfile. Worker/core/modelo servidos localmente; nenhuma requisição externa no smoke Chromium da fixture. Texto foi reconhecido e recebido pelo Rust/WASM como candidato `pending`.
+- Gates locais: Rust fmt/43 testes; Web 131 testes, typecheck/build; audit 0 vulnerabilidades; diff check. Não há golden real COBOL/CICS nem interface OCR. Assets adicionam cerca de 21 MB ao build.
+- Próximo marco linear: recortes/goldens locais revisados e medição de fidelidade; persistência da evidência OCR; reconciliação canônica Rust. Depois retomar atestação/QA narrativo e áudio por capítulos.
+
+## M4.5E — encadeamento OCR local (2026-09-23)
+- Checkout atualizado por fast-forward até `9f7e683`. Adapter novo encadeia captura PDF verificada, port de engine local e recibo Rust/WASM `pending`; ainda não existe engine OCR empacotada nem promoção de texto.
+- Testes locais: Rust fmt/43 testes, Web 131 testes (2 opt-in ignorados), typecheck/build e diff check passaram. Teste da nova ligação usa engine falsa e WASM real; não mede qualidade de OCR.
+- Próxima etapa linear: engine OCR executável no navegador, goldens de recortes e comparação mensurada; depois reconciliação Rust e revisão humana. Atestação narrativa, QA semântico e audiobook final seguem pendentes.
+
 ## Checkpoint — síntese real e persistência WAV (2026-09-23)
 - CI `quality` de `bbb8b15` passou. Piper gerou WAV de 105,53 s com PDF real e 3,15 s com fixture pública no navegador integrado. Ambas as abas caíram ao acionar reprodução nativa; nenhuma escuta foi concluída. Não declarar áudio auditivamente aprovado.
 - Salvamento no OPFS com metadata vinculada a fonte/sessão Rust/WASM foi testado com fixture; recarga recuperou WAV e documento. Web STANDARD 119 testes, Rust 43 e audit 0 passaram. Falta validar reprodução/download em navegador externo e política de retenção. Não confundir com audiobook narrativo final.

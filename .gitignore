@@ -9,3 +9,4 @@ apps/web/.npm-cache/
 .env
 .env.*
 !.env.example
+apps/web/public/ocr-runtime/
