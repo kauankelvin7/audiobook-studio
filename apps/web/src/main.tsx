@@ -23,6 +23,7 @@ import { NativeTextApprovalPanel } from "./NativeTextApprovalPanel";
 import { ProjectImportPanel } from "./ProjectImportPanel";
 import { ReviewBottomDock } from "./ReviewBottomDock";
 import { ExportPanel } from "./ExportPanel";
+import { AudioWorkspace } from "./AudioWorkspace";
 import "@fontsource/geist-sans/latin-400.css";
 import "@fontsource/geist-sans/latin-600.css";
 import "@fontsource/geist-mono/latin-400.css";
@@ -688,128 +689,58 @@ function App() {
         onApproved={() => setNarrativeEpoch(value => value + 1)} />
     </Suspense> : <div className="stage-empty"><span className="section-number">04</span><div><h2>Narrativa</h2><p>Depois da revisão, prepare o roteiro de cada capítulo.</p></div></div>}
     </section>
-    <section className="stage-section" id="audio" aria-label="Áudio e exportação">
-    {!documentV2 && <div className="stage-empty"><span className="section-number">05</span><div><h2>Áudio</h2><p>Quando o texto estiver pronto, gere, ouça e baixe o audiobook aqui.</p></div></div>}
-    {document && audioHistory.length > 0 && <section className="panel" aria-labelledby="saved-audio-title">
-      <h2 id="saved-audio-title">Gravações neste dispositivo</h2>
-      <p>Abra uma gravação para ouvir ou baixar. Cada WAV contém o texto extraído do intervalo indicado.</p>
-      <ul className="audio-history">{audioHistory.map(entry => <li key={entry.artifactKey}>
-        Páginas {entry.startPage} a {entry.endPage} · {new Date(entry.createdAtMs).toLocaleString("pt-BR")} · {(entry.sizeBytes / 1024 / 1024).toFixed(1)} MB{" "}
-        <button type="button" onClick={() => void openSavedAudio(entry)} disabled={audioOpening}
-          aria-label={`Abrir gravação das páginas ${entry.startPage} a ${entry.endPage}, salva em ${new Date(entry.createdAtMs).toLocaleString("pt-BR")}`}>
-          {selectedAudioKey === entry.artifactKey ? "Reabrir gravação" : "Abrir gravação"}
-        </button>
-        {entry.artifactKey !== currentAudioKey && !completeWav?.chapters.some(chapter => chapter.audioKey === entry.artifactKey)
-          && <button type="button" onClick={() => void removeSavedAudio(entry)}
-          disabled={audioMaintenanceBusy || audioOpening || wavBusy}
-          aria-label={`Excluir gravação das páginas ${entry.startPage} a ${entry.endPage}, salva em ${new Date(entry.createdAtMs).toLocaleString("pt-BR")}`}>
-          Excluir gravação antiga
-        </button>}
-      </li>)}</ul>
-      {savedWav && <div className="wav-result">
-        <audio controls src={savedWav.url} aria-label="Gravação WAV selecionada" />
-        <a href={savedWav.url} download={`audiobook-studio-paginas-${savedWav.startPage}-${savedWav.endPage}.wav`}>Baixar WAV selecionado</a>
-      </div>}
-    </section>}
-    {documentV2 && <section className="panel" aria-labelledby="complete-audio-title">
-      <h2 id="complete-audio-title">Gerar audiobook completo</h2>
-      <p>Escolha leitura literal ou narração aprovada. Páginas sem texto aprovado bloqueiam a geração.</p>
-      <button type="button" onClick={() => void exportCompleteWav()} disabled={wavBusy || busy || ocrCommitBusy}>
-        {wavBusy ? "Gerando áudio…" : "Gerar audiobook completo em WAV"}
-      </button>
-      <button type="button" onClick={() => void exportNarrativeWav()} disabled={wavBusy || busy || ocrCommitBusy}>
-        {wavBusy ? "Gerando áudio…" : "Gerar audiobook narrativo em WAV"}
-      </button>
-      {wavBusy && <button type="button" onClick={() => wavAbortRef.current?.abort()}>Cancelar geração</button>}
-      {completeProgress !== null && <p role="status">{completeProgress} de {completeTotal} capítulos processados.</p>}
-      {completeWav && <div className="wav-result">
-        <p>Modo: {"mode" in completeWav && completeWav.mode === "narrative" ? "Narrativo" : "Literal"}.</p>
-        <audio controls ref={completeAudioRef} src={completeWav.url} aria-label="Audiobook completo"
-          onTimeUpdate={event => {
-            const time = event.currentTarget.currentTime;
-            const index = completeWav.chapters.reduce((selected, chapter, position) =>
-              chapter.startSeconds <= time ? position : selected, -1);
-            if (index >= 0) setCurrentChapter(index);
-          }} />
-        <div className="reading-actions">
-          <button type="button" onClick={() => seekChapter(currentChapter - 1)} disabled={currentChapter === 0}>Capítulo anterior</button>
-          <button type="button" onClick={() => seekChapter(currentChapter + 1)} disabled={currentChapter >= completeWav.chapters.length - 1}>Próximo capítulo</button>
-        </div>
-        <ol>{completeWav.chapters.map(chapter => <li key={chapter.pageNumber}>
-          <button type="button" onClick={() => seekChapter(chapter.pageNumber - 1)}
-            aria-current={currentChapter === chapter.pageNumber - 1 ? "true" : undefined}>
-            {"mode" in completeWav && completeWav.mode === "narrative" ? "Capítulo" : "Página"} {chapter.pageNumber} · início {Math.floor(chapter.startSeconds / 60)}:{String(Math.floor(chapter.startSeconds % 60)).padStart(2, "0")}
-          </button>
-        </li>)}</ol>
-      </div>}
-    </section>}
-    {document && <section className="panel" aria-labelledby="reading-title">
-      <h2 id="reading-title">Ouvir o texto do PDF</h2>
-      <p>Selecione até dez páginas consecutivas. O texto é lido sem reescrita ou correção automática.</p>
-      <label htmlFor="reading-page">Primeira página</label>
-      <select id="reading-page" value={pageNumber} onChange={event => {
-        readingRequestRef.current++;
-        speechRef.current?.stop();
-        clearWav();
-        setPreview(null);
-        setReviewed(false);
-        setPageNumber(Number(event.target.value));
-        setEndPage(Number(event.target.value));
-      }}>
-        {document.pages.map(page => <option key={page.number} value={page.number}>{page.number}</option>)}
-      </select>
-      <label htmlFor="reading-end-page">Última página</label>
-      <select id="reading-end-page" value={endPage} onChange={event => {
-        readingRequestRef.current++;
-        speechRef.current?.stop();
-        clearWav();
-        setPreview(null);
-        setReviewed(false);
-        setEndPage(Number(event.target.value));
-      }}>
-        {document.pages.filter(page => page.number >= pageNumber && page.number < pageNumber + 10)
-          .map(page => <option key={page.number} value={page.number}>{page.number}</option>)}
-      </select>
-      <button type="button" onClick={() => void prepareReading()} disabled={!documentV2 || busy}>Preparar leitura</button>
-      {preview && <div className="reading-review">
-        <h3>Texto para conferir</h3>
-        <div className="reading-text">{preview.pages.map(page => <section key={page.pageNumber} aria-label={`Página ${page.pageNumber}`}>
-          <h4>Página {page.pageNumber}</h4>
-          {page.chunks.map(chunk => <p key={chunk.regionId}>{chunk.text}</p>)}
-        </section>)}</div>
-        <label className="check-label"><input type="checkbox" checked={reviewed} onChange={event => {
-          if (!event.target.checked) { speechRef.current?.stop(); clearWav(); }
-          setReviewed(event.target.checked);
-        }} /> Conferi o texto de todas as páginas selecionadas.</label>
-        <label htmlFor="reading-voice">Voz instalada</label>
-        <select id="reading-voice" value={voiceURI} onChange={event => setVoiceURI(event.target.value)} disabled={voices.length === 0}>
-          {voices.length === 0 ? <option value="">Nenhuma voz local disponível</option>
-            : voices.map(voice => <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name} ({voice.lang})</option>)}
-        </select>
-        <div className="reading-actions">
-          <button type="button" onClick={startReading} disabled={!reviewed || !voiceURI || speechState !== "idle"}>Ouvir</button>
-          <button type="button" onClick={() => speechRef.current?.pause()} disabled={speechState !== "playing"}>Pausar</button>
-          <button type="button" onClick={() => speechRef.current?.resume()} disabled={speechState !== "paused"}>Retomar</button>
-          <button type="button" onClick={() => speechRef.current?.stop()} disabled={speechState === "idle"}>Parar</button>
-        </div>
-        <p role="status" aria-live="polite">{speechState === "playing" ? "Lendo o texto selecionado." : speechState === "paused" ? "Leitura pausada." : "Leitura parada."}</p>
-        <h3>Gerar arquivo de áudio</h3>
-        <p>Use a voz local Faber (pt-BR). O modelo é baixado na primeira geração; o texto do PDF não é enviado ao serviço de voz. Limite: 12 mil caracteres por arquivo.</p>
-        <div className="reading-actions">
-          <button type="button" onClick={() => void generateWav()} disabled={!reviewed || wavBusy || audioMaintenanceBusy}>Gerar WAV</button>
-          <button type="button" onClick={clearWav} disabled={!wavBusy}>Cancelar geração</button>
-        </div>
-        {wavBusy && <p role="status" aria-live="polite">{wavProgress && wavProgress.total > 0
-          ? `Preparando áudio: ${Math.min(100, Math.round(wavProgress.loaded / wavProgress.total * 100))}%.`
-          : "Preparando áudio local…"}</p>}
-        {wavUrl && <div className="wav-result">
-          <audio controls src={wavUrl} aria-label="Prévia do WAV gerado" />
-          <a href={wavUrl} download={`audiobook-studio-paginas-${pageNumber}-${endPage}.wav`}>Salvar WAV</a>
-        </div>}
-        <p className="footnote">Esta é uma leitura literal do texto extraído, não um audiobook narrativo revisado. O áudio pode conter erros da extração e da voz.</p>
-      </div>}
-    </section>}
-    </section>
+    <AudioWorkspace
+      completeAudioRef={completeAudioRef}
+      model={{
+        document, documentV2, audioHistory, savedWav, selectedAudioKey, audioOpening,
+        audioMaintenanceBusy, currentAudioKey, completeWav, completeProgress, completeTotal,
+        currentChapter, pageNumber, endPage, preview, reviewed, speechState, voices, voiceURI,
+        wavBusy, wavProgress, wavUrl, busy, ocrCommitBusy,
+      }}
+      actions={{
+        openSavedAudio,
+        removeSavedAudio,
+        generateCompleteLiteral: exportCompleteWav,
+        generateCompleteNarrative: exportNarrativeWav,
+        cancelCompleteGeneration: () => wavAbortRef.current?.abort(),
+        seekChapter,
+        onCompleteTimeUpdate: time => {
+          if (!completeWav) return;
+          const index = completeWav.chapters.reduce((selected, chapter, position) =>
+            chapter.startSeconds <= time ? position : selected, -1);
+          if (index >= 0) setCurrentChapter(index);
+        },
+        onStartPageChange: value => {
+          readingRequestRef.current++;
+          speechRef.current?.stop();
+          clearWav();
+          setPreview(null);
+          setReviewed(false);
+          setPageNumber(value);
+          setEndPage(value);
+        },
+        onEndPageChange: value => {
+          readingRequestRef.current++;
+          speechRef.current?.stop();
+          clearWav();
+          setPreview(null);
+          setReviewed(false);
+          setEndPage(value);
+        },
+        prepareReading,
+        onReviewedChange: value => {
+          if (!value) { speechRef.current?.stop(); clearWav(); }
+          setReviewed(value);
+        },
+        onVoiceChange: setVoiceURI,
+        startReading,
+        pauseReading: () => speechRef.current?.pause(),
+        resumeReading: () => speechRef.current?.resume(),
+        stopReading: () => speechRef.current?.stop(),
+        generateWav,
+        cancelWav: clearWav,
+      }}
+    />
     <ExportPanel completeWav={completeWav} />
     </div>
   </AppShell>;
