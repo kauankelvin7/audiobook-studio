@@ -35,8 +35,8 @@
 - Status: IMPLEMENTED/TESTED para contratos semânticos e barreira estruturada; planner/LLM real continua pendente.
 - Entregue: `ContentModel` v1, `SemanticOutline` v1, fixtures, invariantes de IDs/ordem/pré-requisitos e `planner_boundary` fail-closed.
 - Grounding estrutural: rejeita output malformado, `documentId` divergente, conceito fora do ContentModel/outline e source ref desconhecida.
-- Testes novos: 11 (5 contratos + 6 boundary).
-- CI `quality` run `35979288303`: Web PASS com 94/94 testes, typecheck, build e audit 0 vulnerabilidades; Rust PASS com fmt, test e clippy `-D warnings`.
+- Testes novos: 12 (6 contratos + 6 boundary).
+- CI `quality` final de código run `35979717099`: Web PASS com 95/95 testes, typecheck, build e audit 0 vulnerabilidades; Rust PASS com fmt, test e clippy `-D warnings`.
 - Contexto: TASK_PACKET foi reduzido à tarefa ativa e WORKLOG passou a ser histórico sob demanda.
 - Deferred: paridade Rust destes contratos, provider/modelo real, prompt/evals semânticos, golden mainframe e TTS.
 - Próximo passo recomendado: M4.2b — paridade Rust/TS dos contratos e port provider-neutral do planner antes de integrar qualquer modelo real.
