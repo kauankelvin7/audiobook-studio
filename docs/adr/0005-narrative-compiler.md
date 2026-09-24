@@ -1,6 +1,6 @@
 # ADR 0005 — Compilador narrativo antes do TTS
 
-Status: accepted (contrato arquitetural; M4.1 determinístico implementado/testado, planner/modelo IA ainda pendentes)
+Status: accepted (M4.1 e fronteira determinística M4.2a implementadas/testadas; provider/modelo IA ainda pendentes)
 
 ## Contexto
 
@@ -16,6 +16,6 @@ Cada estágio terá schema/version, IDs, input/output tipados, validador, erros 
 
 ## Consequências
 
-O roadmap M4 passa a incluir planejamento, memória, coesão, deduplicação e QA local/global antes de M5. Alterações de pronúncia invalidam áudio dependente, não DocumentIR. O primeiro contrato em `apps/web/src/schemas/narrative.ts` é de fronteira/fixtures; domínio Rust e execução dos estágios serão implementados em M4, com testes de paridade antes de uso em produção.
+O roadmap M4 passa a incluir planejamento, memória, coesão, deduplicação e QA local/global antes de M5. Alterações de pronúncia invalidam áudio dependente, não DocumentIR. Os contratos TypeScript de `ContentModel`/`SemanticOutline` e a validação de structured output existem e são testados; domínio Rust, chamada real ao planner/modelo e evals semânticos continuam pendentes, com paridade exigida antes de uso em produção.
 
 O relatório mestre original permanece preservado como fonte histórica; `docs/NARRATIVE_AND_PERFORMANCE.md` é o adendo normativo para estas decisões.

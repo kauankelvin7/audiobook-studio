@@ -4,7 +4,8 @@ Carregue somente o contexto necessário para a tarefa.
 
 | Tarefa | Fontes obrigatórias |
 |---|---|
-| Governança/retomada | `AGENTS.md`, `.ai/HANDOFF.md`, `.ai/TASK_PACKET.md`, `.ai/WORKLOG.md`, `docs/CODE_REVIEW.md` |
+| Governança/retomada | `AGENTS.md`, `.ai/HANDOFF.md`, `.ai/TASK_PACKET.md`, `docs/CODE_REVIEW.md` |
+| Histórico/auditoria | `.ai/WORKLOG.md` e Git, somente quando a tarefa exigir evidência histórica |
 | Orquestração multiagente | `docs/AI_AGENT_POLICY.md`, `.codex/config.toml`, papel necessário em `.codex/agents/` |
 | Rust/domínio | `docs/adr/0001-local-first.md`, `docs/adr/0004-document-ir-v1.md`, `crates/core/`, schemas em `apps/web/src/schemas/` |
 | Ingestão/OCR/storage | `docs/INGESTION_OCR_ARCHITECTURE.md`, `docs/INGESTION_TEST_STRATEGY.md`, `docs/PERSISTENCE.md`, ADRs 0008–0009, schemas e adapters relacionados |

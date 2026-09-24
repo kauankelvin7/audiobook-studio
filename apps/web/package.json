@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "test:fast": "vitest run src/adapters/local_project_persistence.test.ts src/adapters/indexeddb_checkpoint_repository.test.ts src/adapters/opfs_artifact_store.test.ts src/adapters/web_locks_project_lock.test.ts src/adapters/narrative_quality.test.ts",
+    "test:fast": "vitest run src/adapters/local_project_persistence.test.ts src/adapters/indexeddb_checkpoint_repository.test.ts src/adapters/opfs_artifact_store.test.ts src/adapters/web_locks_project_lock.test.ts src/adapters/narrative_quality.test.ts src/schemas/narrative_semantics.test.ts src/adapters/planner_boundary.test.ts",
     "test:standard": "npm run typecheck && npm test && npm run build",
     "test:full": "npm run test:standard && npm audit --audit-level=high"
   },
