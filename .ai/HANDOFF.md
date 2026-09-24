@@ -1,5 +1,10 @@
 # HANDOFF — retorno ao Codex Work
 
+## M4.5H — medição sintética de código (2026-09-23)
+- Usuário confirmou indisponibilidade temporária dos PDFs/goldens privados e autorizou exemplos públicos. Caso COBOL sintético no smoke Chromium preservou 7/8 tokens; `SAMPLE01` foi lido como `SAMPLEO1`. O candidato OCR permanece `pending`, sem promoção de código.
+- O observador de rede foi ampliado ao BrowserContext e repetiu 0 requisições externas. Gates locais: Rust fmt/43 testes, Web 137 testes, typecheck/build/diff check. Revisão independente final sem P0/P1/P2.
+- Commits anteriores `d4ed6ac` e `a13b337` estão locais; push HTTPS falhou por credenciais GitHub ausentes. Usuário autorizou publicação recorrente, mas autenticação ainda falta. Próximo marco: goldens públicos mais variados e reconciliação Rust conservadora, sem liberar narração de OCR.
+
 ## M4.5G — evidência OCR local em validação (2026-09-23)
 - PNG, candidato e recibo OCR `pending` passam a ter persistência histórica OPFS/IndexedDB com revalidação de integridade e contexto Rust/WASM. Retry do mesmo recibo é idempotente; artefatos sem checkpoint não são apresentados como histórico.
 - Corpus COBOL/CICS privado não está neste checkout, então não há medição de fidelidade nem golden novo. Próxima etapa: fornecer/reencontrar corpus, revisar recortes de prosa e código, medir recuperação antes de qualquer reconciliação/promocão.

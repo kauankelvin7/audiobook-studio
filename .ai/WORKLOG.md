@@ -1,5 +1,10 @@
 # Worklog
 
+## 2026-09-23 — M4.5H medição pública de código OCR
+- Usuário informou que não dispõe dos PDFs/goldens privados no momento e autorizou exemplos públicos. Sintaxe conferida com manual oficial GnuCOBOL; caso de cinco linhas foi criado no smoke sem copiar PDF ou código privado.
+- Primeira medição real no Chromium: sete de oito tokens técnicos preservados; `SAMPLE01` foi transcrito como `SAMPLEO1`. O caso não é um golden de produção; a divergência demonstra por que OCR de código permanece em revisão e não libera narração.
+- Revisão independente apontou que observação de rede na Page não cobria Worker. O smoke usa agora BrowserContext; repetição Chromium confirmou 7/8 tokens e 0 requisições externas observadas. Gates Rust fmt/43 testes e Web 137 testes/typecheck/build/diff check passaram; publicação continua bloqueada por ausência de credenciais GitHub neste ambiente.
+
 ## 2026-09-23 — M4.5G evidência OCR persistente
 - Corpus privado não encontrado neste checkout. Em vez de atribuir qualidade a transcrição não revisada, a etapa preserva PNG/candidato/recibo como dois artefatos `ocr_evidence` fixados em OPFS, com manifests e checkpoint IndexedDB publicados juntos sob lock.
 - Gravação exige fonte ativa correspondente e revalida PNG, dimensões, bbox, candidato e recibo pelo Rust/WASM. Leitura histórica reconfere manifests, bytes e contexto fornecido; retorna `currentness: not_established`, inclusive após troca de fonte. Não promove texto.

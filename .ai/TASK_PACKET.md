@@ -1,5 +1,13 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5H medição pública de código OCR (2026-09-23)
+- Base: M4.5G local validado; PDFs/goldens privados indisponíveis por confirmação do usuário. Usuário autorizou usar exemplos públicos.
+- Objetivo: adicionar caso pequeno de código COBOL com texto esperado conhecido e medir preservação de tokens pela engine real no navegador, sem classificar como golden do corpus privado.
+- Evidência: manual oficial GnuCOBOL descreve sintaxe de divisões, `PROGRAM-ID`, `DISPLAY` e `STOP RUN`; fixture sintética é autoria do projeto. Smoke Chromium existente já executa OCR local sem rede externa.
+- Restrições: registrar erros reais sem ajustar a expectativa para mascará-los; não promover candidato, não publicar PDF privado.
+- Riscos: modelo português confundir `O` e `0`, pontuação/whitespace e imagem artificial ser mais fácil que PDF real. Plano: desenhar código em canvas, comparar tokens esperados, registrar divergências e manter bloqueio de narração.
+- Verificação: smoke Chromium real, Web STANDARD, Rust fmt/test, diff check. Risco MEDIUM; Lead writer único.
+
 ## PRE-FLIGHT — M4.5G evidência OCR persistente (2026-09-23)
 - Base: `d4ed6ac` local; engine e recibo `pending` testados. Corpus privado não está acessível neste checkout; só a fixture pública foi localizada.
 - Objetivo: preservar PNG, candidato e recibo em OPFS/IndexedDB, reler com integridade e revalidar contra DocumentIR v2 pelo Rust/WASM, sem alterar o documento nem elegibilidade.

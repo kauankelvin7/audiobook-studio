@@ -24,12 +24,13 @@ try {
   }
   assert.ok(ready, "Vite did not start");
   browser = await chromium.launch({ ...(process.env.AUDIO_BROWSER_CHANNEL ? { channel: process.env.AUDIO_BROWSER_CHANNEL } : {}), headless: true });
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  const page = await context.newPage();
   page.on("pageerror", error => console.error(`PAGE ERROR ${error.message}`));
   page.on("crash", () => console.error("PAGE CRASH"));
   page.on("framenavigated", frame => { if (frame === page.mainFrame()) console.error(`NAVIGATED ${frame.url()}`); });
   const foreignRequests = [];
-  page.on("request", request => {
+  context.on("request", request => {
     if (!request.url().startsWith(baseUrl) && !request.url().startsWith("blob:")) foreignRequests.push(request.url());
   });
   await page.goto(baseUrl);
@@ -98,8 +99,34 @@ try {
   }, { input: bytes, imageArtifact: result.imageArtifact, recordArtifact: result.recordArtifact, databaseName: result.databaseName });
   assert.equal(afterReload.imageHash, result.imageHash);
   assert.equal(afterReload.currentness, "not_established");
+  const codeText = await page.evaluate(async () => {
+    const { TesseractLocalOcrEngine } = await import("/src/adapters/tesseract_local_ocr.ts");
+    const lines = [
+      "IDENTIFICATION DIVISION.",
+      "PROGRAM-ID. SAMPLE01.",
+      "PROCEDURE DIVISION.",
+      "DISPLAY \"HELLO, COBOL\".",
+      "STOP RUN.",
+    ];
+    const canvas = document.createElement("canvas");
+    canvas.width = 1000;
+    canvas.height = 300;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "black";
+    context.font = "30px monospace";
+    lines.forEach((line, index) => context.fillText(line, 24, 52 + index * 48));
+    const image = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    return await new TesseractLocalOcrEngine().recognize(image, new AbortController().signal);
+  });
+  const codeTokens = ["IDENTIFICATION", "DIVISION", "PROGRAM-ID", "SAMPLE01", "PROCEDURE", "DISPLAY", "COBOL", "STOP RUN"];
+  const missingCodeTokens = codeTokens.filter(token => !codeText.toUpperCase().includes(token));
+  for (const token of codeTokens.filter(token => token !== "SAMPLE01")) {
+    assert.ok(!missingCodeTokens.includes(token), `OCR missed technical token ${token}: ${JSON.stringify(codeText)}`);
+  }
   assert.deepEqual(foreignRequests, []);
-  console.log(`PASS local OCR receipt=${result.status} textLength=${result.text.length} foreignRequests=0`);
+  console.log(`PASS local OCR receipt=${result.status} textLength=${result.text.length} codeTokens=${codeTokens.length - missingCodeTokens.length}/${codeTokens.length} missing=${missingCodeTokens.join(",") || "none"} foreignRequests=0`);
 } finally {
   await browser?.close();
   server.kill();

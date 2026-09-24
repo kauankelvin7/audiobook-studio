@@ -4,6 +4,10 @@
 
 Tesseract.js 7 com dados portugueses roda no navegador usando assets da própria origem. Um smoke em Chromium sobre `text_and_blank.pdf` reconheceu o título e produziu candidato/recibo Rust `pending`, com hash de PNG vinculado e zero requisições externas observadas. Isso testa execução, não fidelidade em COBOL/CICS. O par PNG e envelope OCR pode ser salvo como evidência histórica fixada em OPFS/IndexedDB; a leitura reconfere hash, geometria, documento e recibo pelo WASM real. Nenhuma etapa promove o texto ou libera fala. Os dois PDFs privados e goldens revisados não estavam acessíveis neste checkout; a medição de recuperação e falsos positivos continua pendente.
 
+## M4.5H — caso público e sintético de código
+
+Sem acesso aos PDFs privados, o smoke desenha cinco linhas de código COBOL em canvas monoespaçado e compara oito tokens esperados. A sintaxe foi conferida com o [manual oficial GnuCOBOL](https://gnucobol.sourceforge.io/doc/gnucobol.html); o exemplo e a imagem foram criados para o teste, sem copiar trecho de material privado. Na primeira execução Chromium/Tesseract português, 7/8 tokens foram preservados: `SAMPLE01` saiu como `SAMPLEO1`. Os demais tokens, incluindo `PROGRAM-ID`, `PROCEDURE`, `DISPLAY` e `STOP RUN`, foram encontrados. O teste registra a divergência em vez de atribuir fidelidade completa. Isso confirma que ambiguidade `0`/`O` exige revisão de código; uma imagem sintética nítida não representa os PDFs COBOL/CICS reais.
+
 ## Estado atual
 
 - `text_and_blank.pdf`: fixture sintética real, texto nativo + página sem texto; testada em Vitest e Chrome local.
