@@ -176,4 +176,22 @@ describe("historical OCR evidence persistence", () => {
       .rejects.toMatchObject({ code: "CHECKPOINT_CHANGED" });
     state.close();
   });
+
+  it("does not publish OCR evidence when import aborts before the checkpoint commit", async () => {
+    const { state, persistence, evidence } = setup("ocr-evidence-cancel-before-commit");
+    await initial(persistence);
+    const controller = new AbortController();
+    const originalLoad = persistence.loadLatest.bind(persistence);
+    persistence.loadLatest = async projectId => {
+      const latest = await originalLoad(projectId);
+      controller.abort();
+      return latest;
+    };
+    await expect(evidence.save("project_1", document, await candidate(), controller.signal))
+      .rejects.toMatchObject({ code: "CANCELLED" });
+    persistence.loadLatest = originalLoad;
+    expect((await persistence.loadLatest("project_1"))!.sequence).toBe(1);
+    expect((await persistence.listArtifactRecords("project_1")).filter(record => record.kind === "ocr_evidence")).toEqual([]);
+    state.close();
+  });
 });

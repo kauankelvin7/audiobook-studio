@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { lazy, StrictMode, Suspense, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserLocalPersistence, type BrowserLocalPersistence } from "./adapters/browser_local_persistence";
 import type { CheckpointDraft } from "./adapters/local_project_persistence";
@@ -14,6 +14,8 @@ import { documentIrV2Schema, type DocumentIrV2 } from "./schemas/ingestion";
 import { decodePipelineResponse } from "./workers/protocol";
 import "./styles/tokens.css";
 
+const OcrReviewPanel = lazy(async () => ({ default: (await import("./OcrReviewPanel")).OcrReviewPanel }));
+
 function App() {
   const workerRef = useRef<Worker | null>(null);
   const persistenceRef = useRef<BrowserLocalPersistence | null>(null);
@@ -26,6 +28,9 @@ function App() {
   const savedWavUrlRef = useRef<string | null>(null);
   const [document, setDocument] = useState<DocumentIr | null>(null);
   const [documentV2, setDocumentV2] = useState<DocumentIrV2 | null>(null);
+  const [ocrSourceReady, setOcrSourceReady] = useState(false);
+  const [ocrEpoch, setOcrEpoch] = useState(0);
+  const [ocrCommitBusy, setOcrCommitBusy] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [endPage, setEndPage] = useState(1);
   const [preview, setPreview] = useState<ReadingSession | null>(null);
@@ -177,6 +182,7 @@ function App() {
           const v2 = documentIrV2Schema.safeParse(JSON.parse(await v2Blob.text()));
           if (v2.success && v2.data.documentId === parsed.data.documentId && v2.data.sourceHash === parsed.data.sourceHash && !cancelled && importGenerationRef.current === 0) {
             setDocumentV2(v2.data);
+            setOcrSourceReady(true);
             setCurrentAudioKey(latest?.checkpoint?.artifactKeys.find(key => /^literal_wav_[0-9a-f]{32}$/.test(key)) ?? null);
             try {
               const history = await listLiteralAudios(localPersistence!.service, v2.data);
@@ -235,6 +241,9 @@ function App() {
     setPreview(null);
     setReviewed(false);
     setDocumentV2(null);
+    setOcrSourceReady(false);
+    setOcrCommitBusy(false);
+    setOcrEpoch(value => value + 1);
     setPageNumber(1);
     setEndPage(1);
     workerRef.current?.terminate();
@@ -340,6 +349,7 @@ function App() {
           try {
             await persistence.persistNext(checkpoint, writes);
             if (generation === importGenerationRef.current) {
+              setOcrSourceReady(true);
               setCurrentAudioKey(null);
               setStatus(`${baseStatus} Progresso salvo neste dispositivo.`);
               try {
@@ -457,7 +467,7 @@ function App() {
       <h2 id="import-title">Importar PDF</h2>
       <p>Selecione um PDF de até 32 MB com texto selecionável. Após conferir o trecho, você pode gerar um WAV local.</p>
       <label htmlFor="pdf-input">Arquivo PDF</label>
-      <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy || audioMaintenanceBusy} />
+      <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy || audioMaintenanceBusy || ocrCommitBusy} />
       {fileName && <p className="file-name">Arquivo: {fileName}</p>}
       <p role="status" aria-live="polite">{status}</p>
     </section>
@@ -491,6 +501,11 @@ function App() {
         <a href={savedWav.url} download={`audiobook-studio-paginas-${savedWav.startPage}-${savedWav.endPage}.wav`}>Baixar WAV selecionado</a>
       </div>}
     </section>}
+    {documentV2 && <Suspense fallback={<p role="status">Carregando comparação OCR…</p>}>
+      <OcrReviewPanel key={`${documentV2.documentId}:${ocrEpoch}`} document={documentV2}
+        persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
+        onCommitChange={setOcrCommitBusy} />
+    </Suspense>}
     {document && <section className="panel" aria-labelledby="reading-title">
       <h2 id="reading-title">Ouvir o texto do PDF</h2>
       <p>Selecione até dez páginas consecutivas. O texto é lido sem reescrita ou correção automática.</p>

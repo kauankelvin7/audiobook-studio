@@ -15,7 +15,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-input, select, button { font: inherit; }
+input, select, button, textarea { font: inherit; }
 :focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
 .shell { max-width: 62rem; margin: 0 auto; padding: clamp(1.5rem, 5vw, 4rem) var(--space-2) 5rem; }
 .intro { max-width: 45rem; margin-bottom: var(--space-4); }
@@ -32,6 +32,7 @@ input[type="file"] { display: block; max-width: 100%; }
 input[type="file"]::file-selector-button { background: var(--color-accent); color: #fff; border: 0; border-radius: 7px; padding: .8rem 1.1rem; margin-right: var(--space-2); cursor: pointer; }
 input[type="file"]:disabled { opacity: .6; }
 select { display: block; max-width: 100%; padding: .6rem; margin-bottom: var(--space-2); border: 1px solid var(--color-border); border-radius: 6px; background: #fff; color: var(--color-ink); }
+textarea { display: block; width: 100%; min-height: 6rem; margin-bottom: var(--space-2); padding: .6rem; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-ink); }
 button { padding: .65rem 1rem; border: 1px solid var(--color-accent); border-radius: 7px; background: var(--color-accent); color: #fff; cursor: pointer; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 .reading-review { margin-top: var(--space-3); border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
@@ -50,3 +51,16 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .blocks p { margin: .65rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .notice { border-left: 3px solid #a66a1f; padding-left: var(--space-2); color: #684518; }
 .footnote { font-size: .9rem; }
+.ocr-review { border-top: 1px solid var(--color-border); margin-top: var(--space-3); padding-top: var(--space-3); }
+.ocr-crop { display: block; max-width: 100%; max-height: 22rem; margin: var(--space-2) 0; border: 1px solid var(--color-border); }
+.ocr-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: var(--space-2); }
+.ocr-columns section { min-width: 0; }
+.ocr-columns pre { white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: plaintext; direction: ltr; max-height: 20rem; overflow: auto; padding: var(--space-2); border: 1px solid var(--color-border); }
+.ocr-table-wrap { overflow-x: auto; max-height: 20rem; overflow-y: auto; margin: var(--space-2) 0; }
+.ocr-table-wrap table { border-collapse: collapse; width: 100%; }
+.ocr-table-wrap th, .ocr-table-wrap td { text-align: left; padding: .45rem .65rem; border-bottom: 1px solid var(--color-border); }
+.ocr-review fieldset { border: 1px solid var(--color-border); border-radius: 7px; padding: var(--space-2); }
+.ocr-review legend { font-weight: 700; }
+.ocr-history { margin-top: var(--space-3); border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
+.ocr-history ul { list-style: none; padding: 0; }
+.ocr-history li { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; padding: var(--space-1) 0; border-bottom: 1px solid var(--color-border); }

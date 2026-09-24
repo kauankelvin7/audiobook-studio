@@ -22,6 +22,8 @@ Limites atuais: PDF 32 MB e 500 páginas; captura OCR limitada por tamanho do PD
 
 ## Revisão humana e auditoria
 
-UI futura lista página/região, original, OCR/reconstrução, confiança medida e ações `ver original`, `editar`, `ignorar`, `aceitar`. Região pequena não bloqueia o livro quando política permite `COMPLETED_WITH_WARNINGS`; decisões humanas entram no audit log e invalidam só descendentes.
+M4.5L oferece comparação local para uma região existente com bbox e texto nativo: seleciona página/região, lê o PDF salvo, gera candidato, mostra recorte, texto nativo/OCR, diferenças do Rust e registra uma escolha `unverified` em histórico. O limite da captura é PDF de 8 MB. Página sem região nativa, atestação, aplicação da correção e ações sobre o texto do documento continuam pendentes. Região pequena não bloqueia o livro quando política futura permitir `COMPLETED_WITH_WARNINGS`; uma decisão local ainda não altera QA ou descendentes.
+
+A interface escapa caracteres invisíveis de controle apenas na exibição e mantém os bytes originais para hashes. O cancelamento interrompe captura/OCR e aborta a validação de evidência até o início de `persistNext`. Durante o commit OPFS/IndexedDB, a interface desabilita cancelamento e nova importação; uma recarga do navegador nesse intervalo pode concluir a gravação histórica no projeto anterior. O checkpoint com CAS preserva consistência da fonte.
 
 Relatórios planejados: `ocr-report.json`, `visual-analysis.json` e `document-quality.json`, versionados e derivados de manifests. Contagens não provam qualidade. Nesta fase existem schemas, não geração/persistência dos relatórios.

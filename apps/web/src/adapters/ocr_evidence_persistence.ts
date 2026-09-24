@@ -20,7 +20,7 @@ const envelopeSchema = z.object({
   candidate: ocrCandidateSchema, receipt: ocrCandidateReceiptSchema,
 }).strict();
 
-export type OcrEvidenceErrorCode = "NO_PROJECT" | "SOURCE_CHANGED" | "INVALID_EVIDENCE" | "WRONG_ARTIFACT" | "CHECKPOINT_CHANGED";
+export type OcrEvidenceErrorCode = "NO_PROJECT" | "SOURCE_CHANGED" | "INVALID_EVIDENCE" | "WRONG_ARTIFACT" | "CHECKPOINT_CHANGED" | "CANCELLED";
 
 export class OcrEvidenceError extends Error {
   constructor(public readonly code: OcrEvidenceErrorCode, message: string, options?: ErrorOptions) {
@@ -145,10 +145,17 @@ async function validateEvidence(document: DocumentIrV2, input: LocalOcrCandidate
 export class OcrEvidencePersistence {
   constructor(private readonly persistence: LocalProjectPersistence) {}
 
-  async save(projectIdInput: string, document: DocumentIrV2, input: LocalOcrCandidateResult): Promise<SavedOcrEvidence> {
+  async save(projectIdInput: string, document: DocumentIrV2, input: LocalOcrCandidateResult,
+    signal?: AbortSignal): Promise<SavedOcrEvidence> {
+    const requireActive = () => {
+      if (signal?.aborted) throw new OcrEvidenceError("CANCELLED", "A gravação OCR foi cancelada antes do commit.");
+    };
+    requireActive();
     const projectId = storageIdSchema.parse(projectIdInput);
     const envelope = await validateEvidence(document, input);
+    requireActive();
     const latest = await this.persistence.loadLatest(projectId);
+    requireActive();
     if (!latest) throw new OcrEvidenceError("NO_PROJECT", "O projeto não tem checkpoint local.");
     if (latest.sourceHash !== envelope.candidate.sourceHash) {
       throw new OcrEvidenceError("SOURCE_CHANGED", "A fonte ativa mudou antes de salvar o OCR.");
@@ -160,6 +167,7 @@ export class OcrEvidencePersistence {
     ]);
     if (existingImage && existingRecord) {
       const saved = await this.readHistorical(projectId, document, existingImage, existingRecord);
+      requireActive();
       if ((await this.persistence.loadLatest(projectId))?.checksum !== latest.checksum) {
         throw new OcrEvidenceError("CHECKPOINT_CHANGED", "O projeto mudou durante a retomada do OCR.");
       }
@@ -169,6 +177,7 @@ export class OcrEvidencePersistence {
       throw new OcrEvidenceError("INVALID_EVIDENCE", "A evidência OCR existente está incompleta.");
     }
     const createdAtMs = Date.now();
+    requireActive();
     const stored = await this.persistence.persistNext({
       schemaVersion: 1, projectId, createdAtMs, pipelineVersion: latest.pipelineVersion,
       sourceHash: latest.sourceHash, job: latest.job,

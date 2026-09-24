@@ -72,11 +72,14 @@ describe("historical OCR review persistence", () => {
     expect((await services.persistence.loadLatest("project_1"))!.sequence).toBe(sequence);
     expect((await services.review.readHistorical("project_1", document, saved.artifact,
       evidence.imageArtifact, evidence.recordArtifact)).receipt).toEqual(saved.receipt);
+    expect((await services.review.openHistorical("project_1", document, saved.artifact)).receipt).toEqual(saved.receipt);
     const latest = (await services.persistence.loadLatest("project_1"))!;
     await services.persistence.persistNext({ schemaVersion: 1, projectId: "project_1", createdAtMs: latest.createdAtMs + 1,
       pipelineVersion: latest.pipelineVersion, sourceHash: hash("other"), job: latest.job, artifactKeys: [] }, [], latest.checksum);
     await expect(services.review.readHistorical("project_1", document, saved.artifact,
       evidence.imageArtifact, evidence.recordArtifact)).resolves.toMatchObject({ currentness: "not_established" });
+    await expect(services.review.openHistorical("project_1", document, saved.artifact))
+      .resolves.toMatchObject({ currentness: "not_established" });
     await expect(services.review.save("project_1", document, evidence.imageArtifact, evidence.recordArtifact, submission))
       .rejects.toMatchObject({ code: "SOURCE_CHANGED" });
     services.state.close();

@@ -44,6 +44,34 @@ export class OcrReviewPersistence {
     this.evidence = new OcrEvidencePersistence(persistence);
   }
 
+  async openHistorical(projectIdInput: string, document: DocumentIrV2,
+    artifactInput: ArtifactManifestRecord): Promise<SavedOcrReview> {
+    const projectId = storageIdSchema.parse(projectIdInput);
+    const artifact = artifactManifestRecordSchema.parse(artifactInput);
+    if (artifact.projectId !== projectId || artifact.kind !== "ocr_review_submission"
+      || artifact.mediaType !== "application/json" || artifact.sizeBytes > 8_000_000) {
+      throw new OcrReviewPersistenceError("WRONG_ARTIFACT", "O manifest não é uma revisão OCR deste projeto.");
+    }
+    const latest = await this.persistence.loadLatest(projectId);
+    if (!latest) throw new OcrReviewPersistenceError("NO_PROJECT", "O projeto não tem checkpoint local.");
+    const blob = await this.persistence.readArtifact(artifact);
+    let envelope: z.infer<typeof envelopeSchema>;
+    try { envelope = envelopeSchema.parse(JSON.parse(await blob.text())); }
+    catch (error) { throw new OcrReviewPersistenceError("INVALID_REVIEW", "O registro de revisão OCR está inválido.", { cause: error }); }
+    const [image, record] = await Promise.all([
+      this.persistence.loadArtifactRecord(projectId, envelope.evidenceImageKey),
+      this.persistence.loadArtifactRecord(projectId, envelope.evidenceRecordKey),
+    ]);
+    if (!image || !record) {
+      throw new OcrReviewPersistenceError("WRONG_ARTIFACT", "A evidência vinculada à revisão OCR está ausente.");
+    }
+    const saved = await this.readHistorical(projectId, document, artifact, image, record);
+    if ((await this.persistence.loadLatest(projectId))?.checksum !== latest.checksum) {
+      throw new OcrReviewPersistenceError("CHECKPOINT_CHANGED", "O projeto mudou durante a abertura da revisão OCR.");
+    }
+    return saved;
+  }
+
   async save(projectIdInput: string, document: DocumentIrV2, imageArtifact: ArtifactManifestRecord,
     recordArtifact: ArtifactManifestRecord, submissionInput: unknown): Promise<SavedOcrReview> {
     const projectId = storageIdSchema.parse(projectIdInput);

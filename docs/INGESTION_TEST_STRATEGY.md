@@ -16,6 +16,10 @@ Rust/WASM agora compara tokens técnicos do texto nativo e do candidato OCR com 
 
 M4.5K persiste a submissão OCR sobre evidência histórica verificada. Regressões com IndexedDB/OPFS em memória e WASM real cobrem round-trip, retry sem novo checkpoint, fonte alterada, manifest/bytes inválidos, checkpoint órfão e corridas de gravação/retry. Smoke Chromium confere persistência real e recarga, mantendo `unverified` e `not_established`. Ver ADR 0023.
 
+M4.5L liga esse fluxo à interface. O smoke Chromium importa `text_and_blank.pdf`, seleciona uma região existente, executa OCR local, salva decisão `unverified`, recarrega e abre a revisão histórica. O observador de rede cobre o BrowserContext, inclusive Worker. A execução não mede fidelidade de páginas digitalizadas ou do corpus privado; a UI não altera o DocumentIR nem habilita leitura de OCR.
+
+Regressões adicionais conferem que um abort antes do commit não publica evidência/checkpoint e que controles bidirecionais ou invisíveis aparecem como marcadores `U+` na comparação, preservando o texto original. O smoke não simula fechamento do navegador durante a transação OPFS/IndexedDB; recuperação de órfãos continua na camada de persistência.
+
 M4.5J adiciona teste Rust e paridade WASM real para submissão de revisão OCR. O teste confere vínculo ao recibo, hash determinístico, rejeição de recibo forjado, justificativa vazia e disposição incompatível com texto proposto. O resultado permanece `unverified` e o DocumentIR de entrada fica inalterado. Ver ADR 0022.
 
 - `text_and_blank.pdf`: fixture sintética real, texto nativo + página sem texto; testada em Vitest e Chrome local.

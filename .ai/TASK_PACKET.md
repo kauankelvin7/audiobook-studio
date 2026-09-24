@@ -1,5 +1,12 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5L interface local de revisão OCR (2026-09-24)
+- Base: `4aeae68` publicado; CI `quality` 35973083543 verde. Evidência OCR e submissão `unverified` já persistem, mas usuário não consegue operar o fluxo na interface. Skill `humanizer` lida para textos de UI.
+- Objetivo: selecionar região existente com bbox e texto nativo, gerar OCR a partir do PDF salvo, mostrar recorte/nativo/OCR/diferenças, salvar decisão explícita e reabrir revisão histórica verificada.
+- Restrições: PDF até 8 MB no adapter de crop; página sem região nativa continua fora deste fluxo. Histórico `not_established`; texto OCR/proposto nunca substitui DocumentIR nem libera TTS. Sem backend, CDN em runtime ou HTML de documento.
+- Riscos: importação/cancelamento durante OCR, resposta obsoleta, PDF não salvo, história adulterada, chave de revisão trocada, status enganoso, teclado/leitor de tela. Plano: componente isolado, geração abortável com geração monotônica, uso dos adapters e manifests existentes, validação do histórico na abertura, rótulos/alertas acessíveis, testes de fronteira e smoke real.
+- Verificação: Rust fmt/test/clippy, Web typecheck/test/build, smoke Chromium de fluxo, diff check e QA independente. Risco HIGH; Lead writer único, Explorer/frontend read-only e QA read-only.
+
 ## PRE-FLIGHT — M4.5K persistência de revisão OCR (2026-09-24)
 - Base: `codex/m4-content-model` limpa e alinhada em `365aeb3`; CI `quality` 35972245202 verde. M4.5J emite recibo `unverified` com hash, ainda volátil; evidência PNG/candidato/recibo já persiste em OPFS/IndexedDB.
 - Objetivo: salvar e reler submissão/recibo de revisão OCR como artefato histórico fixado, ligado aos dois manifests de evidência verificada e ao checkpoint da fonte. Retry do mesmo hash deve ser idempotente.

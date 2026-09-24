@@ -1,5 +1,10 @@
 # HANDOFF — retorno ao Codex Work
 
+## M4.5L — interface local de revisão OCR (2026-09-24)
+- O app permite escolher uma região com texto nativo e bbox, gerar OCR local a partir do PDF salvo (até 8 MB), comparar recorte/nativo/candidato/tokens, registrar decisão `unverified` e reabrir o histórico validado após recarga. Texto original permanece intacto e OCR não habilita leitura/TTS.
+- Cancelamento vale até o commit da evidência; durante a publicação OPFS/IndexedDB, a UI bloqueia cancelamento/importação. Caracteres de controle invisíveis são marcados na tela sem mudar bytes/hashes. O fluxo OCR é carregado sob demanda para preservar o bundle inicial.
+- Gates locais: Rust fmt/45 testes/Clippy, Web 148 testes/typecheck/build, smoke Chromium de UI com 0 requisições externas. QA e segurança aprovaram sem P0–P2. Próximos marcos: goldens reais revisados, política de atestação/reconciliação e suporte a páginas sem região nativa; publicação/CI deste commit no WORKLOG.
+
 ## M4.5K — revisão OCR histórica persistente (2026-09-24)
 - `OcrReviewPersistence` salva uma submissão/recibo `unverified` em artefato OPFS fixado e checkpoint IndexedDB com CAS. Exige evidência PNG/candidato/recibo verificada, fonte ativa na gravação e trio de chaves em um checkpoint histórico na leitura. Retry é idempotente; resultado histórico segue `not_established`.
 - Testes de storage falso com WASM real cobrem round-trip, fonte trocada, manifesto/bytes inválidos, órfão e corridas; smoke Chromium validou gravação, retry e recuperação após reload sem rede externa. Rust fmt/45 testes/Clippy; Web 146 testes/typecheck/build. Revisão independente final sem P0–P2. ADR 0023 registra decisão.

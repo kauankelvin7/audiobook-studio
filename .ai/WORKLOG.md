@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-24 — M4.5L interface de revisão OCR
+- CI do commit anterior `4aeae68` (run 35973083543) passou antes da edição. PRE-FLIGHT em TASK_PACKET. Interface isolada seleciona região existente, lê PDF original do OPFS e confere identidade, executa Tesseract local, persiste evidência, mostra recorte/texto nativo/OCR e diferenças Rust, salva submissão `unverified` e reabre histórico validado. PDF >8 MB ou sem região elegível é informado e não inicia captura.
+- Revisões independentes encontraram P2 em cancelamento durante save e controles Unicode invisíveis capazes de confundir comparação visual. O adapter passou a aceitar abort e conferir sinal antes do commit; UI bloqueia cancelamento e nova importação no trecho de publicação. Regressão prova ausência de checkpoint/artefatos após abort pré-commit. Texto de tela representa controles Cf/Cc como `U+`, com teste adversarial; bytes de fonte/hash não mudam. QA e segurança finais sem P0–P2.
+- Build dividiu painel/engine OCR em chunks sob demanda; bundle inicial ficou em 263,57 kB JS. Gates: Rust fmt/45 testes/Clippy; Web typecheck/148 testes (2 opt-in ignorados)/build; `git diff --check`. Smoke Chromium importou fixture pública, gerou OCR, salvou revisão, recarregou e abriu histórico, sem requisições externas observadas. Sem PDF/golden privado, OCR de página sem região, atestação ou promoção de texto. Avisos Piper `fs`/`path`/`crypto` preexistentes no build.
+- Publicação e CI deste commit a confirmar.
+
 ## 2026-09-24 — M4.5K persistência histórica de revisão OCR
 - Base `365aeb3` limpa e alinhada ao remoto; CI `quality` 35972245202 passou. PRE-FLIGHT antes do código. Novo artefato `ocr_review_submission` fixado em OPFS/IndexedDB guarda submissão, recibo `unverified` e chaves dos dois manifests OCR; gravação relê PNG/evidência e recibo Rust, exige fonte ativa e usa CAS do checkpoint. Leitura histórica exige trio em um mesmo checkpoint, revalida bytes/evidência/recibo e retorna `not_established`.
 - QA apontou duas lacunas P2 de testes (órfão e corrida no retry); regressões adicionadas e passaram. Revisão final sem P0–P2. Smoke Chromium com armazenamento e Web Locks reais passou: gravação/retry, reload e leitura da revisão, 0 requisições externas; medição sintética de código continua 7/8 tokens com `SAMPLE01` ausente.
