@@ -1,5 +1,25 @@
 # TASK PACKET — Audiobook Studio
 
+## Batch atual — Product UX foundations e shell (2026-09-24)
+- ACTION: registrar baseline funcional, preservar áudio literal/narrativo e melhorar tokens, navegação responsiva, estados vazios e mensagens ao usuário.
+- Telas: projeto, documento, revisão, narrativa, áudio e exportação na tela React existente.
+- Arquivos: `apps/web/src/main.tsx`, `NarrativePanel.tsx`, `OcrReviewPanel.tsx`, `styles/`, adapter de mensagens, smokes e documentação curta.
+- Reuso: importação, persistência, TTS, capítulos, player, exportação e seleção por IDs já existentes.
+- Risco: regressão de UI/E2E e texto técnico exposto. PRE-FLIGHT: AGENTS, handoff, rota PWA/UI do índice, status Git, arquivos React/CSS e scripts de smoke conferidos. Mudanças locais narrativas preservadas.
+- Verificação: typecheck, testes Web, build, smokes literal/narrativo/OCR e visual 1440/390/320 px. Próximo batch: projeto/documento e revisão.
+
+## Batch atual — fidelidade visual Studio & Paper (2026-09-24)
+- ACTION: aplicar a referência visual aprovada à shell e à tela Revisão, sem alterar o pipeline de domínio, OCR, narrativa, TTS, persistência ou exportação.
+- Arquivos: shell, visor de documento, inspector OCR, componentes de ícone, CSS e captura Playwright. A navegação mantém Projeto, Documento, Revisão, Narrativa, Áudio e Exportar, com dados reais em cada área.
+- PRE-FLIGHT: `AGENTS.md`, `docs/CONTEXT_INDEX.md`, `docs/DESIGN_SYSTEM.md`, handoff visual, componentes React, schemas e smokes existentes. Fonte de captura: PDF público GnuCOBOL com 29 páginas; fixture curta continua destinada a regressão.
+- Verificação: typecheck, 160 testes Web, build, smoke OCR, smoke literal+narrativo completo e capturas sem overflow em 1440×960 e 390×844.
+
+## Release vertical — roteiro aprovado até WAV narrativo (2026-09-24)
+- Base: `460840b`; preservar o smoke literal de duas páginas. Objetivo do usuário: o mesmo PDF gerar modo literal e narrativo, com aprovação local de texto, ContentModel/Outline/Plan/Script/QA/SpeechUnits e TTS, capítulos, player, export e reload existentes.
+- PRE-FLIGHT: contratos Rust de DocumentIR v2, OCR receipt, ContentModel, Outline, NarrativePlan, Script, review packet e QA; adapters OPFS/checkpoint, Piper e smoke do WAV completo. Decisão: core Rust promove texto e valida plano/roteiro/review/QA; Web só coleta confirmação, persiste artefatos e entrega SpeechUnits ao TTS existente.
+- Fails closed: OCR só promove `propose_correction` vinculada ao candidato/documento, com confirmação local; fonte nativa só é aprovada quando todas as páginas são `good` e têm regiões de texto nativo sem glifos privados. ContentModel narrativo filtra unidades não elegíveis. Script diferente do literal, revisão `supported` para todas as referências, QA sem finding crítico e aprovação vinculada por hashes são obrigatórios antes do WAV.
+- Riscos: identidade do revisor não autenticada, OCR de múltiplas regiões ainda não composto em um único documento canônico, grounding de claims segue revisão humana, roteiro preliminar usa texto da fonte e exige reescrita humana, limite 512 MB de WAV. Testar duas páginas nos dois modos, OCR de região até WAV, corrupção/staleness, build e regressão literal.
+
 ## Execução de release — exportação integral do PDF (2026-09-24)
 - Base: `597581e`, árvore limpa. Primeiro bloqueio do produto: o WAV atual cobre no máximo dez páginas e 12 mil caracteres; não há arquivo único do PDF inteiro.
 - Entrega: reutilizar validação de leitura Rust, Piper local, chunks WAV e checkpoint OPFS/IndexedDB para gerar capítulos por página, montar um WAV final, tocar, baixar e reabrir após reload. Páginas sem texto confiável falham antes da síntese. Esta é uma leitura literal completa; a narração narrativa continua bloqueada pelo pipeline ainda não ligado.

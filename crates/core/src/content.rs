@@ -126,6 +126,22 @@ pub struct SemanticOutline {
 }
 
 impl ContentModel {
+    pub fn from_permitted_document(document: &DocumentIrV2) -> Result<Self, ContentError> {
+        let mut model = Self::from_document(document)?;
+        model.source_units.retain(|unit| {
+            unit.narration_eligibility == NarrationEligibility::Eligible
+                && unit
+                    .analysis_text
+                    .as_ref()
+                    .is_some_and(|text| !text.trim().is_empty())
+        });
+        if model.source_units.is_empty() {
+            return Err(ContentError::EmptyContentModel);
+        }
+        model.validate()?;
+        Ok(model)
+    }
+
     pub fn from_document(document: &DocumentIrV2) -> Result<Self, ContentError> {
         let source_units = document
             .pages

@@ -51,9 +51,33 @@ try {
   await page.getByText("Revisão histórica aberta. Atualidade e identidade do revisor não foram verificadas.").waitFor({ timeout: 30_000 });
   assert.equal(await page.locator("#ocr-rationale").inputValue(), "Conferência visual pendente.");
   assert.equal(await page.getByText(/Estado: revisão necessária/).count(), 1);
+  await page.getByRole("radio", { name: "Propor texto corrigido" }).check();
+  await page.locator("#ocr-rationale").fill("Texto conferido visualmente no PDF de teste.");
+  await page.locator("#ocr-proposed-text").fill("Capitulo de teste");
+  await page.getByRole("button", { name: "Salvar revisão" }).click();
+  await page.getByText("Revisão salva como não verificada.", { exact: false }).waitFor({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Aprovar texto corrigido para análise" }).click();
+  await page.locator(".notice [role=status]").last().waitFor({ timeout: 30_000 });
+  await page.getByText("Texto aprovado e roteiro preliminar salvo.", { exact: false }).waitFor({ timeout: 30_000 });
+  await page.getByLabel("Texto da narração").fill("O capítulo apresenta o teste do livro em uma frase para ouvir.");
+  await page.getByRole("button", { name: "Conferir roteiro" }).click();
+  await page.getByText("Conferência concluída.", { exact: false }).waitFor({ timeout: 30_000 });
+  await page.locator("#narrative-rationale").fill("Conferi o texto narrado com a página de teste.");
+  await page.getByRole("checkbox", { name: /Conferi o roteiro com o texto aprovado/ }).check();
+  await page.getByRole("button", { name: "Aprovar roteiro para áudio" }).click();
+  await page.getByText(/Ainda há páginas sem texto aprovado/).waitFor({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Gerar audiobook narrativo em WAV" }).click();
+  await page.getByText(/Aprove um roteiro narrativo antes de gerar o WAV/).waitFor({ timeout: 30_000 });
+  await page.reload();
+  await page.getByRole("button", { name: /Abrir revisão OCR salva em/ }).first().click();
+  await page.getByRole("button", { name: "Aprovar texto corrigido para análise" }).click();
+  await page.getByText("Texto aprovado e roteiro preliminar salvo.", { exact: false }).waitFor({ timeout: 30_000 });
   assert.deepEqual(errors, []);
-  assert.deepEqual(foreignRequests, []);
-  console.log("PASS OCR review UI import/capture/compare/save/reload/open status=unverified foreignRequests=0");
+  assert.ok(foreignRequests.every(url => {
+    const host = new URL(url).hostname;
+    return host === "huggingface.co" || host === "us.aws.cdn.hf.co";
+  }), "OCR or narrative pipeline requested an unexpected external origin");
+  console.log(`PASS OCR review UI canonical/plan/script/QA/incomplete-page-block/reload modelRequests=${foreignRequests.length}`);
 } finally {
   await browser?.close();
   server.kill();

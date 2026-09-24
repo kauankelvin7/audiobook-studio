@@ -1,12 +1,16 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const approve_narrative_script_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
+export const approve_native_document_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const build_active_narrative_identity_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
 export const build_content_model_json: (a: number, b: number) => [number, number, number, number];
 export const build_narration_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
+export const build_narrative_draft_json: (a: number, b: number) => [number, number, number, number];
 export const build_ocr_candidate_receipt_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const build_ocr_correction_training_record_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const build_ocr_review_receipt_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const build_permitted_content_model_json: (a: number, b: number) => [number, number, number, number];
 export const build_reading_preview_json: (a: number, b: number, c: number) => [number, number, number, number];
 export const build_reading_session_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const build_script_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
@@ -16,8 +20,10 @@ export const compare_ocr_candidate_json: (a: number, b: number, c: number, d: nu
 export const compile_ocr_correction_model_json: (a: number, b: number) => [number, number, number, number];
 export const core_version: () => [number, number];
 export const document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
+export const document_v2_hash_json: (a: number, b: number) => [number, number, number, number];
 export const evaluate_review_against_active_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number, number, number];
 export const migrate_document_v1_to_v2_json: (a: number, b: number) => [number, number, number, number];
+export const promote_approved_ocr_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
 export const suggest_ocr_corrections_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const suggest_ocr_corrections_with_model_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const validate_active_narrative_activation_json: (a: number, b: number) => [number, number];

@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-09-24 — Product UX foundations e shell
+- Preservadas as alterações funcionais pré-existentes. Auditoria curta e baseline em `docs/PRODUCT_UX_BASELINE.md`.
+- Tokens, shell responsivo, navegação por etapas e estados vazios em `main.tsx`/`styles/`; mensagens de falha traduzidas nas telas de OCR, roteiro e áudio.
+- Typecheck e revisão visual inicial: 1440, 390 e 320 px, sem overflow. Gates funcionais completos registrados após a execução.
+
+## 2026-09-24 — Narrativa aprovada até WAV no produto
+- Rust/WASM promove correção OCR revisada em DocumentIR derivado com hash da fonte, revisão, texto, revision e confirmação local. Também permite aprovação explícita de texto nativo em todas as páginas `good` de prosa; páginas vazias/corrompidas e regiões estruturadas falham fechadas. ContentModel narrativo contém só unidades `eligible`; Outline, Plan, Script inicial, QA e SpeechUnits são produzidos/validados no core. O usuário reescreve a fala, executa QA e confirma referências; o core recusa roteiro literal, source ref inventada, revisão sem suporte, hash obsoleto e finding crítico.
+- A síntese narrativa chama o mesmo `renderLocalWav`/Piper e usa o mesmo player, navegação e download. Chunks e WAV final são persistidos nos checkpoints existentes com vínculo ao hash do documento canônico, script e submissão; reload recalcula o recibo Rust e valida WAV/chunks. Modo literal anterior permanece disponível.
+- Smoke Chrome: o mesmo PDF sintético de duas páginas exportou WAV literal e narrativo diferentes, cada um com dois capítulos; reprodução, download, manifesto, roteiro/QA e reload narrativo passaram. Smoke OCR de região percorreu captura→revisão→aprovação→Script/QA→TTS/WAV→reload. O primeiro uso do Piper fez quatro requisições aos endpoints conhecidos do modelo; OCR não fez outras requisições externas.
+- Gates: Rust fmt e 49 testes de workspace passaram; Web typecheck, 157 testes (2 ignorados) e build passaram; build mantém avisos preexistentes de externalização `crypto/path/fs` do Piper. A fixture sintética prova integração, não qualidade narrativa em PDF real. QA retorna `review` por `CLAIM_GROUNDING_NOT_EVALUATED`; a revisão humana explícita é exigida. Aprovação local não autentica a identidade do operador. OCR de múltiplas correções no mesmo documento ainda precisa de composição canônica.
+
 ## 2026-09-24 — Exportação integral executada
 - O produto agora valida todas as páginas pelo core Rust antes de sintetizar, salva cada WAV de página com o checkpoint atual, reutiliza chunks válidos, monta um WAV PCM único e publica `final_audio` com manifesto de capítulos. UI toca, busca capítulo anterior/próximo, baixa WAV e manifesto, e reabre após reload.
 - Smoke Chrome: PDF de duas páginas, Piper local, WAV baixado com cerca de 4,6 s; reprodução, hash do manifesto, capítulos em ordem e recuperação após reload passaram. Cópia do download em `C:\Users\Kauan\Documents\Codex\2026-09-24\pros\outputs`. Rust fmt/47 testes; Web typecheck/157 testes/build; smoke passou. QA detectou risco de reabrir áudio após mudança do DocumentIR; o manifesto agora vincula o hash do documento ativo e rejeita versões desatualizadas. PDFs com página sem texto confiável continuam bloqueados antes da síntese; o fluxo narrativo e reconciliação OCR seguem pendentes.
@@ -394,3 +405,9 @@
 - Script opt-in com hash fixo usa PDF.js em Chromium e Tesseract português local. Página 2: 4/4 frases/tokens de prosa presentes. Página 4: 6/7 alvos de código presentes; `STOP RUN RETURNING 0.` visual virou `STOP RUN RETURNING O.` no OCR. Zero requisições externas observadas. Saída detalhada local em `work/public-eval/measurement.json`, fora do Git.
 - Medição explora só alvos selecionados de manual inglês com modelo OCR português. Não é CER/WER, golden do usuário, aprovação de texto, QA `pass` ou autorização de TTS. Contrato de revisão continua `unverified`.
 - Gates: script Chromium passou após correção do PDF.js worker; Rust fmt e 46 testes workspace passaram com toolchain GNU instalada; Web typecheck e build passaram. Tentativas iniciais no sandbox falharam por `rustup` sem acesso a temporário e Vite `spawn EPERM`; repetição com acesso adequado passou. Build mantém avisos Piper existentes de `path`, `crypto`, `fs`. QA independente encontrou P2: a avaliação retornava sucesso mesmo com regressão total. Adicionadas asserções do baseline e divergência específica, com JSON diagnóstico emitido antes da falha; Chromium repetido e passou.
+# 2026-09-24 — fidelidade visual da shell e revisão
+
+- Reconstruída a shell Studio & Paper: sidebar escura de 220 px, topbar de 64 px, ícones SVG locais, navegação responsiva e detalhes de diagnóstico acessíveis.
+- Reconstruídos page navigator, paper viewer, toolbar, inspector OCR com abas e dock Narrativa/Áudio/Exportar. O tipo interno `unknown` é apresentado como "Texto não classificado".
+- O visor usa PDF público GnuCOBOL de 29 páginas para captura visual; não foram inventados capítulos, qualidade de OCR ou estados de aprovação.
+- Validações: typecheck, 160 testes Web, build, smoke OCR e E2E literal+narrativo com capítulos/reload. Capturas 1440×960 e 390×844 passaram sem overflow horizontal.

@@ -1,6 +1,6 @@
 # Audiobook Studio
 
-Projeto local-first para transformar documentos em áudio. A interface importa PDFs, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa vozes locais do navegador. O produto também gera um WAV literal completo com a voz Faber pt-BR: valida todas as páginas, salva trechos por página, reúne o áudio, oferece navegação por capítulos, download e reabertura após reload. Páginas que exigem OCR ou revisão bloqueiam esta exportação. O roteiro narrativo ainda não está ligado ao TTS final.
+Projeto local-first para transformar documentos em áudio. A interface importa PDFs, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa vozes locais do navegador. O produto gera WAV literal completo ou WAV narrativo com a voz Faber pt-BR, capítulos, player, download e reabertura após reload. O modo narrativo exige aprovação local do texto nativo ou de correção OCR, roteiro reescrito e revisado pelo operador, QA sem finding crítico e SpeechUnits validados em Rust. Páginas vazias/corrompidas bloqueiam a aprovação nativa; o rascunho narrativo inicial ainda usa texto literal e precisa de edição humana.
 
 ## Estrutura
 
@@ -46,3 +46,5 @@ npm run test:browser:audio
 $env:AUDIO_BROWSER_CHANNEL='msedge'; npm run test:browser:audio
 npm run test:browser:complete-audio
 ```
+
+`test:browser:complete-audio` importa a mesma fixture de duas páginas, exporta os modos literal e narrativo, compara os WAVs, verifica capítulos, roteiro/QA, download e reload. A primeira geração Piper baixa o modelo de voz. O QA marca `review` enquanto claim grounding depende de conferência humana; a confirmação local não autentica identidade.

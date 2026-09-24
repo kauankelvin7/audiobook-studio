@@ -1,19 +1,21 @@
 use std::collections::{BTreeMap, HashSet};
 
 use audiobook_core::{
-    build_active_narrative_identity, build_narration_qa, build_ocr_candidate_receipt,
+    approve_narrative_script, approve_native_document, build_active_narrative_identity,
+    build_narration_qa, build_narrative_draft, build_ocr_candidate_receipt,
     build_ocr_correction_training_record, build_ocr_review_receipt, build_script_review_packet,
     build_validated_narration_qa, compare_heading_to_body, compare_ocr_candidate,
     evaluate_review_against_active, find_repeated_formulaic_openers, normalize_narrative_text,
-    reduce_narrative_memory, suggest_ocr_corrections, validate_script_review_submission,
-    ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2, ExtractionQuality, GenerationJob,
-    HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility, NarrativeHeading,
-    NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript, NarrativeSection,
-    OcrCandidate, OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus, OcrLearningError,
-    OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission, QaStatus, ReviewAttestationStatus,
-    ReviewBindingReference, ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
-    ScriptReviewSubmission, SegmentReviewDecision, SemanticOutline, SpokenChapter,
-    SpokenHeadingPolicy, PAGE_OCR_TARGET_ID,
+    promote_approved_ocr, reduce_narrative_memory, suggest_ocr_corrections,
+    validate_script_review_submission, ActiveReviewStatus, CanonicalError, ContentModel,
+    DocumentIr, DocumentIrV2, ExtractionQuality, GenerationJob, HeadingOverlapMethod,
+    HeadingOverlapStatus, LocalNarrativeApproval, LocalNativeApproval, NarrationEligibility,
+    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
+    NarrativeSection, OcrCandidate, OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus,
+    OcrLearningError, OcrLocalApproval, OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission,
+    QaStatus, ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError, ReviewStatus,
+    ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
+    SemanticOutline, SpokenChapter, SpokenHeadingPolicy, PAGE_OCR_TARGET_ID,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -28,6 +30,220 @@ const NARRATIVE_SCRIPT_FIXTURE: &str =
 
 fn document_v2() -> DocumentIrV2 {
     DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
+}
+
+#[test]
+fn native_approval_requires_every_page_to_have_readable_text() {
+    let mut document = document_v2();
+    document.pages[0].extraction_quality = ExtractionQuality::Good;
+    document.pages[0].regions[0].kind = audiobook_core::RegionType::Paragraph;
+    document.pages[0].regions[0].content = audiobook_core::RegionContent::Text {
+        display_text: "PR0CEDURE DIVISI0N".into(),
+    };
+    let approval = LocalNativeApproval {
+        schema_version: 1,
+        document_hash: audiobook_core::sha256_source(document.to_json().unwrap().as_bytes()),
+        revision: 1,
+        attestation: "local_operator_confirmed".into(),
+    };
+    let promoted = approve_native_document(&document, &approval).unwrap();
+    assert_eq!(
+        promoted.document.pages[0].regions[0].uncertainty,
+        audiobook_core::Uncertainty::SourceConfirmed
+    );
+    assert_eq!(
+        ContentModel::from_permitted_document(&promoted.document)
+            .unwrap()
+            .source_units
+            .len(),
+        1
+    );
+    let mut stale = document.clone();
+    stale.pages[0].raw_text.push('X');
+    assert!(approve_native_document(&stale, &approval).is_err());
+    let mut blank = document.clone();
+    blank.pages[0].regions.clear();
+    assert!(approve_native_document(&blank, &approval).is_err());
+}
+
+#[test]
+fn approved_ocr_promotes_only_bound_corrected_text() {
+    let document = document_v2();
+    let region = &document.pages[0].regions[0];
+    let native = region.sources.raw_text.as_ref().unwrap();
+    let candidate = OcrCandidate {
+        schema_version: 1,
+        document_id: document.document_id.clone(),
+        source_hash: document.source_hash.clone(),
+        page_number: 1,
+        region_id: region.id.clone(),
+        native_text_hash: audiobook_core::sha256_source(native.as_bytes()),
+        image_hash: audiobook_core::sha256_source(b"image"),
+        engine_id: "test".into(),
+        engine_version: "1".into(),
+        text: "Texto OCR com erro".into(),
+    };
+    let candidate_receipt = build_ocr_candidate_receipt(&document, &candidate).unwrap();
+    let submission = OcrReviewSubmission {
+        schema_version: 1,
+        receipt_hash: candidate_receipt.receipt_hash.clone(),
+        disposition: OcrReviewDisposition::ProposeCorrection,
+        rationale: "Conferido com a imagem da página".into(),
+        proposed_text: Some("Texto corrigido e conferido".into()),
+    };
+    let review = build_ocr_review_receipt(&document, &candidate, &submission).unwrap();
+    let mut approval = OcrLocalApproval {
+        schema_version: 1,
+        document_hash: candidate_receipt.document_hash,
+        review_hash: review.review_hash,
+        approved_text_hash: audiobook_core::sha256_source(b"Texto corrigido e conferido"),
+        revision: 1,
+        attestation: "local_operator_confirmed".into(),
+    };
+    let result = promote_approved_ocr(&document, &candidate, &submission, &approval).unwrap();
+    let permitted = ContentModel::from_permitted_document(&result.document).unwrap();
+    assert_eq!(permitted.source_units.len(), 1);
+    assert_eq!(
+        permitted.source_units[0].source_refs,
+        vec![region.id.clone()]
+    );
+    assert!(ContentModel::from_permitted_document(&document).is_err());
+    let draft = build_narrative_draft(&result.document).unwrap();
+    assert_eq!(draft.plan.sections.len(), 1);
+    assert!(draft.plan.sections[0].concept_ids.is_empty());
+    assert_eq!(
+        draft.script.sections[0].segments[0].source_refs,
+        vec![region.id.clone()]
+    );
+    assert_eq!(draft.qa.status, QaStatus::Review);
+    let mut script = draft.script.clone();
+    script.sections[0].segments[0].speech_text =
+        "O trecho apresenta um texto corrigido, conferido na fonte.".into();
+    let packet = build_script_review_packet(
+        &script.plan_id,
+        &script,
+        &draft.plan,
+        &draft.content_model,
+        &draft.semantic_outline,
+    )
+    .unwrap();
+    let script_submission = ScriptReviewSubmission {
+        schema_version: 1,
+        plan_id: packet.plan_id.clone(),
+        document_id: packet.document_id.clone(),
+        source_hash: packet.source_hash.clone(),
+        content_hash: packet.content_hash.clone(),
+        plan_hash: packet.plan_hash.clone(),
+        script_hash: packet.script_hash.clone(),
+        decisions: packet
+            .segments
+            .iter()
+            .map(|segment| SegmentReviewDecision {
+                segment_id: segment.segment_id.clone(),
+                verdict: ReviewVerdict::Supported,
+                evidence_source_unit_ids: segment
+                    .sources
+                    .iter()
+                    .map(|source| source.source_unit_id.clone())
+                    .collect(),
+                rationale: "Conferido com o texto canônico".into(),
+            })
+            .collect(),
+    };
+    let receipt = validate_script_review_submission(
+        &script.plan_id,
+        &script,
+        &draft.plan,
+        &draft.content_model,
+        &draft.semantic_outline,
+        &script_submission,
+    )
+    .unwrap();
+    let approved = LocalNarrativeApproval {
+        schema_version: 1,
+        canonical_document_hash: result.canonical_document_hash.clone(),
+        script_hash: packet.script_hash,
+        submission_hash: receipt.submission_hash,
+        revision: 1,
+        attestation: "local_operator_confirmed".into(),
+    };
+    let narrative =
+        approve_narrative_script(&result.document, &script, &script_submission, &approved).unwrap();
+    assert_eq!(narrative.speech_units.len(), 1);
+    assert_eq!(
+        narrative.speech_units[0].source_refs,
+        vec![region.id.clone()]
+    );
+    assert_eq!(narrative.qa.status, QaStatus::Review);
+    assert!(approve_narrative_script(
+        &result.document,
+        &draft.script,
+        &script_submission,
+        &approved
+    )
+    .is_err());
+    let mut stale_approval = approved.clone();
+    stale_approval.script_hash = audiobook_core::sha256_source(b"different script");
+    assert!(approve_narrative_script(
+        &result.document,
+        &script,
+        &script_submission,
+        &stale_approval
+    )
+    .is_err());
+    let mut unsupported = script_submission.clone();
+    unsupported.decisions[0].verdict = ReviewVerdict::Unsupported;
+    assert!(approve_narrative_script(&result.document, &script, &unsupported, &approved).is_err());
+    let mut forged = script.clone();
+    forged.sections[0].segments[0].source_refs = vec!["invented_ref".into()];
+    assert!(
+        approve_narrative_script(&result.document, &forged, &script_submission, &approved).is_err()
+    );
+    assert_eq!(
+        result.document.pages[0].regions[0]
+            .sources
+            .raw_text
+            .as_deref(),
+        Some(native.as_str())
+    );
+    assert_eq!(
+        result.document.pages[0].regions[0]
+            .sources
+            .ocr_text
+            .as_deref(),
+        Some(candidate.text.as_str())
+    );
+    assert_eq!(
+        result.document.pages[0].regions[0].uncertainty,
+        audiobook_core::Uncertainty::OcrConfirmed
+    );
+    assert_eq!(
+        result.document.pages[0].regions[0].quality_status,
+        audiobook_core::QualityStatus::Reconciled
+    );
+    assert_eq!(
+        result.document.pages[0].regions[0].content,
+        audiobook_core::RegionContent::Code {
+            source_text: "Texto corrigido e conferido".into(),
+            detected_language: Some("cobol".into()),
+            suspicious_tokens: Vec::new(),
+        }
+    );
+    assert_eq!(document, document_v2());
+    approval.approved_text_hash = audiobook_core::sha256_source(b"other");
+    assert_eq!(
+        promote_approved_ocr(&document, &candidate, &submission, &approval),
+        Err(CanonicalError::InvalidApproval)
+    );
+    approval.approved_text_hash = audiobook_core::sha256_source(b"Texto corrigido e conferido");
+    approval.revision = 0;
+    assert_eq!(
+        promote_approved_ocr(&document, &candidate, &submission, &approval),
+        Err(CanonicalError::InvalidApproval)
+    );
+    let mut stale = document.clone();
+    stale.pages[0].regions[0].sources.raw_text = Some("changed".into());
+    assert!(promote_approved_ocr(&stale, &candidate, &submission, &approval).is_err());
 }
 
 #[test]

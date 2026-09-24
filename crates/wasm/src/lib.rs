@@ -1,14 +1,16 @@
 use std::collections::BTreeMap;
 
 use audiobook_core::{
-    build_active_narrative_identity, build_ocr_candidate_receipt,
-    build_ocr_correction_training_record, build_ocr_review_receipt, build_reading_preview,
-    build_reading_session, build_script_review_packet, build_validated_narration_qa,
-    compare_ocr_candidate, compile_ocr_correction_model, evaluate_review_against_active,
+    approve_narrative_script, approve_native_document, build_active_narrative_identity,
+    build_narrative_draft, build_ocr_candidate_receipt, build_ocr_correction_training_record,
+    build_ocr_review_receipt, build_reading_preview, build_reading_session,
+    build_script_review_packet, build_validated_narration_qa, compare_ocr_candidate,
+    compile_ocr_correction_model, evaluate_review_against_active, promote_approved_ocr,
     suggest_ocr_corrections, suggest_ocr_corrections_with_model, validate_script_review_submission,
-    ContentModel, DocumentIr, DocumentIrV2, GenerationJob, NarrativePlan, NarrativeScript,
-    OcrCandidate, OcrCorrectionModel, OcrCorrectionTrainingRecord, OcrReviewSubmission,
-    ReviewBindingReference, ScriptReviewSubmission, SemanticOutline,
+    ContentModel, DocumentIr, DocumentIrV2, GenerationJob, LocalNarrativeApproval,
+    LocalNativeApproval, NarrativePlan, NarrativeScript, OcrCandidate, OcrCorrectionModel,
+    OcrCorrectionTrainingRecord, OcrLocalApproval, OcrReviewSubmission, ReviewBindingReference,
+    ScriptReviewSubmission, SemanticOutline,
 };
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
@@ -45,6 +47,14 @@ pub fn validate_document_v2_json(input: &str) -> Result<String, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn document_v2_hash_json(input: &str) -> Result<String, JsValue> {
+    let document = DocumentIrV2::from_json(input).map_err(js_error)?;
+    Ok(audiobook_core::sha256_source(
+        document.to_json().map_err(js_error)?.as_bytes(),
+    ))
+}
+
+#[wasm_bindgen]
 pub fn document_v2_has_source_units_json(input: &str) -> Result<bool, JsValue> {
     let document = DocumentIrV2::from_json(input).map_err(js_error)?;
     Ok(document.pages.iter().any(|page| !page.regions.is_empty()))
@@ -77,6 +87,82 @@ pub fn build_content_model_json(document_json: &str) -> Result<String, JsValue> 
     ContentModel::from_document(&document)
         .and_then(|model| model.to_json())
         .map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn build_permitted_content_model_json(document_json: &str) -> Result<String, JsValue> {
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    ContentModel::from_permitted_document(&document)
+        .and_then(|model| model.to_json())
+        .map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn build_narrative_draft_json(document_json: &str) -> Result<String, JsValue> {
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let draft = build_narrative_draft(&document).map_err(js_error)?;
+    serde_json::to_string(&draft).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn approve_narrative_script_json(
+    document_json: &str,
+    script_json: &str,
+    submission_json: &str,
+    approval_json: &str,
+) -> Result<String, JsValue> {
+    if document_json.len() > 32_000_000
+        || script_json.len() > 8_000_000
+        || submission_json.len() > 8_000_000
+        || approval_json.len() > 16_000
+    {
+        return Err(js_error("narrative approval input exceeds the size limit"));
+    }
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let script = NarrativeScript::from_json(script_json).map_err(js_error)?;
+    let submission = ScriptReviewSubmission::from_json(submission_json).map_err(js_error)?;
+    let approval: LocalNarrativeApproval = serde_json::from_str(approval_json).map_err(js_error)?;
+    let approved =
+        approve_narrative_script(&document, &script, &submission, &approval).map_err(js_error)?;
+    serde_json::to_string(&approved).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn promote_approved_ocr_json(
+    document_json: &str,
+    candidate_json: &str,
+    submission_json: &str,
+    approval_json: &str,
+) -> Result<String, JsValue> {
+    if document_json.len() > 32_000_000
+        || candidate_json.len() > 8_000_000
+        || submission_json.len() > 2_000_000
+        || approval_json.len() > 16_000
+    {
+        return Err(js_error("OCR promotion input exceeds the size limit"));
+    }
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let candidate = OcrCandidate::from_json(candidate_json).map_err(js_error)?;
+    let submission: OcrReviewSubmission =
+        serde_json::from_str(submission_json).map_err(js_error)?;
+    let approval: OcrLocalApproval = serde_json::from_str(approval_json).map_err(js_error)?;
+    let promoted =
+        promote_approved_ocr(&document, &candidate, &submission, &approval).map_err(js_error)?;
+    serde_json::to_string(&promoted).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn approve_native_document_json(
+    document_json: &str,
+    approval_json: &str,
+) -> Result<String, JsValue> {
+    if document_json.len() > 32_000_000 || approval_json.len() > 16_000 {
+        return Err(js_error("native approval input exceeds the size limit"));
+    }
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let approval: LocalNativeApproval = serde_json::from_str(approval_json).map_err(js_error)?;
+    let promoted = approve_native_document(&document, &approval).map_err(js_error)?;
+    serde_json::to_string(&promoted).map_err(js_error)
 }
 
 #[wasm_bindgen]

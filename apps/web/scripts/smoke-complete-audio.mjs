@@ -58,7 +58,7 @@ try {
   await page.getByText("2 páginas importadas.", { exact: false }).waitFor({ timeout: 60_000 });
   await page.getByRole("button", { name: "Gerar audiobook completo em WAV" }).click();
   await page.getByText("Audiobook completo salvo neste dispositivo.", { exact: false }).waitFor({ timeout: 600_000 });
-  const player = page.getByLabel("Audiobook completo");
+  const player = page.getByLabel("Audiobook completo", { exact: true });
   await player.waitFor();
   const duration = await player.evaluate(async audio => {
     if (audio.readyState < 1) await new Promise((resolveReady, reject) => {
@@ -72,8 +72,8 @@ try {
   await page.getByRole("button", { name: "Próximo capítulo" }).click();
   assert.ok(await player.evaluate(audio => audio.currentTime) > 0, "O player não avançou para o segundo capítulo.");
   await page.getByRole("button", { name: "Capítulo anterior" }).click();
-  await page.waitForFunction(() => document.querySelector('audio[aria-label="Audiobook completo"]')?.currentTime > 0.2,
-    null, { timeout: 10_000 });
+  assert.ok(await player.evaluate(audio => audio.currentTime) < duration / 2,
+    "O player não voltou ao primeiro capítulo.");
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Baixar audiobook completo em WAV" }).click();
   const download = await downloadPromise;
@@ -101,7 +101,76 @@ try {
   await page.getByRole("link", { name: "Baixar audiobook completo em WAV" }).waitFor({ timeout: 60_000 });
   assert.equal(await page.locator('audio[aria-label="Audiobook completo"]').count(), 1);
   assert.equal(await page.locator("#complete-audio-title + p").count(), 1);
-  console.log(`PASS complete PDF to WAV pages=2 bytes=${bytes.length} duration=${duration.toFixed(2)}s reload=ok`);
+  await page.getByRole("checkbox", { name: "Conferi o texto de todas as páginas com o PDF." }).check();
+  await page.getByRole("button", { name: "Aprovar texto nativo do PDF para análise" }).click();
+  await page.getByText("Texto nativo aprovado. O roteiro preliminar está disponível em Narrativa.").waitFor({ timeout: 30_000 });
+  const narrativeFields = page.locator('textarea[id^="narrative-segment-"]');
+  await narrativeFields.first().waitFor({ timeout: 30_000 });
+  assert.equal(await narrativeFields.count(), 2);
+  await narrativeFields.nth(0).fill("O livro começa na primeira página e apresenta seu texto completo.");
+  await narrativeFields.nth(1).fill("Na segunda página, o texto chega ao fim.");
+  await page.getByRole("button", { name: "Conferir roteiro" }).click();
+  await page.getByText("Conferência concluída.", { exact: false }).waitFor({ timeout: 30_000 });
+  await page.locator("#narrative-rationale").fill("Comparei cada capítulo com sua página original.");
+  await page.getByRole("checkbox", { name: /Conferi o roteiro com o texto aprovado/ }).check();
+  await page.getByRole("button", { name: "Aprovar roteiro para áudio" }).click();
+  await page.getByText("Roteiro aprovado. Trechos de narração salvos neste dispositivo.").waitFor({ timeout: 30_000 });
+  const narrativeReportDownload = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Baixar roteiro, fontes e QA" }).click();
+  const narrativeReportFile = await narrativeReportDownload;
+  if (process.env.AUDIO_NARRATIVE_REPORT_OUTPUT)
+    await narrativeReportFile.saveAs(resolve(process.env.AUDIO_NARRATIVE_REPORT_OUTPUT));
+  const narrativeReportPieces = [];
+  for await (const piece of await narrativeReportFile.createReadStream()) narrativeReportPieces.push(piece);
+  const narrativeReport = JSON.parse(Buffer.concat(narrativeReportPieces).toString("utf8"));
+  assert.equal(narrativeReport.script.sections.length, 2);
+  assert.equal(narrativeReport.sourceMapping.length, 2);
+  assert.notEqual(narrativeReport.qa.status, "fail");
+  assert.equal(narrativeReport.approval.attestation, "local_operator_confirmed");
+  await page.getByRole("button", { name: "Gerar audiobook narrativo em WAV" }).click();
+  await page.getByText("Audiobook narrativo completo salvo neste dispositivo.", { exact: false }).waitFor({ timeout: 600_000 });
+  await page.getByText("Modo: Narrativo.").waitFor();
+  const narrativeDuration = await player.evaluate(async audio => {
+    if (audio.readyState < 1) await new Promise((resolveReady, reject) => {
+      audio.addEventListener("loadedmetadata", resolveReady, { once: true });
+      audio.addEventListener("error", () => reject(new Error("WAV narrativo não decodificou.")), { once: true });
+    });
+    await audio.play();
+    return audio.duration;
+  });
+  assert.ok(Number.isFinite(narrativeDuration) && narrativeDuration > 0);
+  await page.getByRole("button", { name: "Próximo capítulo" }).click();
+  assert.ok(await player.evaluate(audio => audio.currentTime) > 0,
+    "O player narrativo não avançou para o segundo capítulo.");
+  const narrativeDownload = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Baixar audiobook completo em WAV" }).click();
+  const narrativeFile = await narrativeDownload;
+  if (process.env.AUDIO_NARRATIVE_OUTPUT) await narrativeFile.saveAs(resolve(process.env.AUDIO_NARRATIVE_OUTPUT));
+  const narrativePieces = [];
+  for await (const piece of await narrativeFile.createReadStream()) narrativePieces.push(piece);
+  const narrativeBytes = Buffer.concat(narrativePieces);
+  assert.equal(narrativeBytes.toString("ascii", 0, 4), "RIFF");
+  assert.notEqual(createHash("sha256").update(narrativeBytes).digest("hex"),
+    createHash("sha256").update(bytes).digest("hex"));
+  const narrativeManifestDownload = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Baixar índice e manifesto do audiobook" }).click();
+  const narrativeManifestFile = await narrativeManifestDownload;
+  if (process.env.AUDIO_NARRATIVE_MANIFEST_OUTPUT)
+    await narrativeManifestFile.saveAs(resolve(process.env.AUDIO_NARRATIVE_MANIFEST_OUTPUT));
+  const narrativeManifestPieces = [];
+  for await (const piece of await narrativeManifestFile.createReadStream()) narrativeManifestPieces.push(piece);
+  const narrativeManifest = JSON.parse(Buffer.concat(narrativeManifestPieces).toString("utf8"));
+  assert.equal(narrativeManifest.mode, "narrative");
+  assert.deepEqual(narrativeManifest.chapters.map(chapter => chapter.pageNumber), [1, 2]);
+  assert.match(narrativeManifest.scriptHash, /^sha256:[0-9a-f]{64}$/);
+  await page.reload();
+  await page.getByText("Modo: Narrativo.").waitFor({ timeout: 60_000 });
+  assert.equal(await page.locator('textarea[id^="narrative-segment-"]').count(), 2);
+  await page.getByRole("button", { name: "Gerar audiobook completo em WAV" }).click();
+  await page.getByText("Modo: Literal.").waitFor({ timeout: 60_000 });
+  await page.reload();
+  await page.getByText("Modo: Literal.").waitFor({ timeout: 60_000 });
+  console.log(`PASS same PDF literal+narrative pages=2 literalBytes=${bytes.length} narrativeBytes=${narrativeBytes.length} reload=ok`);
 } finally {
   await browser?.close();
   server.kill();

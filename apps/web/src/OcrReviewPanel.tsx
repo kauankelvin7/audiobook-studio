@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { LocalProjectPersistence } from "./adapters/local_project_persistence";
 import { proposeLocalOcrCandidate } from "./adapters/local_ocr_candidate";
 import { OcrEvidencePersistence, type SavedOcrEvidence } from "./adapters/ocr_evidence_persistence";
-import { OcrReviewPersistence } from "./adapters/ocr_review_persistence";
+import { OcrReviewPersistence, type SavedOcrReview } from "./adapters/ocr_review_persistence";
+import { saveApprovedOcr } from "./adapters/canonical_ocr";
 import { OcrLearningRepository } from "./adapters/ocr_learning_repository";
 import { hasHiddenOcrControls, visibleOcrText } from "./adapters/ocr_display_text";
 import { compareOcrCandidate } from "./adapters/rust_ocr_candidate";
@@ -12,14 +13,19 @@ import type { DocumentIrV2 } from "./schemas/ingestion";
 import type { OcrComparisonReport, OcrReviewSubmission } from "./schemas/ocr_candidate";
 import type { OcrCorrectionSuggestionReport } from "./schemas/ocr_learning";
 import { PAGE_OCR_TARGET_ID } from "./schemas/ocr_candidate";
+import { userError } from "./adapters/user_error";
+import { StudioIcon } from "./StudioIcon";
 
 type Disposition = OcrReviewSubmission["disposition"];
 type SourceState = "checking" | "ready" | "missing" | "oversize";
+const displayRegionType = (type: string) => type === "unknown" ? "Texto não classificado" : type;
 
-export function OcrReviewPanel({ document, persistence, onCommitChange }: {
+export function OcrReviewPanel({ document, persistence, activePageNumber, onCommitChange, onApproved }: {
   document: DocumentIrV2;
   persistence: LocalProjectPersistence | null;
+  activePageNumber?: number;
   onCommitChange?: (committing: boolean) => void;
+  onApproved?: () => void;
 }) {
   const requestRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -47,6 +53,10 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
   const [error, setError] = useState("");
   const [history, setHistory] = useState<ArtifactManifestRecord[]>([]);
   const [savedHash, setSavedHash] = useState<string | null>(null);
+  const [savedReview, setSavedReview] = useState<SavedOcrReview | null>(null);
+  const [approving, setApproving] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState("");
+  const [inspectorTab, setInspectorTab] = useState<"native" | "ocr" | "reconciled" | "history">("ocr");
 
   const pageWithoutText = (page: DocumentIrV2["pages"][number] | undefined) =>
     page?.extractionQuality === "no_text" && page.regions.length === 0 && page.rawText.length === 0;
@@ -81,7 +91,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       const [records, model] = await Promise.all([repository.list(), repository.loadModel()]);
       if (!cancelled) { setLearningCount(records.length); setModelRecordCount(model?.trainingRecordCount ?? null); setLearningIssue(""); }
     })().catch(cause => {
-      if (!cancelled) setLearningIssue(cause instanceof Error ? cause.message : "A memória OCR local não pode ser aberta.");
+      if (!cancelled) setLearningIssue(userError(cause, "Não foi possível abrir as sugestões salvas neste dispositivo."));
     });
     return () => { cancelled = true; requestRef.current++; abortRef.current?.abort(); onCommitChange?.(false); };
   }, [document, persistence]);
@@ -102,6 +112,8 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
     setComparison(null);
     setSuggestion(null);
     setSavedHash(null);
+    setSavedReview(null);
+    setApprovalStatus("");
     setDisposition("retain_candidate_for_review");
     setRationale("");
     setProposedText("");
@@ -121,6 +133,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
     setEvidence(null);
     setComparison(null);
     setSavedHash(null);
+    setSavedReview(null);
     try {
       const latest = await persistence.loadLatest(document.documentId);
       const source = await persistence.loadArtifactRecord(document.documentId, "source_pdf");
@@ -155,7 +168,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
         setModelRecordCount(model?.trainingRecordCount ?? null);
         setLearningIssue("");
       } catch (cause) {
-        setLearningIssue(cause instanceof Error ? cause.message : "A memória OCR local não pode ser consultada.");
+        setLearningIssue(userError(cause, "Não foi possível consultar as sugestões salvas."));
       }
       if (controller.signal.aborted || request !== requestRef.current) return;
       setEvidence(saved);
@@ -166,7 +179,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
         : "Candidato OCR salvo. Compare os textos antes de registrar uma decisão.");
     } catch (cause) {
       if (controller.signal.aborted || request !== requestRef.current) return;
-      setError(cause instanceof Error ? cause.message : "Não foi possível gerar OCR.");
+      setError(userError(cause, "Não foi possível reconhecer o texto desta página. Tente novamente."));
       setStatus("");
     } finally {
       if (request === requestRef.current) { setBusy(false); abortRef.current = null; }
@@ -199,12 +212,14 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
         } catch (cause) {
           if (request === requestRef.current) {
             setSavedHash(saved.receipt.reviewHash);
-            setStatus(`Revisão salva. A correção não entrou na memória local: ${cause instanceof Error ? cause.message : "falha desconhecida"}`);
+            setSavedReview(saved);
+            setStatus(`Revisão salva. Não foi possível guardar esta correção para futuras sugestões. ${userError(cause, "Tente novamente depois.")}`);
           }
           return;
         }
       }
       setSavedHash(saved.receipt.reviewHash);
+      setSavedReview(saved);
       setStatus(learned
         ? "Revisão salva. Atualize o modelo local para incluir esta correção em futuras sugestões."
         : "Revisão salva como não verificada. O texto do documento não foi alterado.");
@@ -212,7 +227,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       if (request === requestRef.current) setHistory(records.filter(record => record.kind === "ocr_review_submission")
         .sort((left, right) => right.createdAtMs - left.createdAtMs).slice(0, 100));
     } catch (cause) {
-      if (request === requestRef.current) setError(cause instanceof Error ? cause.message : "Não foi possível salvar a revisão OCR.");
+      if (request === requestRef.current) setError(userError(cause, "Não foi possível salvar a revisão. Tente novamente."));
     } finally {
       if (request === requestRef.current) setSaving(false);
     }
@@ -238,11 +253,36 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       setProposedText(saved.submission.proposedText ?? "");
       setLearnFromCorrection(false);
       setSavedHash(saved.receipt.reviewHash);
+      setSavedReview(saved);
       setStatus("Revisão histórica aberta. Atualidade e identidade do revisor não foram verificadas.");
     } catch (cause) {
-      if (request === requestRef.current) setError(cause instanceof Error ? cause.message : "Não foi possível abrir a revisão OCR.");
+      if (request === requestRef.current) setError(userError(cause, "Não foi possível abrir a revisão salva. Tente novamente."));
     } finally {
       if (request === requestRef.current) setOpening(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!activePageNumber || !document.pages.some(page => page.number === activePageNumber)) return;
+    clearSelection();
+    setPageNumber(activePageNumber);
+    setRegionId("");
+  }, [activePageNumber, document.documentId]);
+
+  async function approveReview() {
+    if (!persistence || !savedReview || approving || savedReview.submission.disposition !== "propose_correction"
+      || savedReview.submission.rationale !== rationale || savedReview.submission.proposedText !== proposedText
+      || savedHash !== savedReview.receipt.reviewHash) return;
+    setApproving(true);
+    setApprovalStatus("");
+    try {
+      const canonical = await saveApprovedOcr(persistence, document, savedReview);
+      setApprovalStatus(`Texto aprovado e roteiro preliminar salvo. ${canonical.contentModel.sourceUnits.length} trecho(s) prontos para análise. Confira o roteiro antes de gerar áudio.`);
+      onApproved?.();
+    } catch (cause) {
+      setApprovalStatus(userError(cause, "Não foi possível aprovar o texto corrigido. Confira a revisão e tente novamente."));
+    } finally {
+      setApproving(false);
     }
   }
 
@@ -257,7 +297,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
       setSuggestion(null);
       setStatus("Memória local de ambiguidades apagada.");
     } catch (cause) {
-      setLearningIssue(cause instanceof Error ? cause.message : "Não foi possível apagar a memória OCR local.");
+      setLearningIssue(userError(cause, "Não foi possível apagar as sugestões salvas. Tente novamente."));
     } finally { setClearingLearning(false); }
   }
 
@@ -277,13 +317,18 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
         ? "Modelo local atualizado. As sugestões continuam exigindo revisão humana."
         : "Modelo local atualizado. Ainda não há três evidências distintas para uma sugestão.");
     } catch (cause) {
-      setLearningIssue(cause instanceof Error ? cause.message : "Não foi possível atualizar o modelo OCR local.");
+      setLearningIssue(userError(cause, "Não foi possível atualizar as sugestões. Tente novamente."));
     } finally { setTrainingModel(false); }
   }
 
-  return <section className="panel" aria-labelledby="ocr-title">
-    <h2 id="ocr-title">Comparar texto com OCR</h2>
-    <p>Escolha uma região com texto extraído ou uma página sem texto. O OCR usa o PDF salvo neste dispositivo; o resultado exige revisão.</p>
+  return <section className="panel evidence-inspector" aria-labelledby="ocr-title">
+    <div className="inspector-tabs" role="tablist" aria-label="Fonte do trecho">
+      {(["native", "ocr", "reconciled", "history"] as const).map(tab => <button key={tab} type="button" role="tab" aria-selected={inspectorTab === tab} onClick={() => setInspectorTab(tab)}>{({native:"Nativo",ocr:"OCR",reconciled:"Reconciliado",history:"Histórico"})[tab]}</button>)}
+    </div>
+    <div className="inspector-heading"><div><p className="inspector-label">{inspectorTab === "history" ? "Histórico de revisões" : "Trecho selecionado"}</p><h2 id="ocr-title">{inspectorTab === "native" ? "Texto extraído" : inspectorTab === "reconciled" ? "Texto reconciliado" : "Comparar texto com OCR"}</h2></div><span>{pageNumber ? `Página ${pageNumber}` : "Selecione uma página"}</span></div>
+    {inspectorTab === "native" && <p className="inspector-tip">Escolha uma região no documento ou uma página abaixo para revisar o texto extraído.</p>}
+    {inspectorTab === "reconciled" && <p className="inspector-tip">A reconciliação só fica disponível após salvar uma proposta e aprová-la nesta revisão.</p>}
+    {inspectorTab !== "history" && <p>Escolha uma região com texto extraído ou uma página sem texto. O OCR usa o PDF salvo neste dispositivo; o resultado exige revisão.</p>}
     {eligiblePages.length === 0 ? <p className="notice">Este documento não tem região com coordenadas nem página sem texto para OCR.</p>
       : <>
         <label htmlFor="ocr-page">Página</label>
@@ -299,7 +344,7 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
           <option value="">Selecione a área</option>
           {pageWithoutText(selectedPage) && <option value={PAGE_OCR_TARGET_ID}>Página inteira sem texto extraído</option>}
           {regions.map((region, index) => <option key={region.id} value={region.id}>
-            {index + 1}. {region.type}: {visibleOcrText((region.sources.rawText ?? "").slice(0, 70)).replace(/\s+/g, " ")}
+            {index + 1}. {displayRegionType(region.type)}: {visibleOcrText((region.sources.rawText ?? "").slice(0, 70)).replace(/\s+/g, " ")}
           </option>)}
         </select>
         {sourceState === "oversize" && <p className="notice">Este PDF excede 8 MB, limite da captura OCR.</p>}
@@ -388,6 +433,14 @@ export function OcrReviewPanel({ document, persistence, onCommitChange }: {
         </fieldset>
       </form>
       {savedHash && <p className="footnote">Revisão histórica salva: {savedHash.slice(0, 20)}…</p>}
+      {savedReview?.submission.disposition === "propose_correction" && savedHash === savedReview.receipt.reviewHash && <div className="notice">
+        <p>Compare o texto corrigido com a imagem antes de aprovar. A confirmação será registrada neste dispositivo e permitirá a análise narrativa apenas desse conteúdo.</p>
+        <button type="button" disabled={approving || busy || saving || opening || savedReview.submission.rationale !== rationale
+          || savedReview.submission.proposedText !== proposedText} onClick={() => void approveReview()}>
+          {approving ? "Aprovando texto…" : "Aprovar texto corrigido para análise"}
+        </button>
+        {approvalStatus && <p role="status">{approvalStatus}</p>}
+      </div>}
     </div>}
     {history.length > 0 && <div className="ocr-history">
       <h3>Revisões salvas neste dispositivo</h3>

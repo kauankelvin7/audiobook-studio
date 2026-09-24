@@ -1,16 +1,22 @@
 #![forbid(unsafe_code)]
 
+mod canonical;
 mod content;
 mod document;
 mod document_v2;
 mod job;
 mod narrative;
+mod narrative_workflow;
 mod ocr;
 mod ocr_learning;
 mod reading;
 mod review;
 mod script;
 
+pub use canonical::{
+    approve_native_document, promote_approved_ocr, CanonicalError, CanonicalNativePromotion,
+    CanonicalOcrPromotion, LocalNativeApproval, OcrLocalApproval,
+};
 pub use content::{
     ConceptImportance, ContentConcept, ContentError, ContentModel, ContentRelation,
     ContentSourceUnit, NarrationEligibility, RelationType, SemanticOutline, SemanticOutlineSection,
@@ -32,6 +38,10 @@ pub use narrative::{
     HeadingOverlapMethod, HeadingOverlapStatus, NarrationQa, NarrationWarning, NarrativeError,
     NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeSection,
     NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
+};
+pub use narrative_workflow::{
+    approve_narrative_script, build_narrative_draft, ApprovedNarrative, ApprovedSpeechUnit,
+    LocalNarrativeApproval, NarrativeDraft, NarrativeWorkflowError,
 };
 pub use ocr::{
     build_ocr_candidate_receipt, build_ocr_review_receipt, compare_ocr_candidate, OcrCandidate,

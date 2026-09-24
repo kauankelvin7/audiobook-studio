@@ -9,13 +9,27 @@ import { listLiteralAudios, loadCompleteLiteralAudio, loadLiteralAudio, loadLite
   removeHistoricalLiteralAudio, saveCompleteLiteralAudio, saveLiteralAudio,
   type CompleteLiteralAudio, type LiteralAudioEntry, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
+import { loadLatestApprovedNarrative } from "./adapters/approved_narrative";
+import { listNarrativeChapters, loadCompleteNarrativeAudio, narrativeReadingSession,
+  saveCompleteNarrativeAudio, saveNarrativeChapter, type CompleteNarrativeAudio } from "./adapters/narrative_audio";
 import type { ArtifactWrite } from "./adapters/ports";
 import { documentIrSchema, type DocumentIr } from "./schemas/document";
 import { documentIrV2Schema, type DocumentIrV2 } from "./schemas/ingestion";
 import { decodePipelineResponse } from "./workers/protocol";
+import { userError } from "./adapters/user_error";
+import { AppShell } from "./AppShell";
+import { DocumentWorkspace } from "./DocumentWorkspace";
+import { NativeTextApprovalPanel } from "./NativeTextApprovalPanel";
+import "@fontsource/geist-sans/latin-400.css";
+import "@fontsource/geist-sans/latin-600.css";
+import "@fontsource/geist-mono/latin-400.css";
+import "@fontsource/source-serif-4/latin-400.css";
+import "@fontsource/source-serif-4/latin-600.css";
 import "./styles/tokens.css";
+import "./styles/shell.css";
 
 const OcrReviewPanel = lazy(async () => ({ default: (await import("./OcrReviewPanel")).OcrReviewPanel }));
+const NarrativePanel = lazy(async () => ({ default: (await import("./NarrativePanel")).NarrativePanel }));
 
 function App() {
   const workerRef = useRef<Worker | null>(null);
@@ -33,6 +47,7 @@ function App() {
   const [documentV2, setDocumentV2] = useState<DocumentIrV2 | null>(null);
   const [ocrSourceReady, setOcrSourceReady] = useState(false);
   const [ocrEpoch, setOcrEpoch] = useState(0);
+  const [canonicalEpoch, setCanonicalEpoch] = useState(0);
   const [ocrCommitBusy, setOcrCommitBusy] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [endPage, setEndPage] = useState(1);
@@ -48,8 +63,9 @@ function App() {
   const [wavUrl, setWavUrl] = useState<string | null>(null);
   const [wavProgress, setWavProgress] = useState<WavProgress | null>(null);
   const [savedWav, setSavedWav] = useState<(SavedLiteralAudio & { url: string }) | null>(null);
-  const [completeWav, setCompleteWav] = useState<(CompleteLiteralAudio & { url: string }) | null>(null);
+  const [completeWav, setCompleteWav] = useState<((CompleteLiteralAudio | CompleteNarrativeAudio) & { url: string }) | null>(null);
   const [completeProgress, setCompleteProgress] = useState<number | null>(null);
+  const [completeTotal, setCompleteTotal] = useState(0);
   const [currentChapter, setCurrentChapter] = useState(0);
   const [audioHistory, setAudioHistory] = useState<LiteralAudioEntry[]>([]);
   const [selectedAudioKey, setSelectedAudioKey] = useState<string | null>(null);
@@ -182,7 +198,8 @@ function App() {
           try {
             const inspection = await localPersistence!.service.inspectResume(projectId);
             const onlyAudioUnavailable = inspection.unavailableArtifactKeys.length > 0
-              && inspection.unavailableArtifactKeys.every(key => key.startsWith("literal_wav_"));
+              && inspection.unavailableArtifactKeys.every(key => key.startsWith("literal_wav_")
+                || key.startsWith("narrative_wav_") || key.startsWith("narrative_complete_"));
             if (inspection.checkpoint && (inspection.resumable || onlyAudioUnavailable)) candidates.push(inspection);
           } catch {
             // Outro contexto pode estar escrevendo; recuperação permanece disponível depois.
@@ -226,12 +243,29 @@ function App() {
             } catch {
               audioRecoveryFailed = audioExpected;
             }
+            let completeAudioCreatedAtMs = -1;
             try {
               const complete = await loadCompleteLiteralAudio(localPersistence!.service, v2.data);
               if (complete && !cancelled && importGenerationRef.current === 0) {
+                completeAudioCreatedAtMs = (await localPersistence!.service.loadArtifactRecord(v2.data.documentId,
+                  complete.artifactKey))?.createdAtMs ?? -1;
                 const url = URL.createObjectURL(complete.blob);
                 completeWavUrlRef.current = url;
                 setCompleteWav({ ...complete, url });
+                recoveredAudio = true;
+              }
+            } catch { audioRecoveryFailed = true; }
+            try {
+              const complete = await loadCompleteNarrativeAudio(localPersistence!.service, v2.data);
+              if (complete && !cancelled && importGenerationRef.current === 0) {
+                const createdAtMs = (await localPersistence!.service.loadArtifactRecord(v2.data.documentId,
+                  complete.artifactKey))?.createdAtMs ?? -1;
+                if (createdAtMs >= completeAudioCreatedAtMs) {
+                  if (completeWavUrlRef.current) URL.revokeObjectURL(completeWavUrlRef.current);
+                  const url = URL.createObjectURL(complete.blob);
+                  completeWavUrlRef.current = url;
+                  setCompleteWav({ ...complete, url });
+                }
                 recoveredAudio = true;
               }
             } catch { audioRecoveryFailed = true; }
@@ -401,7 +435,7 @@ function App() {
           setStatus(baseStatus);
         }
       } else {
-        setStatus(response.message);
+        setStatus(userError(new Error(response.message), "Não foi possível processar o PDF. Confira o arquivo e tente novamente."));
         worker.terminate();
         workerRef.current = null;
       }
@@ -441,7 +475,7 @@ function App() {
     try {
       speechRef.current?.play(preview, voiceURI);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Não foi possível iniciar a leitura.");
+      setStatus(userError(error, "Não foi possível iniciar a leitura. Tente novamente."));
     }
   }
 
@@ -482,7 +516,7 @@ function App() {
         setStatus("WAV pronto, mas o armazenamento local está indisponível. Baixe uma cópia agora.");
       }
     } catch (error) {
-      if (!controller.signal.aborted) setStatus(error instanceof Error ? error.message : "Não foi possível gerar o WAV.");
+      if (!controller.signal.aborted) setStatus(userError(error, "Não foi possível gerar o áudio. Tente novamente."));
     } finally {
       if (wavAbortRef.current === controller) {
         wavAbortRef.current = null;
@@ -500,6 +534,7 @@ function App() {
     wavAbortRef.current = controller;
     setWavBusy(true);
     setCompleteProgress(0);
+    setCompleteTotal(source.pages.length);
     setStatus("Conferindo todas as páginas antes da exportação…");
     try {
       const sessions = [];
@@ -534,37 +569,102 @@ function App() {
       setAudioHistory(await listLiteralAudios(store, source));
     } catch (error) {
       if (!controller.signal.aborted && generation === importGenerationRef.current) {
-        setStatus(error instanceof Error ? error.message : "Não foi possível exportar o audiobook completo.");
+        setStatus(userError(error, "Não foi possível exportar o audiobook. Tente novamente."));
       }
     } finally {
       if (wavAbortRef.current === controller) { wavAbortRef.current = null; setWavBusy(false); }
     }
   }
 
-  return <main className="shell">
-    <header className="intro">
+  async function exportNarrativeWav() {
+    if (!documentV2 || !persistenceRef.current || wavBusy || busy || ocrCommitBusy) return;
+    const source = documentV2;
+    const generation = importGenerationRef.current;
+    const store = persistenceRef.current.service;
+    const controller = new AbortController();
+    wavAbortRef.current = controller;
+    setWavBusy(true);
+    setCompleteProgress(0);
+    setStatus("Conferindo roteiro e fontes antes da síntese…");
+    try {
+      const approved = await loadLatestApprovedNarrative(store, source);
+      if (!approved) throw new Error("Aprove um roteiro narrativo antes de gerar o WAV.");
+      const chapterCount = approved.approved.plan.spokenChapters.length;
+      setCompleteTotal(chapterCount);
+      const sessions = Array.from({ length: chapterCount }, (_, index) =>
+        narrativeReadingSession(source, approved, index + 1));
+      const cached = await listNarrativeChapters(store, source, approved);
+      const keys: string[] = [];
+      for (const [index, session] of sessions.entries()) {
+        if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+        const key = cached.get(index + 1);
+        if (key) keys.push(key);
+        else {
+          setStatus(`Gerando áudio narrativo do capítulo ${index + 1} de ${chapterCount}…`);
+          const wav = await renderLocalWav(session, controller.signal, setWavProgress);
+          if (controller.signal.aborted) return;
+          keys.push(await saveNarrativeChapter(store, source, approved, index + 1, wav));
+        }
+        setCompleteProgress(index + 1);
+      }
+      if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+      const complete = await saveCompleteNarrativeAudio(store, source, approved, keys);
+      if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+      clearCompleteWav();
+      const url = URL.createObjectURL(complete.blob);
+      completeWavUrlRef.current = url;
+      setCompleteWav({ ...complete, url });
+      setCompleteProgress(chapterCount);
+      setStatus("Audiobook narrativo completo salvo neste dispositivo. Confira o player e baixe o WAV.");
+    } catch (error) {
+      if (!controller.signal.aborted && generation === importGenerationRef.current)
+        setStatus(userError(error, "Não foi possível gerar o áudio narrativo. Confira o roteiro e tente novamente."));
+    } finally {
+      if (wavAbortRef.current === controller) { wavAbortRef.current = null; setWavBusy(false); }
+    }
+  }
+
+  return <AppShell fileName={fileName} pageCount={document?.pages.length ?? 0} saved={ocrSourceReady}
+    hasDocument={!!document} audioBusy={wavBusy} chapterCount={completeWav?.chapters.length ?? 0}>
+    {!document && <header className="intro">
       <p className="eyebrow">Audiobook Studio · leitura de PDF</p>
-      <h1>Comece pelo texto do seu PDF</h1>
-      <p>Confira o texto extraído e ouça até dez páginas com uma voz local disponível no navegador.</p>
-    </header>
-    <section className="panel" aria-labelledby="import-title">
-      <h2 id="import-title">Importar PDF</h2>
-      <p>Selecione um PDF de até 32 MB com texto selecionável. Após conferir o trecho, você pode gerar um WAV local.</p>
+      <h1>Do documento à voz.</h1>
+      <p>Importe seu PDF, confira o texto e prepare uma narração para ouvir e baixar.</p>
+    </header>}
+    <section className="panel import-panel" id="project" aria-labelledby="import-title">
+      <div className="section-heading"><span className="section-number">01</span><div><p className="section-kicker">PROJETO</p><h2 id="import-title">{document ? "Documento importado" : "Comece com um PDF"}</h2></div></div>
+      {!document && <p>Escolha um arquivo de até 32 MB. O texto será processado neste dispositivo.</p>}
       <label htmlFor="pdf-input">Arquivo PDF</label>
       <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} />
       {fileName && <p className="file-name">Arquivo: {fileName}</p>}
       <p role="status" aria-live="polite">{status}</p>
     </section>
-    {document && <section className="result" aria-labelledby="result-title">
-      <div className="result-heading"><h2 id="result-title">Texto encontrado</h2><span>{document.pages.length} páginas</span></div>
-      {document.pages.map(page => <article className="page" key={page.number} aria-labelledby={`page-${page.number}`}>
-        <h3 id={`page-${page.number}`}>Página {page.number}</h3>
-        {page.textQuality === "needs_ocr"
-          ? <p className="notice">Não encontramos texto selecionável nesta página. Ela pode precisar de OCR.</p>
-          : <div className="blocks">{page.blocks.map(block => <p key={block.id}>{block.text}</p>)}</div>}
-      </article>)}
-      <p className="footnote">A ordem e o tipo dos trechos ainda precisam de revisão. O PDF é processado neste dispositivo.</p>
-    </section>}
+    <div className="editor-grid">
+    <section className="stage-section" id="document" aria-label="Documento">
+    {document ? <DocumentWorkspace document={document} pageNumber={pageNumber} onPageChange={setPageNumber} />
+      : <div className="stage-empty"><span className="section-number">02</span><div><h2>Documento</h2><p>O texto encontrado no PDF aparecerá aqui para conferência.</p></div></div>}
+    </section>
+    <section className="stage-section" id="review" aria-label="Revisão do texto">
+    {documentV2 ? <Suspense fallback={<p role="status">Carregando comparação OCR…</p>}>
+      <OcrReviewPanel key={`${documentV2.documentId}:${ocrEpoch}`} document={documentV2}
+        activePageNumber={pageNumber}
+        persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
+        onCommitChange={setOcrCommitBusy} onApproved={() => setCanonicalEpoch(value => value + 1)} />
+    </Suspense> : <div className="stage-empty"><span className="section-number">03</span><div><h2>Revisão</h2><p>Importe um PDF para conferir trechos que precisam de revisão.</p></div></div>}
+    {documentV2 && <NativeTextApprovalPanel document={documentV2}
+      persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
+      onApproved={() => setCanonicalEpoch(value => value + 1)} />}
+    </section>
+    </div>
+    <div className="production-grid">
+    <section className="stage-section" id="narrative" aria-label="Roteiro narrativo">
+    {documentV2 ? <Suspense fallback={<p role="status">Carregando roteiro…</p>}>
+      <NarrativePanel key={`${documentV2.documentId}:${canonicalEpoch}`} document={documentV2}
+        persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null} />
+    </Suspense> : <div className="stage-empty"><span className="section-number">04</span><div><h2>Narrativa</h2><p>Depois da revisão, prepare o roteiro de cada capítulo.</p></div></div>}
+    </section>
+    <section className="stage-section" id="audio" aria-label="Áudio e exportação">
+    {!documentV2 && <div className="stage-empty"><span className="section-number">05</span><div><h2>Áudio</h2><p>Quando o texto estiver pronto, gere, ouça e baixe o audiobook aqui.</p></div></div>}
     {document && audioHistory.length > 0 && <section className="panel" aria-labelledby="saved-audio-title">
       <h2 id="saved-audio-title">Gravações neste dispositivo</h2>
       <p>Abra uma gravação para ouvir ou baixar. Cada WAV contém o texto extraído do intervalo indicado.</p>
@@ -586,20 +686,19 @@ function App() {
         <a href={savedWav.url} download={`audiobook-studio-paginas-${savedWav.startPage}-${savedWav.endPage}.wav`}>Baixar WAV selecionado</a>
       </div>}
     </section>}
-    {documentV2 && <Suspense fallback={<p role="status">Carregando comparação OCR…</p>}>
-      <OcrReviewPanel key={`${documentV2.documentId}:${ocrEpoch}`} document={documentV2}
-        persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
-        onCommitChange={setOcrCommitBusy} />
-    </Suspense>}
     {documentV2 && <section className="panel" aria-labelledby="complete-audio-title">
-      <h2 id="complete-audio-title">Exportar áudio do PDF inteiro</h2>
-      <p>O arquivo reúne todas as páginas com texto validado. Páginas que precisam de OCR ou revisão bloqueiam a exportação.</p>
+      <h2 id="complete-audio-title">Gerar audiobook completo</h2>
+      <p>Escolha leitura literal ou narração aprovada. Páginas sem texto aprovado bloqueiam a geração.</p>
       <button type="button" onClick={() => void exportCompleteWav()} disabled={wavBusy || busy || ocrCommitBusy}>
         {wavBusy ? "Gerando áudio…" : "Gerar audiobook completo em WAV"}
       </button>
+      <button type="button" onClick={() => void exportNarrativeWav()} disabled={wavBusy || busy || ocrCommitBusy}>
+        {wavBusy ? "Gerando áudio…" : "Gerar audiobook narrativo em WAV"}
+      </button>
       {wavBusy && <button type="button" onClick={() => wavAbortRef.current?.abort()}>Cancelar geração</button>}
-      {completeProgress !== null && <p role="status">{completeProgress} de {documentV2.pages.length} páginas processadas.</p>}
+      {completeProgress !== null && <p role="status">{completeProgress} de {completeTotal} capítulos processados.</p>}
       {completeWav && <div className="wav-result">
+        <p>Modo: {"mode" in completeWav && completeWav.mode === "narrative" ? "Narrativo" : "Literal"}.</p>
         <audio controls ref={completeAudioRef} src={completeWav.url} aria-label="Audiobook completo"
           onTimeUpdate={event => {
             const time = event.currentTarget.currentTime;
@@ -611,18 +710,10 @@ function App() {
           <button type="button" onClick={() => seekChapter(currentChapter - 1)} disabled={currentChapter === 0}>Capítulo anterior</button>
           <button type="button" onClick={() => seekChapter(currentChapter + 1)} disabled={currentChapter >= completeWav.chapters.length - 1}>Próximo capítulo</button>
         </div>
-        <a href={completeWav.url} download="audiobook-studio-completo.wav">Baixar audiobook completo em WAV</a>
-        <a href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify({ schemaVersion: 1,
-          format: "audio/wav", sourceHash: completeWav.sourceHash, documentHash: completeWav.documentHash,
-          audioHash: completeWav.audioHash,
-          pipelineVersion: completeWav.pipelineVersion, voiceId: "pt_BR-faber-medium",
-          chapters: completeWav.chapters }))}`} download="audiobook-studio-completo.manifest.json">
-          Baixar índice e manifesto do audiobook
-        </a>
         <ol>{completeWav.chapters.map(chapter => <li key={chapter.pageNumber}>
           <button type="button" onClick={() => seekChapter(chapter.pageNumber - 1)}
             aria-current={currentChapter === chapter.pageNumber - 1 ? "true" : undefined}>
-            Página {chapter.pageNumber} · início {Math.floor(chapter.startSeconds / 60)}:{String(Math.floor(chapter.startSeconds % 60)).padStart(2, "0")}
+            {"mode" in completeWav && completeWav.mode === "narrative" ? "Capítulo" : "Página"} {chapter.pageNumber} · início {Math.floor(chapter.startSeconds / 60)}:{String(Math.floor(chapter.startSeconds % 60)).padStart(2, "0")}
           </button>
         </li>)}</ol>
       </div>}
@@ -693,7 +784,25 @@ function App() {
         <p className="footnote">Esta é uma leitura literal do texto extraído, não um audiobook narrativo revisado. O áudio pode conter erros da extração e da voz.</p>
       </div>}
     </section>}
-  </main>;
+    </section>
+    <section className="panel export-stage" id="export" aria-labelledby="export-title">
+      <h2 id="export-title">Exportar audiobook</h2>
+      {completeWav ? <>
+        <p>{completeWav.chapters.length} {completeWav.chapters.length === 1 ? "capítulo pronto" : "capítulos prontos"} · {"mode" in completeWav && completeWav.mode === "narrative" ? "narração aprovada" : "leitura literal"}.</p>
+        <a href={completeWav.url} download="audiobook-studio-completo.wav">Baixar audiobook completo em WAV</a>
+        <a href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify({ schemaVersion: 1,
+          format: "audio/wav", mode: "mode" in completeWav ? completeWav.mode : "literal",
+          scriptHash: "scriptHash" in completeWav ? completeWav.scriptHash : null,
+          sourceHash: completeWav.sourceHash, documentHash: completeWav.documentHash,
+          audioHash: completeWav.audioHash,
+          pipelineVersion: completeWav.pipelineVersion, voiceId: "pt_BR-faber-medium",
+          chapters: completeWav.chapters }))}`} download="audiobook-studio-completo.manifest.json">
+          Baixar índice e manifesto do audiobook
+        </a>
+      </> : <p>Gere e confira o áudio na etapa Áudio. O download ficará disponível aqui.</p>}
+    </section>
+    </div>
+  </AppShell>;
 }
 
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);

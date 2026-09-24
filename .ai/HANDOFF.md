@@ -1,5 +1,16 @@
 # HANDOFF — retorno ao Codex Work
 
+## Product UX — foundations e shell (2026-09-24)
+- Baseline funcional: literal e narrativo E2E, capítulos, player, download, reload e bloqueio OCR aprovados no checkpoint anterior; ver `docs/PRODUCT_UX_BASELINE.md`.
+- Batch atual: tokens Studio & Paper, shell desktop/mobile, estados vazios e mensagens de erro em português. Core, TTS e player preservados.
+- Validação em andamento: typecheck passou; shell sem overflow em 1440, 390 e 320 px. Repetir suíte Web, build e smokes após ajustes de texto.
+- Próxima ação: aprofundar Projeto/Documento e Revisão com dados reais; empacotar fontes locais e completar acessibilidade.
+
+## Release vertical — narrativa aprovada no mesmo caminho de áudio (2026-09-24)
+- PDF de duas páginas gerou dois modos no Chrome: literal e narrativo, ambos com capítulos, player, download e reload. A saída narrativa deriva de texto nativo aprovado, ContentModel/Outline/Plan/Script/QA, revisão de todas as fontes e SpeechUnits validados em Rust; TTS e player são os mesmos do modo literal. Correção OCR de região também percorreu até WAV e reload.
+- Artefatos do smoke narrativo estão em `pros/outputs` da tarefa atual: WAV, manifesto, roteiro/source mapping/QA. Gates locais: Rust fmt/49 testes, Web typecheck/157 testes/build, ambos os smokes passaram. O modelo Piper é baixado dos endpoints existentes no primeiro uso.
+- Limites remanescentes: a redação narrativa é editada e confirmada por humano; o rascunho inicial é literal. `QA=review` por grounding não avaliado automaticamente; o operador atesta localmente, sem autenticação de identidade. OCR de várias regiões aprovadas ainda não se compõe numa revisão canônica única. Não declarar o sistema pronto para produção sobre documentos reais sem golden e escuta humana.
+
 ## Release closure — exportação integral literal (2026-09-24)
 - Produto gerou WAV único de PDF de duas páginas no Chrome, tocou, navegou capítulos, baixou WAV + manifesto e reabriu após reload. O arquivo exportado está em `pros/outputs` da tarefa atual. Chunks por página reutilizam OPFS/checkpoints existentes; páginas sem leitura Rust válida bloqueiam a síntese antes do primeiro chunk.
 - Gates: Rust fmt/47 testes, Web typecheck/157 testes/build e smoke Chromium passaram. Próximo elo: revisão OCR atestada, reconciliação canônica e ligação de ContentModel/roteiro ao TTS. O WAV atual é leitura literal; não declarar narrativa final ou OCR reconciliado.
