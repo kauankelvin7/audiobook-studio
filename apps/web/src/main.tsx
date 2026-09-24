@@ -10,6 +10,7 @@ import "./styles/tokens.css";
 import "./styles/shell.css";
 import "./styles/review.css";
 import "./styles/narrative.css";
+import "./styles/accessibility.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

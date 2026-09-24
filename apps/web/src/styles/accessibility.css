@@ -1,0 +1,61 @@
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (pointer: coarse) {
+  select,
+  input[type="file"]::file-selector-button,
+  .icon-button,
+  .summary-action,
+  .button-link,
+  .studio-nav a,
+  .utility-nav button,
+  .mobile-nav > a,
+  .mobile-more > summary,
+  .inspector-tabs button {
+    min-height: 44px;
+  }
+
+  .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .status-badge,
+  .saved-badge,
+  .summary-action,
+  .button-link {
+    border: 1px solid currentColor;
+  }
+
+  .page-nav-item.selected,
+  .document-block.selected {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
