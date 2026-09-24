@@ -36,5 +36,25 @@ export const ocrCandidateReceiptSchema = z.object({
   methodVersion: z.literal("ocr-candidate-rust-v1"),
 }).strict();
 
+export const ocrComparisonReportSchema = z.object({
+  schemaVersion: z.literal(1),
+  receiptHash: hash,
+  nativeTextHash: hash,
+  ocrTextHash: hash,
+  nativePrivateUseCount: z.number().int().nonnegative(),
+  ocrPrivateUseCount: z.number().int().nonnegative(),
+  differingTokenLowerBound: z.number().int().nonnegative(),
+  differences: z.array(z.object({
+    token: z.string().min(1).max(128).regex(/^[A-Z0-9-]+$/),
+    nativeCount: z.number().int().nonnegative(),
+    ocrCount: z.number().int().nonnegative(),
+    containsDigit: z.boolean(),
+  }).strict()).max(256),
+  truncated: z.boolean(),
+  status: z.literal("review_required"),
+  methodVersion: z.literal("ocr-token-comparison-rust-v1"),
+}).strict().refine(value => value.differingTokenLowerBound >= value.differences.length);
+
 export type OcrCandidate = z.infer<typeof ocrCandidateSchema>;
 export type OcrCandidateReceipt = z.infer<typeof ocrCandidateReceiptSchema>;
+export type OcrComparisonReport = z.infer<typeof ocrComparisonReportSchema>;

@@ -1,5 +1,10 @@
 # HANDOFF — retorno ao Codex Work
 
+## M4.5I — comparação OCR canônica (2026-09-23)
+- Rust/WASM compara tokens ASCII entre texto nativo e candidato OCR, vinculado ao recibo e sempre `review_required`. Diferenças omitidas são marcadas `truncated`, e a contagem publicada é apenas limite inferior. O caso público `SAMPLE01`/`SAMPLEO1` continua sem aprovação automática.
+- Limites: texto da região e OCR de 1 MB, documento canônico de 32 MB, candidato JSON de 8 MB, 4.096 tokens únicos por lado e 256 diferenças exibidas. Testes incluem documento grande fora da região e controles JSON. Corpus privado e goldens revisados continuam pendentes.
+- Gates locais: Rust fmt, 44 testes e Clippy; Web 140 testes, typecheck/build; Chromium OCR, persistência/recarga e comparação passaram com 0 requisições externas. Revisão independente final aprovou sem P0–P2; publicação é registrada no WORKLOG.
+
 ## M4.5H — medição sintética de código (2026-09-23)
 - Usuário confirmou indisponibilidade temporária dos PDFs/goldens privados e autorizou exemplos públicos. Caso COBOL sintético no smoke Chromium preservou 7/8 tokens; `SAMPLE01` foi lido como `SAMPLEO1`. O candidato OCR permanece `pending`, sem promoção de código.
 - O observador de rede foi ampliado ao BrowserContext e repetiu 0 requisições externas. Gates locais: Rust fmt/43 testes, Web 137 testes, typecheck/build/diff check. Revisão independente final sem P0/P1/P2.

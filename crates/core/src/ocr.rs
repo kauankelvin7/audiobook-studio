@@ -1,10 +1,17 @@
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
+use std::io::{self, Write};
 use thiserror::Error;
 
 use crate::{sha256_source, DocumentIrV2};
 
 const OCR_CANDIDATE_SCHEMA_VERSION: u32 = 1;
 const MAX_OCR_TEXT_BYTES: usize = 1_000_000;
+const MAX_COMPARISON_NATIVE_TEXT_BYTES: usize = 1_000_000;
+const MAX_COMPARISON_DOCUMENT_JSON_BYTES: usize = 32_000_000;
+const MAX_UNIQUE_TOKENS: usize = 4_096;
+const MAX_TOKEN_CHARS: usize = 128;
+const MAX_REPORTED_DIFFERENCES: usize = 256;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum OcrCandidateError {
@@ -28,6 +35,24 @@ pub enum OcrCandidateError {
     InvalidText,
     #[error("OCR candidate cannot be serialized")]
     Serialization,
+    #[error("OCR comparison input exceeds the size limit")]
+    ComparisonInputTooLarge,
+}
+
+struct BoundedJsonWriter(usize);
+
+impl Write for BoundedJsonWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0 = self.0.saturating_add(bytes.len());
+        if self.0 > MAX_COMPARISON_DOCUMENT_JSON_BYTES {
+            return Err(io::Error::other("OCR document exceeds comparison limit"));
+        }
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,6 +101,129 @@ pub struct OcrCandidateReceipt {
     pub status: OcrCandidateStatus,
     pub receipt_hash: String,
     pub method_version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OcrTokenDifference {
+    pub token: String,
+    pub native_count: u32,
+    pub ocr_count: u32,
+    pub contains_digit: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OcrComparisonStatus {
+    ReviewRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OcrComparisonReport {
+    pub schema_version: u32,
+    pub receipt_hash: String,
+    pub native_text_hash: String,
+    pub ocr_text_hash: String,
+    pub native_private_use_count: usize,
+    pub ocr_private_use_count: usize,
+    pub differing_token_lower_bound: usize,
+    pub differences: Vec<OcrTokenDifference>,
+    pub truncated: bool,
+    pub status: OcrComparisonStatus,
+    pub method_version: String,
+}
+
+fn ascii_token_counts(text: &str) -> (BTreeMap<String, u32>, bool) {
+    let mut counts = BTreeMap::new();
+    let mut token = String::new();
+    let mut truncated = false;
+    let finish = |token: &mut String, counts: &mut BTreeMap<String, u32>, truncated: &mut bool| {
+        let normalized = token.trim_matches('-');
+        if !normalized.is_empty() {
+            if normalized.len() > MAX_TOKEN_CHARS
+                || (!counts.contains_key(normalized) && counts.len() >= MAX_UNIQUE_TOKENS)
+            {
+                *truncated = true;
+            } else {
+                let count = counts.entry(normalized.to_owned()).or_insert(0u32);
+                *count = count.saturating_add(1);
+            }
+        }
+        token.clear();
+    };
+    for character in text.chars() {
+        if character.is_ascii_alphanumeric() || character == '-' {
+            if token.len() <= MAX_TOKEN_CHARS {
+                token.push(character.to_ascii_uppercase());
+            } else {
+                truncated = true;
+            }
+        } else {
+            finish(&mut token, &mut counts, &mut truncated);
+        }
+    }
+    finish(&mut token, &mut counts, &mut truncated);
+    (counts, truncated)
+}
+
+pub fn compare_ocr_candidate(
+    document: &DocumentIrV2,
+    candidate: &OcrCandidate,
+) -> Result<OcrComparisonReport, OcrCandidateError> {
+    serde_json::to_writer(BoundedJsonWriter(0), document)
+        .map_err(|_| OcrCandidateError::ComparisonInputTooLarge)?;
+    let native_text = document
+        .pages
+        .iter()
+        .find(|page| page.number == candidate.page_number)
+        .and_then(|page| {
+            page.regions
+                .iter()
+                .find(|region| region.id == candidate.region_id)
+        })
+        .and_then(|region| region.sources.raw_text.as_deref())
+        .ok_or(OcrCandidateError::StaleNativeText)?;
+    if native_text.len() > MAX_COMPARISON_NATIVE_TEXT_BYTES {
+        return Err(OcrCandidateError::ComparisonInputTooLarge);
+    }
+    let receipt = build_ocr_candidate_receipt(document, candidate)?;
+    let (native, native_truncated) = ascii_token_counts(native_text);
+    let (ocr, ocr_truncated) = ascii_token_counts(&candidate.text);
+    let keys: BTreeSet<&String> = native.keys().chain(ocr.keys()).collect();
+    let mut differing_token_lower_bound = 0;
+    let mut differences = Vec::new();
+    for token in keys {
+        let native_count = native.get(token).copied().unwrap_or(0);
+        let ocr_count = ocr.get(token).copied().unwrap_or(0);
+        if native_count == ocr_count {
+            continue;
+        }
+        differing_token_lower_bound += 1;
+        if differences.len() < MAX_REPORTED_DIFFERENCES {
+            differences.push(OcrTokenDifference {
+                token: token.clone(),
+                native_count,
+                ocr_count,
+                contains_digit: token.bytes().any(|byte| byte.is_ascii_digit()),
+            });
+        }
+    }
+    Ok(OcrComparisonReport {
+        schema_version: 1,
+        receipt_hash: receipt.receipt_hash,
+        native_text_hash: receipt.native_text_hash,
+        ocr_text_hash: receipt.ocr_text_hash,
+        native_private_use_count: receipt.native_private_use_count,
+        ocr_private_use_count: receipt.ocr_private_use_count,
+        differing_token_lower_bound,
+        truncated: native_truncated
+            || ocr_truncated
+            || differing_token_lower_bound > differences.len(),
+        differences,
+        status: OcrComparisonStatus::ReviewRequired,
+        method_version: "ocr-token-comparison-rust-v1".to_owned(),
+    })
 }
 
 pub fn build_ocr_candidate_receipt(

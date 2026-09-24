@@ -6,7 +6,7 @@ import { initSync } from "../generated/audiobook_wasm/audiobook_wasm.js";
 import documentV2Fixture from "../../../../tests/fixtures/document_ir_v2.json";
 import { documentIrV2Schema } from "../schemas/ingestion";
 import { ocrCandidateSchema } from "../schemas/ocr_candidate";
-import { buildOcrCandidateReceipt } from "./rust_ocr_candidate";
+import { buildOcrCandidateReceipt, compareOcrCandidate } from "./rust_ocr_candidate";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -55,5 +55,35 @@ describe("real Rust/WASM OCR candidate contract", () => {
       .rejects.toMatchObject({ code: "CORE_REJECTED" });
     await expect(buildOcrCandidateReceipt(document, { ...candidate, text: " " }))
       .rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("reports exact technical-token differences without approving OCR", async () => {
+    const observed = { ...candidate, text: "PROCEDURE DIVISION" };
+    const report = await compareOcrCandidate(document, observed);
+    expect(report.status).toBe("review_required");
+    expect(report.differingTokenLowerBound).toBe(4);
+    expect(report.differences).toContainEqual({ token: "PR0CEDURE", nativeCount: 1, ocrCount: 0, containsDigit: true });
+    expect(report.differences).toContainEqual({ token: "PROCEDURE", nativeCount: 0, ocrCount: 1, containsDigit: false });
+    expect(report.receiptHash).toBe((await buildOcrCandidateReceipt(document, observed)).receiptHash);
+    expect((await compareOcrCandidate(document, { ...candidate, text: region.sources.rawText! })).status).toBe("review_required");
+  });
+
+  it("labels an omitted token difference as an incomplete lower bound through real WASM", async () => {
+    const native = Array.from({ length: 4_096 }, (_, index) => `T${String(index).padStart(4, "0")}`).join(" ");
+    const changedDocument = {
+      ...document,
+      pages: [{ ...document.pages[0], rawText: native, regions: [{ ...region,
+        sources: { ...region.sources, rawText: native } }] }],
+    };
+    const observed = { ...candidate, nativeTextHash: hash(native), text: `${native} EXTRA` };
+    const report = await compareOcrCandidate(changedDocument, observed);
+    expect(report).toMatchObject({ status: "review_required", differingTokenLowerBound: 0, truncated: true, differences: [] });
+  });
+
+  it("accepts a schema-valid control-heavy OCR candidate at the text limit", async () => {
+    const observed = { ...candidate, text: "\u0001".repeat(999_999) + "A" };
+    const report = await compareOcrCandidate(document, observed);
+    expect(report.status).toBe("review_required");
+    expect(report.ocrTextHash).toBe(hash(observed.text));
   });
 });

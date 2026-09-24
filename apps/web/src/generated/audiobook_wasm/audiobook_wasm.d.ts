@@ -19,6 +19,8 @@ export function build_script_review_packet_json(expected_plan_id: string, script
 
 export function build_semantic_outline_json(content_model_json: string): string;
 
+export function compare_ocr_candidate_json(document_json: string, candidate_json: string): string;
+
 export function core_version(): string;
 
 export function document_v2_has_source_units_json(input: string): boolean;
@@ -48,6 +50,7 @@ export interface InitOutput {
     readonly build_script_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly build_script_review_packet_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];
+    readonly compare_ocr_candidate_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly core_version: () => [number, number];
     readonly document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
     readonly evaluate_review_against_active_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number, number, number];

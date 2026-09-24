@@ -33,8 +33,9 @@ pub use narrative::{
     NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
 };
 pub use ocr::{
-    build_ocr_candidate_receipt, OcrCandidate, OcrCandidateError, OcrCandidateReceipt,
-    OcrCandidateStatus,
+    build_ocr_candidate_receipt, compare_ocr_candidate, OcrCandidate, OcrCandidateError,
+    OcrCandidateReceipt, OcrCandidateStatus, OcrComparisonReport, OcrComparisonStatus,
+    OcrTokenDifference,
 };
 pub use reading::{
     build_reading_preview, build_reading_session, ReadingChunk, ReadingError, ReadingPreview,

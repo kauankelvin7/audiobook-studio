@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 use audiobook_core::{
     build_active_narrative_identity, build_ocr_candidate_receipt, build_reading_preview,
     build_reading_session, build_script_review_packet, build_validated_narration_qa,
-    evaluate_review_against_active, validate_script_review_submission, ContentModel, DocumentIr,
-    DocumentIrV2, GenerationJob, NarrativePlan, NarrativeScript, OcrCandidate,
-    ReviewBindingReference, ScriptReviewSubmission, SemanticOutline,
+    compare_ocr_candidate, evaluate_review_against_active, validate_script_review_submission,
+    ContentModel, DocumentIr, DocumentIrV2, GenerationJob, NarrativePlan, NarrativeScript,
+    OcrCandidate, ReviewBindingReference, ScriptReviewSubmission, SemanticOutline,
 };
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
@@ -93,6 +93,20 @@ pub fn build_ocr_candidate_receipt_json(
     let candidate = OcrCandidate::from_json(candidate_json).map_err(js_error)?;
     let receipt = build_ocr_candidate_receipt(&document, &candidate).map_err(js_error)?;
     serde_json::to_string(&receipt).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn compare_ocr_candidate_json(
+    document_json: &str,
+    candidate_json: &str,
+) -> Result<String, JsValue> {
+    if document_json.len() > 32_000_000 || candidate_json.len() > 8_000_000 {
+        return Err(js_error("OCR comparison input exceeds the size limit"));
+    }
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let candidate = OcrCandidate::from_json(candidate_json).map_err(js_error)?;
+    let report = compare_ocr_candidate(&document, &candidate).map_err(js_error)?;
+    serde_json::to_string(&report).map_err(js_error)
 }
 
 #[wasm_bindgen]

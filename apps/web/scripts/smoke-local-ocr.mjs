@@ -46,6 +46,7 @@ try {
     const { WebLocksProjectLock } = await import("/src/adapters/web_locks_project_lock.ts");
     const { LocalProjectPersistence } = await import("/src/adapters/local_project_persistence.ts");
     const { OcrEvidencePersistence } = await import("/src/adapters/ocr_evidence_persistence.ts");
+    const { compareOcrCandidate } = await import("/src/adapters/rust_ocr_candidate.ts");
     const bytes = new Uint8Array(input);
     const v1 = await extractPdf(bytes);
     const { documentV2 } = await analyzeDocumentV1(v1);
@@ -61,6 +62,7 @@ try {
     const evidence = new OcrEvidencePersistence(persistence);
     const saved = await evidence.save("ocr_smoke", documentV2, result);
     const restored = await evidence.readHistorical("ocr_smoke", documentV2, saved.imageArtifact, saved.recordArtifact);
+    const comparison = await compareOcrCandidate(documentV2, restored.candidate);
     const sequence = (await persistence.loadLatest("ocr_smoke")).sequence;
     await evidence.save("ocr_smoke", documentV2, result);
     const retrySequence = (await persistence.loadLatest("ocr_smoke")).sequence;
@@ -68,7 +70,8 @@ try {
     return { text: result.candidate.text, status: result.receipt.status, imageHash: result.crop.imageHash,
       receiptImageHash: result.receipt.imageHash, engineId: result.receipt.engineId,
       restoredImageHash: restored.receipt.imageHash, currentness: restored.currentness,
-      sequence, retrySequence, databaseName,
+      comparisonStatus: comparison.status, comparisonReceiptHash: comparison.receiptHash,
+      receiptHash: restored.receipt.receiptHash, sequence, retrySequence, databaseName,
       imageArtifact: saved.imageArtifact, recordArtifact: saved.recordArtifact };
   }, bytes);
   assert.match(result.text, /Capitulo/i);
@@ -77,6 +80,8 @@ try {
   assert.equal(result.imageHash, result.restoredImageHash);
   assert.equal(result.engineId, "tesseract-js-local-por");
   assert.equal(result.currentness, "not_established");
+  assert.equal(result.comparisonStatus, "review_required");
+  assert.equal(result.comparisonReceiptHash, result.receiptHash);
   assert.equal(result.retrySequence, result.sequence);
   await page.reload();
   await page.waitForLoadState("networkidle");

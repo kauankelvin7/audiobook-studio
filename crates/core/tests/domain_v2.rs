@@ -3,12 +3,13 @@ use std::collections::{BTreeMap, HashSet};
 use audiobook_core::{
     build_active_narrative_identity, build_narration_qa, build_ocr_candidate_receipt,
     build_script_review_packet, build_validated_narration_qa, compare_heading_to_body,
-    evaluate_review_against_active, find_repeated_formulaic_openers, normalize_narrative_text,
-    reduce_narrative_memory, validate_script_review_submission, ActiveReviewStatus, ContentModel,
-    DocumentIr, DocumentIrV2, GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus,
-    NarrationEligibility, NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan,
-    NarrativeScript, NarrativeSection, OcrCandidate, OcrCandidateError, OcrCandidateStatus,
-    QaStatus, ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError, ReviewStatus,
+    compare_ocr_candidate, evaluate_review_against_active, find_repeated_formulaic_openers,
+    normalize_narrative_text, reduce_narrative_memory, validate_script_review_submission,
+    ActiveReviewStatus, ContentModel, DocumentIr, DocumentIrV2, GenerationJob,
+    HeadingOverlapMethod, HeadingOverlapStatus, NarrationEligibility, NarrativeHeading,
+    NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript, NarrativeSection,
+    OcrCandidate, OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus, QaStatus,
+    ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError, ReviewStatus,
     ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
     SemanticOutline, SpokenChapter, SpokenHeadingPolicy,
 };
@@ -127,6 +128,102 @@ fn ocr_candidate_is_bound_and_remains_pending_without_changing_source() {
     let glyph_receipt = build_ocr_candidate_receipt(&document, &glyphs).unwrap();
     assert_eq!(glyph_receipt.ocr_private_use_count, 1);
     assert_eq!(glyph_receipt.status, OcrCandidateStatus::Pending);
+
+    let mut ambiguous = candidate.clone();
+    ambiguous.text = "PROCEDURE DIVISION".into();
+    let comparison = compare_ocr_candidate(&document, &ambiguous).unwrap();
+    assert_eq!(comparison.status, OcrComparisonStatus::ReviewRequired);
+    assert_eq!(comparison.differing_token_lower_bound, 4);
+    assert!(comparison
+        .differences
+        .iter()
+        .any(|difference| difference.token == "PR0CEDURE"
+            && difference.contains_digit
+            && difference.native_count == 1
+            && difference.ocr_count == 0));
+    assert!(comparison
+        .differences
+        .iter()
+        .any(|difference| difference.token == "PROCEDURE"
+            && !difference.contains_digit
+            && difference.native_count == 0
+            && difference.ocr_count == 1));
+    assert_eq!(
+        comparison.receipt_hash,
+        build_ocr_candidate_receipt(&document, &ambiguous)
+            .unwrap()
+            .receipt_hash
+    );
+    ambiguous.text = native.to_owned();
+    let identical = compare_ocr_candidate(&document, &ambiguous).unwrap();
+    assert_eq!(identical.differing_token_lower_bound, 0);
+    assert_eq!(identical.status, OcrComparisonStatus::ReviewRequired);
+}
+
+#[test]
+fn ocr_comparison_is_bounded_and_reports_only_observed_differences() {
+    let mut document = document_v2();
+    let mut candidate = OcrCandidate {
+        schema_version: 1,
+        document_id: document.document_id.clone(),
+        source_hash: document.source_hash.clone(),
+        page_number: 1,
+        region_id: document.pages[0].regions[0].id.clone(),
+        native_text_hash: String::new(),
+        image_hash: audiobook_core::sha256_source(b"pixels"),
+        engine_id: "fixture".into(),
+        engine_version: "1".into(),
+        text: "B".into(),
+    };
+    let set_native = |document: &mut DocumentIrV2, candidate: &mut OcrCandidate, text: String| {
+        candidate.native_text_hash = audiobook_core::sha256_source(text.as_bytes());
+        document.pages[0].raw_text = text.clone();
+        document.pages[0].regions[0].sources.raw_text = Some(text);
+    };
+
+    set_native(&mut document, &mut candidate, "A".repeat(1_000_001));
+    assert_eq!(
+        compare_ocr_candidate(&document, &candidate),
+        Err(OcrCandidateError::ComparisonInputTooLarge)
+    );
+
+    set_native(&mut document, &mut candidate, "A".into());
+    document.pages[0].raw_text = "X".repeat(32_000_001);
+    assert_eq!(
+        compare_ocr_candidate(&document, &candidate),
+        Err(OcrCandidateError::ComparisonInputTooLarge)
+    );
+    document.pages[0].raw_text = "A".into();
+
+    let native = (0..4_096)
+        .map(|index| format!("T{index:04}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    set_native(&mut document, &mut candidate, native.clone());
+    candidate.text = format!("{native} EXTRA");
+    let subset = compare_ocr_candidate(&document, &candidate).unwrap();
+    assert!(subset.truncated);
+    assert_eq!(subset.differing_token_lower_bound, 0);
+    assert!(subset.differences.is_empty());
+    assert_eq!(subset.status, OcrComparisonStatus::ReviewRequired);
+
+    set_native(&mut document, &mut candidate, "A".repeat(129));
+    candidate.text = "B".into();
+    let long_token = compare_ocr_candidate(&document, &candidate).unwrap();
+    assert!(long_token.truncated);
+    assert_eq!(long_token.differing_token_lower_bound, 1);
+
+    let native = (0..300)
+        .map(|index| format!("A{index:03}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    set_native(&mut document, &mut candidate, native);
+    candidate.text = "Z".into();
+    let limited_output = compare_ocr_candidate(&document, &candidate).unwrap();
+    assert_eq!(limited_output.differing_token_lower_bound, 301);
+    assert_eq!(limited_output.differences.len(), 256);
+    assert_eq!(limited_output.differences[0].token, "A000");
+    assert!(limited_output.truncated);
 }
 
 #[test]

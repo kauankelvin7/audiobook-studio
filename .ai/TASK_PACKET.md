@@ -1,5 +1,13 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5I comparação OCR canônica (2026-09-23)
+- Base: commits M4.5E–H locais, gates verdes; não publicados por ausência de credenciais GitHub. Caso público sintético identificou `SAMPLE01` lido como `SAMPLEO1`.
+- Objetivo: produzir no Rust um relatório determinístico de diferenças entre texto nativo e OCR para revisão humana, ligado ao recibo e limitado em tamanho. Nunca promover texto ou aprovar automaticamente.
+- Evidência: o recibo atual só mede PUA e hashes; não destaca tokens técnicos alterados. A ambiguidade `0`/`O` é uma falha concreta observada no smoke.
+- Restrições: Rust detém comparação; TS só valida contrato/encaminha WASM. Sinais não são prova de fidelidade; sem regra de aceitação automática.
+- Riscos: falso positivo por espaçamento/case, saída enorme, tokenização Unicode, ranking enganoso. Plano: tokens ASCII auditáveis, diferenças em multiset, limite de relatório, teste da ambiguidade, export WASM real, docs e gates.
+- Verificação: Rust fmt/test/clippy, build WASM, Web typecheck/test/build, diff check e revisão independente. Risco HIGH; Lead writer único.
+
 ## PRE-FLIGHT — M4.5H medição pública de código OCR (2026-09-23)
 - Base: M4.5G local validado; PDFs/goldens privados indisponíveis por confirmação do usuário. Usuário autorizou usar exemplos públicos.
 - Objetivo: adicionar caso pequeno de código COBOL com texto esperado conhecido e medir preservação de tokens pela engine real no navegador, sem classificar como golden do corpus privado.

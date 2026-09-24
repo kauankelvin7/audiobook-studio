@@ -10,6 +10,7 @@ export const build_reading_session_json: (a: number, b: number, c: number, d: nu
 export const build_script_qa_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
 export const build_script_review_packet_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
 export const build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];
+export const compare_ocr_candidate_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const core_version: () => [number, number];
 export const document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
 export const evaluate_review_against_active_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number, number, number];
