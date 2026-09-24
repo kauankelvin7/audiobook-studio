@@ -28,3 +28,15 @@
 - Structured output inválido, documentId divergente, conceptId desconhecido ou sourceRef desconhecida é rejeitado antes de uso.
 - Nenhum teste afirma que o planner/LLM real existe.
 - Gates Web e CI passam.
+
+
+## RESULT M4.2a — 2026-09-24
+
+- Status: IMPLEMENTED/TESTED para contratos semânticos e barreira estruturada; planner/LLM real continua pendente.
+- Entregue: `ContentModel` v1, `SemanticOutline` v1, fixtures, invariantes de IDs/ordem/pré-requisitos e `planner_boundary` fail-closed.
+- Grounding estrutural: rejeita output malformado, `documentId` divergente, conceito fora do ContentModel/outline e source ref desconhecida.
+- Testes novos: 11 (5 contratos + 6 boundary).
+- CI `quality` run `35979288303`: Web PASS com 94/94 testes, typecheck, build e audit 0 vulnerabilidades; Rust PASS com fmt, test e clippy `-D warnings`.
+- Contexto: TASK_PACKET foi reduzido à tarefa ativa e WORKLOG passou a ser histórico sob demanda.
+- Deferred: paridade Rust destes contratos, provider/modelo real, prompt/evals semânticos, golden mainframe e TTS.
+- Próximo passo recomendado: M4.2b — paridade Rust/TS dos contratos e port provider-neutral do planner antes de integrar qualquer modelo real.
