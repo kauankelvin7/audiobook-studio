@@ -5,8 +5,9 @@ import type { CheckpointDraft } from "./adapters/local_project_persistence";
 import { MAX_PDF_BYTES } from "./adapters/pdf_limits";
 import { LocalSpeechPlayer, type SpeechState } from "./adapters/local_speech";
 import { renderLocalWav, type WavProgress } from "./adapters/local_wav";
-import { listLiteralAudios, loadLiteralAudio, loadLiteralAudioByKey, removeHistoricalLiteralAudio, saveLiteralAudio,
-  type LiteralAudioEntry, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
+import { listLiteralAudios, loadCompleteLiteralAudio, loadLiteralAudio, loadLiteralAudioByKey,
+  removeHistoricalLiteralAudio, saveCompleteLiteralAudio, saveLiteralAudio,
+  type CompleteLiteralAudio, type LiteralAudioEntry, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
 import type { ArtifactWrite } from "./adapters/ports";
 import { documentIrSchema, type DocumentIr } from "./schemas/document";
@@ -26,6 +27,8 @@ function App() {
   const wavAbortRef = useRef<AbortController | null>(null);
   const wavUrlRef = useRef<string | null>(null);
   const savedWavUrlRef = useRef<string | null>(null);
+  const completeWavUrlRef = useRef<string | null>(null);
+  const completeAudioRef = useRef<HTMLAudioElement | null>(null);
   const [document, setDocument] = useState<DocumentIr | null>(null);
   const [documentV2, setDocumentV2] = useState<DocumentIrV2 | null>(null);
   const [ocrSourceReady, setOcrSourceReady] = useState(false);
@@ -45,6 +48,9 @@ function App() {
   const [wavUrl, setWavUrl] = useState<string | null>(null);
   const [wavProgress, setWavProgress] = useState<WavProgress | null>(null);
   const [savedWav, setSavedWav] = useState<(SavedLiteralAudio & { url: string }) | null>(null);
+  const [completeWav, setCompleteWav] = useState<(CompleteLiteralAudio & { url: string }) | null>(null);
+  const [completeProgress, setCompleteProgress] = useState<number | null>(null);
+  const [currentChapter, setCurrentChapter] = useState(0);
   const [audioHistory, setAudioHistory] = useState<LiteralAudioEntry[]>([]);
   const [selectedAudioKey, setSelectedAudioKey] = useState<string | null>(null);
   const [audioOpening, setAudioOpening] = useState(false);
@@ -68,6 +74,23 @@ function App() {
     setSavedWav(null);
     setSelectedAudioKey(null);
     setAudioOpening(false);
+  }
+
+  function clearCompleteWav() {
+    if (completeWavUrlRef.current) URL.revokeObjectURL(completeWavUrlRef.current);
+    completeWavUrlRef.current = null;
+    setCompleteWav(null);
+    setCompleteProgress(null);
+    setCurrentChapter(0);
+  }
+
+  function seekChapter(index: number) {
+    const chapter = completeWav?.chapters[index];
+    const audio = completeAudioRef.current;
+    if (!chapter || !audio) return;
+    audio.currentTime = chapter.startSeconds;
+    setCurrentChapter(index);
+    void audio.play().catch(() => undefined);
   }
 
   async function openSavedAudio(entry: LiteralAudioEntry) {
@@ -183,7 +206,7 @@ function App() {
           if (v2.success && v2.data.documentId === parsed.data.documentId && v2.data.sourceHash === parsed.data.sourceHash && !cancelled && importGenerationRef.current === 0) {
             setDocumentV2(v2.data);
             setOcrSourceReady(true);
-            setCurrentAudioKey(latest?.checkpoint?.artifactKeys.find(key => /^literal_wav_[0-9a-f]{32}$/.test(key)) ?? null);
+            setCurrentAudioKey(latest?.checkpoint?.artifactKeys.slice().reverse().find(key => /^literal_wav_[0-9a-f]{32}$/.test(key)) ?? null);
             try {
               const history = await listLiteralAudios(localPersistence!.service, v2.data);
               if (!cancelled && importGenerationRef.current === 0) setAudioHistory(history);
@@ -196,13 +219,22 @@ function App() {
                 const url = URL.createObjectURL(saved.blob);
                 savedWavUrlRef.current = url;
                 setSavedWav({ ...saved, url });
-                setSelectedAudioKey(latest?.checkpoint?.artifactKeys.find(key => /^literal_wav_[0-9a-f]{32}$/.test(key)) ?? null);
+                setSelectedAudioKey(latest?.checkpoint?.artifactKeys.slice().reverse().find(key => /^literal_wav_[0-9a-f]{32}$/.test(key)) ?? null);
                 recoveredAudio = true;
               }
               if (!saved && audioExpected) audioRecoveryFailed = true;
             } catch {
               audioRecoveryFailed = audioExpected;
             }
+            try {
+              const complete = await loadCompleteLiteralAudio(localPersistence!.service, v2.data);
+              if (complete && !cancelled && importGenerationRef.current === 0) {
+                const url = URL.createObjectURL(complete.blob);
+                completeWavUrlRef.current = url;
+                setCompleteWav({ ...complete, url });
+                recoveredAudio = true;
+              }
+            } catch { audioRecoveryFailed = true; }
           }
         }
         if (!cancelled && importGenerationRef.current === 0) setStatus(recoveredAudio
@@ -220,6 +252,7 @@ function App() {
       wavAbortRef.current?.abort();
       if (wavUrlRef.current) URL.revokeObjectURL(wavUrlRef.current);
       if (savedWavUrlRef.current) URL.revokeObjectURL(savedWavUrlRef.current);
+      if (completeWavUrlRef.current) URL.revokeObjectURL(completeWavUrlRef.current);
       workerRef.current?.terminate();
       workerRef.current = null;
       if (persistenceRef.current === localPersistence) persistenceRef.current = null;
@@ -236,6 +269,7 @@ function App() {
     speechRef.current?.stop();
     clearWav();
     clearSavedWav();
+    clearCompleteWav();
     setAudioHistory([]);
     setCurrentAudioKey(null);
     setPreview(null);
@@ -457,6 +491,56 @@ function App() {
     }
   }
 
+  async function exportCompleteWav() {
+    if (!documentV2 || !persistenceRef.current || wavBusy || busy || ocrCommitBusy) return;
+    const source = documentV2;
+    const generation = importGenerationRef.current;
+    const store = persistenceRef.current.service;
+    const controller = new AbortController();
+    wavAbortRef.current = controller;
+    setWavBusy(true);
+    setCompleteProgress(0);
+    setStatus("Conferindo todas as páginas antes da exportação…");
+    try {
+      const sessions = [];
+      for (let page = 1; page <= source.pages.length; page++) {
+        sessions.push(await buildReadingSession(source, page, page));
+        if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+      }
+      const history = await listLiteralAudios(store, source);
+      const keys: string[] = [];
+      for (const [index, session] of sessions.entries()) {
+        if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+        const cached = history.find(entry => entry.startPage === index + 1 && entry.endPage === index + 1);
+        if (cached) keys.push(cached.artifactKey);
+        else {
+          setStatus(`Gerando áudio da página ${index + 1} de ${sessions.length}…`);
+          const wav = await renderLocalWav(session, controller.signal, setWavProgress);
+          if (controller.signal.aborted) return;
+          keys.push(await saveLiteralAudio(store, source, session, wav));
+        }
+        setCompleteProgress(index + 1);
+      }
+      if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+      setStatus("Validando e montando o audiobook completo…");
+      const complete = await saveCompleteLiteralAudio(store, source, keys);
+      if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+      clearCompleteWav();
+      const url = URL.createObjectURL(complete.blob);
+      completeWavUrlRef.current = url;
+      setCompleteWav({ ...complete, url });
+      setCompleteProgress(source.pages.length);
+      setStatus("Audiobook completo salvo neste dispositivo. Confira o player e baixe o WAV.");
+      setAudioHistory(await listLiteralAudios(store, source));
+    } catch (error) {
+      if (!controller.signal.aborted && generation === importGenerationRef.current) {
+        setStatus(error instanceof Error ? error.message : "Não foi possível exportar o audiobook completo.");
+      }
+    } finally {
+      if (wavAbortRef.current === controller) { wavAbortRef.current = null; setWavBusy(false); }
+    }
+  }
+
   return <main className="shell">
     <header className="intro">
       <p className="eyebrow">Audiobook Studio · leitura de PDF</p>
@@ -467,7 +551,7 @@ function App() {
       <h2 id="import-title">Importar PDF</h2>
       <p>Selecione um PDF de até 32 MB com texto selecionável. Após conferir o trecho, você pode gerar um WAV local.</p>
       <label htmlFor="pdf-input">Arquivo PDF</label>
-      <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy || audioMaintenanceBusy || ocrCommitBusy} />
+      <input id="pdf-input" type="file" accept=".pdf,application/pdf" onChange={importFile} disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} />
       {fileName && <p className="file-name">Arquivo: {fileName}</p>}
       <p role="status" aria-live="polite">{status}</p>
     </section>
@@ -490,7 +574,8 @@ function App() {
           aria-label={`Abrir gravação das páginas ${entry.startPage} a ${entry.endPage}, salva em ${new Date(entry.createdAtMs).toLocaleString("pt-BR")}`}>
           {selectedAudioKey === entry.artifactKey ? "Reabrir gravação" : "Abrir gravação"}
         </button>
-        {entry.artifactKey !== currentAudioKey && <button type="button" onClick={() => void removeSavedAudio(entry)}
+        {entry.artifactKey !== currentAudioKey && !completeWav?.chapters.some(chapter => chapter.audioKey === entry.artifactKey)
+          && <button type="button" onClick={() => void removeSavedAudio(entry)}
           disabled={audioMaintenanceBusy || audioOpening || wavBusy}
           aria-label={`Excluir gravação das páginas ${entry.startPage} a ${entry.endPage}, salva em ${new Date(entry.createdAtMs).toLocaleString("pt-BR")}`}>
           Excluir gravação antiga
@@ -506,6 +591,42 @@ function App() {
         persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
         onCommitChange={setOcrCommitBusy} />
     </Suspense>}
+    {documentV2 && <section className="panel" aria-labelledby="complete-audio-title">
+      <h2 id="complete-audio-title">Exportar áudio do PDF inteiro</h2>
+      <p>O arquivo reúne todas as páginas com texto validado. Páginas que precisam de OCR ou revisão bloqueiam a exportação.</p>
+      <button type="button" onClick={() => void exportCompleteWav()} disabled={wavBusy || busy || ocrCommitBusy}>
+        {wavBusy ? "Gerando áudio…" : "Gerar audiobook completo em WAV"}
+      </button>
+      {wavBusy && <button type="button" onClick={() => wavAbortRef.current?.abort()}>Cancelar geração</button>}
+      {completeProgress !== null && <p role="status">{completeProgress} de {documentV2.pages.length} páginas processadas.</p>}
+      {completeWav && <div className="wav-result">
+        <audio controls ref={completeAudioRef} src={completeWav.url} aria-label="Audiobook completo"
+          onTimeUpdate={event => {
+            const time = event.currentTarget.currentTime;
+            const index = completeWav.chapters.reduce((selected, chapter, position) =>
+              chapter.startSeconds <= time ? position : selected, -1);
+            if (index >= 0) setCurrentChapter(index);
+          }} />
+        <div className="reading-actions">
+          <button type="button" onClick={() => seekChapter(currentChapter - 1)} disabled={currentChapter === 0}>Capítulo anterior</button>
+          <button type="button" onClick={() => seekChapter(currentChapter + 1)} disabled={currentChapter >= completeWav.chapters.length - 1}>Próximo capítulo</button>
+        </div>
+        <a href={completeWav.url} download="audiobook-studio-completo.wav">Baixar audiobook completo em WAV</a>
+        <a href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify({ schemaVersion: 1,
+          format: "audio/wav", sourceHash: completeWav.sourceHash, documentHash: completeWav.documentHash,
+          audioHash: completeWav.audioHash,
+          pipelineVersion: completeWav.pipelineVersion, voiceId: "pt_BR-faber-medium",
+          chapters: completeWav.chapters }))}`} download="audiobook-studio-completo.manifest.json">
+          Baixar índice e manifesto do audiobook
+        </a>
+        <ol>{completeWav.chapters.map(chapter => <li key={chapter.pageNumber}>
+          <button type="button" onClick={() => seekChapter(chapter.pageNumber - 1)}
+            aria-current={currentChapter === chapter.pageNumber - 1 ? "true" : undefined}>
+            Página {chapter.pageNumber} · início {Math.floor(chapter.startSeconds / 60)}:{String(Math.floor(chapter.startSeconds % 60)).padStart(2, "0")}
+          </button>
+        </li>)}</ol>
+      </div>}
+    </section>}
     {document && <section className="panel" aria-labelledby="reading-title">
       <h2 id="reading-title">Ouvir o texto do PDF</h2>
       <p>Selecione até dez páginas consecutivas. O texto é lido sem reescrita ou correção automática.</p>

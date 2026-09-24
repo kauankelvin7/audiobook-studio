@@ -1,6 +1,6 @@
 # Audiobook Studio
 
-Projeto local-first para transformar documentos em audiolivros. A interface importa PDFs com texto selecionável, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa somente vozes que o navegador declara locais. Também é possível gerar e salvar um WAV literal com a voz Faber pt-BR em um Worker local. Existe uma engine OCR local para gerar candidatos por região, ainda sem integração à interface ou substituição automática do texto. Não há modelo narrativo real nem audiolivro final nesta versão.
+Projeto local-first para transformar documentos em áudio. A interface importa PDFs, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa vozes locais do navegador. O produto também gera um WAV literal completo com a voz Faber pt-BR: valida todas as páginas, salva trechos por página, reúne o áudio, oferece navegação por capítulos, download e reabertura após reload. Páginas que exigem OCR ou revisão bloqueiam esta exportação. O roteiro narrativo ainda não está ligado ao TTS final.
 
 ## Estrutura
 
@@ -44,4 +44,5 @@ O smoke funcional de áudio é opt-in porque baixa o modelo de voz na primeira e
 cd apps/web
 npm run test:browser:audio
 $env:AUDIO_BROWSER_CHANNEL='msedge'; npm run test:browser:audio
+npm run test:browser:complete-audio
 ```

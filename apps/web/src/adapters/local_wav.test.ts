@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { readingTextForTts, renderLocalWav, validateWav } from "./local_wav";
+import { joinValidatedWavs, readingTextForTts, renderLocalWav, validateWav } from "./local_wav";
 import type { ReadingSession } from "./rust_reading_preview";
 
 const session: ReadingSession = {
@@ -19,6 +19,8 @@ function wav(): Blob {
   view.setUint16(20, 1, true);
   view.setUint16(22, 1, true);
   view.setUint32(24, 22_050, true);
+  view.setUint32(28, 44_100, true);
+  view.setUint16(32, 2, true);
   view.setUint16(34, 16, true);
   view.setUint32(36, 0x61746164, true);
   view.setUint32(40, 2, true);
@@ -39,6 +41,18 @@ describe("local WAV adapter", () => {
     await expect(validateWav(new Blob([new Uint8Array(44)]))).rejects.toMatchObject({ code: "INVALID_AUDIO" });
     const truncated = wav().slice(0, 44);
     await expect(validateWav(truncated)).rejects.toMatchObject({ code: "INVALID_AUDIO" });
+  });
+
+  it("joins checked PCM chunks into one decodable WAV in source order", async () => {
+    const first = wav();
+    const secondBytes = new Uint8Array(await wav().arrayBuffer());
+    secondBytes[44] = 7;
+    secondBytes[45] = 9;
+    const combined = await joinValidatedWavs([first, new Blob([secondBytes], { type: "audio/wav" })]);
+    await expect(validateWav(combined)).resolves.toBeUndefined();
+    const bytes = new Uint8Array(await combined.arrayBuffer());
+    expect(Array.from(bytes.slice(44))).toEqual([0, 0, 7, 9]);
+    await expect(joinValidatedWavs([])).rejects.toMatchObject({ code: "INVALID_AUDIO" });
   });
 
   it("terminates worker after a validated result", async () => {

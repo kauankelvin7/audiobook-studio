@@ -1,5 +1,9 @@
 # Worklog
 
+## 2026-09-24 — Exportação integral executada
+- O produto agora valida todas as páginas pelo core Rust antes de sintetizar, salva cada WAV de página com o checkpoint atual, reutiliza chunks válidos, monta um WAV PCM único e publica `final_audio` com manifesto de capítulos. UI toca, busca capítulo anterior/próximo, baixa WAV e manifesto, e reabre após reload.
+- Smoke Chrome: PDF de duas páginas, Piper local, WAV baixado com cerca de 4,6 s; reprodução, hash do manifesto, capítulos em ordem e recuperação após reload passaram. Cópia do download em `C:\Users\Kauan\Documents\Codex\2026-09-24\pros\outputs`. Rust fmt/47 testes; Web typecheck/157 testes/build; smoke passou. QA detectou risco de reabrir áudio após mudança do DocumentIR; o manifesto agora vincula o hash do documento ativo e rejeita versões desatualizadas. PDFs com página sem texto confiável continuam bloqueados antes da síntese; o fluxo narrativo e reconciliação OCR seguem pendentes.
+
 ## 2026-09-24 — M4.5O memória local de ambiguidades OCR
 - O usuário pediu uma entrega ampla e um loop local de aprendizado para ambiguidades. O batch implementa extração Rust de regras a partir de correções humanas explícitas, banco IndexedDB local de registros derivados e modelo determinístico compilado em lote. O operador atualiza o snapshot, que recebe hash, lista de evidências distintas e regras aceitas; o OCR o consulta sem corrigir automaticamente. Não há modelo neural, serviço externo, SQLite ou retreinamento de pesos.
 - Regra aceita somente tokens ASCII técnicos com dois ou mais caracteres, mesmo tamanho, uma diferença limitada aos pares `0/O`, `1/I/L`, `5/S` e `8/B`, e ao menos um dígito em um dos lados. Proposta ampla, inserção, remoção, reordenação e whitespace divergente não viram memória. Cada registro é ligado a fonte, recibo do candidato e hash da revisão; o hash do registro detecta inconsistência, mas não autentica o revisor.

@@ -1,5 +1,9 @@
 # HANDOFF — retorno ao Codex Work
 
+## Release closure — exportação integral literal (2026-09-24)
+- Produto gerou WAV único de PDF de duas páginas no Chrome, tocou, navegou capítulos, baixou WAV + manifesto e reabriu após reload. O arquivo exportado está em `pros/outputs` da tarefa atual. Chunks por página reutilizam OPFS/checkpoints existentes; páginas sem leitura Rust válida bloqueiam a síntese antes do primeiro chunk.
+- Gates: Rust fmt/47 testes, Web typecheck/157 testes/build e smoke Chromium passaram. Próximo elo: revisão OCR atestada, reconciliação canônica e ligação de ContentModel/roteiro ao TTS. O WAV atual é leitura literal; não declarar narrativa final ou OCR reconciliado.
+
 ## M4.5O — memória local de ambiguidades OCR (2026-09-24)
 - Correções explícitas podem criar regras locais para tokens técnicos nos pares `0/O`, `1/I/L`, `5/S` e `8/B`. Rust deriva e valida o registro; IndexedDB guarda apenas hashes e pares de tokens. Três evidências OCR distintas, sem empate, são necessárias para uma sugestão `review_required`.
 - A tela atualiza um modelo determinístico em lote, persistido com hashes das evidências e `modelHash`; OCR consulta somente esse snapshot. O smoke Chromium cria os registros, salva/relê o modelo e confirma sugestão sem rede externa.

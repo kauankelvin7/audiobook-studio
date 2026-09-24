@@ -1,5 +1,10 @@
 # TASK PACKET — Audiobook Studio
 
+## Execução de release — exportação integral do PDF (2026-09-24)
+- Base: `597581e`, árvore limpa. Primeiro bloqueio do produto: o WAV atual cobre no máximo dez páginas e 12 mil caracteres; não há arquivo único do PDF inteiro.
+- Entrega: reutilizar validação de leitura Rust, Piper local, chunks WAV e checkpoint OPFS/IndexedDB para gerar capítulos por página, montar um WAV final, tocar, baixar e reabrir após reload. Páginas sem texto confiável falham antes da síntese. Esta é uma leitura literal completa; a narração narrativa continua bloqueada pelo pipeline ainda não ligado.
+- Riscos: ordem, corrupção/omissão de capítulo, WAV inválido, interrupção, limite de armazenamento e troca de fonte. Validar todos os capítulos antes de sintetizar, persistir cada chunk, reusar os válidos, conferir PCM e duração do final, publicar com CAS e testar download/reload real.
+
 ## PRE-FLIGHT — M4.5O memória local de ambiguidades OCR (2026-09-24)
 - Base: `c7bc98a` publicada, árvore limpa. Usuário solicitou entrega grande, linear e voltada a reduzir erros, incluindo loop local de feedback para ambiguidades OCR. A avaliação pública confirmou troca concreta `0`/`O` em código.
 - Objetivo deste batch: extrair exemplos de correções explícitas, validar e agregar regras de ambiguidade no Rust/WASM, armazená-las localmente no navegador, compilar modelo determinístico em lote e oferecer sugestões para revisão humana. Nenhuma sugestão altera automaticamente o DocumentIR, o candidato ou a elegibilidade de narração.

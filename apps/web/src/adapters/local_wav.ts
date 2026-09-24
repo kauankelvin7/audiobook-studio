@@ -6,6 +6,7 @@ type WorkerFactory = () => WorkerPort;
 
 const MAX_RENDER_CHARS = 12_000;
 const MAX_WAV_BYTES = 80 * 1024 * 1024;
+const MAX_COMPLETE_WAV_BYTES = 512 * 1024 * 1024;
 
 export class LocalWavError extends Error {
   constructor(public readonly code: "INVALID_SESSION" | "TOO_LONG" | "ENGINE_FAILED" | "INVALID_AUDIO" | "CANCELLED", message: string) {
@@ -28,8 +29,8 @@ export function readingTextForTts(session: ReadingSession): string {
   return text;
 }
 
-export async function validateWav(blob: Blob): Promise<void> {
-  if (!(blob instanceof Blob) || blob.size < 46 || blob.size > MAX_WAV_BYTES) {
+export async function validateWav(blob: Blob, maxBytes = MAX_WAV_BYTES): Promise<void> {
+  if (!(blob instanceof Blob) || blob.size < 46 || blob.size > maxBytes) {
     throw new LocalWavError("INVALID_AUDIO", "O áudio gerado está vazio ou excede o limite seguro.");
   }
   const header = new DataView(await blob.slice(0, 44).arrayBuffer());
@@ -37,9 +38,46 @@ export async function validateWav(blob: Blob): Promise<void> {
   if (word(0) !== 0x46464952 || word(8) !== 0x45564157 || word(12) !== 0x20746d66
     || word(36) !== 0x61746164 || word(4) !== blob.size - 8 || word(40) !== blob.size - 44
     || header.getUint16(20, true) !== 1 || header.getUint16(22, true) !== 1
-    || header.getUint16(34, true) !== 16 || word(24) !== 22_050 || word(40) === 0) {
+    || header.getUint16(34, true) !== 16 || word(24) !== 22_050 || word(28) !== 44_100
+    || header.getUint16(32, true) !== 2 || word(40) === 0 || word(40) % 2 !== 0) {
     throw new LocalWavError("INVALID_AUDIO", "O motor retornou um WAV incompatível ou incompleto.");
   }
+}
+
+export async function joinValidatedWavs(chunks: Blob[]): Promise<Blob> {
+  if (chunks.length === 0) throw new LocalWavError("INVALID_AUDIO", "Nenhum trecho de áudio foi gerado.");
+  let pcmBytes = 0;
+  const pcm: Blob[] = [];
+  for (const chunk of chunks) {
+    await validateWav(chunk);
+    const header = new DataView(await chunk.slice(0, 44).arrayBuffer());
+    if (header.getUint32(16, true) !== 16 || header.getUint16(32, true) !== 2) {
+      throw new LocalWavError("INVALID_AUDIO", "Os trechos WAV têm formatos incompatíveis.");
+    }
+    pcmBytes += chunk.size - 44;
+    if (pcmBytes + 44 > MAX_COMPLETE_WAV_BYTES || pcmBytes > 0xfffffff7) {
+      throw new LocalWavError("TOO_LONG", "O audiobook excede o limite de 512 MB em WAV.");
+    }
+    pcm.push(chunk.slice(44));
+  }
+  const buffer = new ArrayBuffer(44);
+  const header = new DataView(buffer);
+  header.setUint32(0, 0x46464952, true);
+  header.setUint32(4, pcmBytes + 36, true);
+  header.setUint32(8, 0x45564157, true);
+  header.setUint32(12, 0x20746d66, true);
+  header.setUint32(16, 16, true);
+  header.setUint16(20, 1, true);
+  header.setUint16(22, 1, true);
+  header.setUint32(24, 22_050, true);
+  header.setUint32(28, 44_100, true);
+  header.setUint16(32, 2, true);
+  header.setUint16(34, 16, true);
+  header.setUint32(36, 0x61746164, true);
+  header.setUint32(40, pcmBytes, true);
+  const result = new Blob([buffer, ...pcm], { type: "audio/wav" });
+  await validateWav(result, MAX_COMPLETE_WAV_BYTES);
+  return result;
 }
 
 export function renderLocalWav(session: ReadingSession, signal: AbortSignal, onProgress: (progress: WavProgress) => void,
