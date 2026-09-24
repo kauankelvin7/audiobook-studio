@@ -2,13 +2,12 @@ import { lazy, Suspense, useEffect, useRef, useState, type ChangeEvent } from "r
 import { createBrowserLocalPersistence, type BrowserLocalPersistence } from "./adapters/browser_local_persistence";
 import type { CheckpointDraft } from "./adapters/local_project_persistence";
 import { MAX_PDF_BYTES } from "./adapters/pdf_limits";
-import { LocalSpeechPlayer, type SpeechState } from "./adapters/local_speech";
 import { renderLocalWav, type WavProgress } from "./adapters/local_wav";
 import { listLiteralAudios, loadCompleteLiteralAudio, loadLiteralAudio, loadLiteralAudioByKey,
   removeHistoricalLiteralAudio, saveCompleteLiteralAudio, saveLiteralAudio,
   type CompleteLiteralAudio, type LiteralAudioEntry, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
-import { loadLatestApprovedNarrative, type ApprovedNarrativeRecord } from "./adapters/approved_narrative";
+import { loadLatestApprovedNarrative } from "./adapters/approved_narrative";
 import { listNarrativeChapters, loadCompleteNarrativeAudio, narrativeReadingSession,
   saveCompleteNarrativeAudio, saveNarrativeChapter, type CompleteNarrativeAudio } from "./adapters/narrative_audio";
 import type { ArtifactWrite } from "./adapters/ports";
@@ -23,15 +22,20 @@ import { ProjectImportPanel } from "./ProjectImportPanel";
 import { ReviewBottomDock } from "./ReviewBottomDock";
 import { ExportPanel } from "./ExportPanel";
 import { AudioWorkspace } from "./AudioWorkspace";
+import { useLocalSpeechPlayer } from "./useLocalSpeechPlayer";
+import { useApprovedNarrativeRecord } from "./useApprovedNarrativeRecord";
 
 const OcrReviewPanel = lazy(async () => ({ default: (await import("./OcrReviewPanel")).OcrReviewPanel }));
 const NarrativePanel = lazy(async () => ({ default: (await import("./NarrativePanel")).NarrativePanel }));
 
 export function App() {
   const stage = useProductStage();
+  const [status, setStatus] = useState("Escolha um PDF para conferir o texto extraído.");
+  const { playerRef: speechRef, speechState, voices, voiceURI, setVoiceURI } = useLocalSpeechPlayer(
+    () => setStatus("A leitura foi interrompida pelo navegador. Tente novamente."),
+  );
   const workerRef = useRef<Worker | null>(null);
   const persistenceRef = useRef<BrowserLocalPersistence | null>(null);
-  const speechRef = useRef<LocalSpeechPlayer | null>(null);
   const readingRequestRef = useRef(0);
   const importGenerationRef = useRef(0);
   const audioOpenRef = useRef(0);
@@ -46,17 +50,12 @@ export function App() {
   const [ocrEpoch, setOcrEpoch] = useState(0);
   const [canonicalEpoch, setCanonicalEpoch] = useState(0);
   const [narrativeEpoch, setNarrativeEpoch] = useState(0);
-  const [approvedNarrative, setApprovedNarrative] = useState<ApprovedNarrativeRecord | null>(null);
   const [ocrCommitBusy, setOcrCommitBusy] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [endPage, setEndPage] = useState(1);
   const [preview, setPreview] = useState<ReadingSession | null>(null);
   const [reviewed, setReviewed] = useState(false);
-  const [speechState, setSpeechState] = useState<SpeechState>("idle");
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [voiceURI, setVoiceURI] = useState("");
   const [fileName, setFileName] = useState("");
-  const [status, setStatus] = useState("Escolha um PDF para conferir o texto extraído.");
   const [busy, setBusy] = useState(false);
   const [wavBusy, setWavBusy] = useState(false);
   const [wavUrl, setWavUrl] = useState<string | null>(null);
@@ -159,25 +158,6 @@ export function App() {
       if (generation === importGenerationRef.current) setAudioMaintenanceBusy(false);
     }
   }
-
-  useEffect(() => {
-    const synthesis = typeof window === "undefined" ? null : window.speechSynthesis ?? null;
-    const player = new LocalSpeechPlayer(synthesis, setSpeechState,
-      () => setStatus("A leitura foi interrompida pelo navegador. Tente novamente."));
-    speechRef.current = player;
-    const refresh = () => {
-      const available = player.localVoices();
-      setVoices(available);
-      setVoiceURI(current => available.some(voice => voice.voiceURI === current) ? current : available[0]?.voiceURI ?? "");
-    };
-    refresh();
-    synthesis?.addEventListener("voiceschanged", refresh);
-    return () => {
-      synthesis?.removeEventListener("voiceschanged", refresh);
-      player.stop();
-      speechRef.current = null;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -624,17 +604,13 @@ export function App() {
   }
 
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!documentV2 || !ocrSourceReady || !persistenceRef.current) {
-      setApprovedNarrative(null);
-      return;
-    }
-    void loadLatestApprovedNarrative(persistenceRef.current.service, documentV2)
-      .then(value => { if (!cancelled) setApprovedNarrative(value); })
-      .catch(() => { if (!cancelled) setApprovedNarrative(null); });
-    return () => { cancelled = true; };
-  }, [documentV2, ocrSourceReady, canonicalEpoch, narrativeEpoch]);
+
+  const approvedNarrative = useApprovedNarrativeRecord(
+    documentV2,
+    ocrSourceReady ? persistenceRef.current?.service ?? null : null,
+    ocrSourceReady,
+    `${canonicalEpoch}:${narrativeEpoch}`,
+  );
 
   return <AppShell fileName={fileName} pageCount={document?.pages.length ?? 0} saved={ocrSourceReady}
     hasDocument={!!document} narrativeReady={!!approvedNarrative} audioBusy={wavBusy} chapterCount={completeWav?.chapters.length ?? 0}>
