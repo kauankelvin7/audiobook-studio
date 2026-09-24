@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-24 — M4.5K persistência histórica de revisão OCR
+- Base `365aeb3` limpa e alinhada ao remoto; CI `quality` 35972245202 passou. PRE-FLIGHT antes do código. Novo artefato `ocr_review_submission` fixado em OPFS/IndexedDB guarda submissão, recibo `unverified` e chaves dos dois manifests OCR; gravação relê PNG/evidência e recibo Rust, exige fonte ativa e usa CAS do checkpoint. Leitura histórica exige trio em um mesmo checkpoint, revalida bytes/evidência/recibo e retorna `not_established`.
+- QA apontou duas lacunas P2 de testes (órfão e corrida no retry); regressões adicionadas e passaram. Revisão final sem P0–P2. Smoke Chromium com armazenamento e Web Locks reais passou: gravação/retry, reload e leitura da revisão, 0 requisições externas; medição sintética de código continua 7/8 tokens com `SAMPLE01` ausente.
+- Gates finais: Rust fmt/45 testes/Clippy `-D warnings`; Web typecheck, 146 testes (2 opt-in ignorados) e build; `git diff --check`. Primeiro smoke falhou antes de abrir navegador porque Chromium temporário não existia mais; reinstalado em `/tmp`, repetição passou. Build mantém avisos Piper de `fs`/`path`/`crypto`.
+- Sem identidade confiável de revisor, promoção de OCR, goldens privados ou TTS narrativo. Publicação/CI deste commit a confirmar.
+
 ## 2026-09-24 — M4.5J submissão de revisão OCR
 - Base `fd80455` limpa e alinhada ao remoto; PRE-FLIGHT registrado antes do código. Rust recalcula candidato e comparação antes de aceitar escolha explícita com justificativa, emitindo recibo hash-bound `unverified`. Proposta de correção é texto declarado, não fonte confirmada; DocumentIR, ContentModel, checkpoint e elegibilidade não mudam.
 - Fachada WASM aplica limites JSON; schema/adapter TS validam a fronteira. Testes Rust cobrem hash determinístico, replay de recibo, decisão incompatível, justificativa vazia, candidato alterado e ausência de mutação. Vitest usa WASM real e confere recibo forjado. ADR 0022 e status da arquitetura OCR atualizados.

@@ -8,6 +8,7 @@ export const artifactKindSchema = z.enum([
   "document_ir",
   "ocr_cache",
   "ocr_evidence",
+  "ocr_review_submission",
   "model",
   "audio_chunk",
   "audio_metadata",

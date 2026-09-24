@@ -61,6 +61,8 @@ M4.4F adiciona um artefato não regenerável `active_narrative`. O core Rust cal
 
 M4.4G mantém revisões históricas v1 legíveis e com atualidade `not_established`. `saveForActive` grava revisão v2 fixada com hash de vínculo calculado pelo Rust a partir da identidade narrativa completa e da submissão. A chave do artefato deriva desse vínculo, evitando colisão entre a mesma submissão salva sob outlines diferentes. O avaliador verifica os dois artefatos e relê o checksum do checkpoint; `bound_unverified` não é atestação nem liberação de áudio (ADR 0013).
 
+M4.5K grava revisões OCR em artefato `ocr_review_submission` fixado, ligado aos dois manifests `ocr_evidence`. Releitura confere bytes OPFS, checkpoint histórico contendo o trio e recibo Rust/WASM recalculado; retry é idempotente. Atualidade e identidade do revisor não são estabelecidas. Ver ADR 0023.
+
 - browser matrix Chrome/Edge/Firefox conforme suporte real;
 - UI específica para escolha/retomada de múltiplos projetos;
 - integração do checkpoint com a máquina de estados Rust/WASM;

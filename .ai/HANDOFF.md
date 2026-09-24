@@ -1,5 +1,10 @@
 # HANDOFF — retorno ao Codex Work
 
+## M4.5K — revisão OCR histórica persistente (2026-09-24)
+- `OcrReviewPersistence` salva uma submissão/recibo `unverified` em artefato OPFS fixado e checkpoint IndexedDB com CAS. Exige evidência PNG/candidato/recibo verificada, fonte ativa na gravação e trio de chaves em um checkpoint histórico na leitura. Retry é idempotente; resultado histórico segue `not_established`.
+- Testes de storage falso com WASM real cobrem round-trip, fonte trocada, manifesto/bytes inválidos, órfão e corridas; smoke Chromium validou gravação, retry e recuperação após reload sem rede externa. Rust fmt/45 testes/Clippy; Web 146 testes/typecheck/build. Revisão independente final sem P0–P2. ADR 0023 registra decisão.
+- Próximo marco: interface de revisão e política de atestação/reconciliação, com goldens visuais revisados antes de promover texto. PDFs privados continuam pendentes. Publicação e CI desta etapa estão no WORKLOG.
+
 ## M4.5J — submissão de revisão OCR sem atestação (2026-09-24)
 - Rust/WASM registra escolha explícita `keep_native`, `retain_candidate_for_review` ou `propose_correction` com justificativa e, na última opção, texto proposto. Recalcula recibo/comparação e emite `reviewHash` determinístico sempre `unverified`; não altera DocumentIR nem libera fala.
 - Gate local: Rust fmt/45 testes/Clippy; Web 141 testes/typecheck/build; paridade WASM real. Revisão independente sem P0–P2. ADR 0022 e arquitetura OCR atualizadas. Próximo marco: persistir submissão junto à evidência verificada e resolver atestação/reconciliação antes de alterar camadas do documento.

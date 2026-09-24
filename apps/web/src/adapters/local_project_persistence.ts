@@ -69,6 +69,13 @@ export class LocalProjectPersistence {
     return await this.state.loadLatest(storageIdSchema.parse(projectIdInput));
   }
 
+  async hasHistoricalArtifactSet(projectIdInput: string, artifactKeysInput: string[]): Promise<boolean> {
+    const projectId = storageIdSchema.parse(projectIdInput);
+    const artifactKeys = artifactKeysInput.map(key => storageIdSchema.parse(key));
+    const checkpoints = await this.state.listCheckpoints(projectId);
+    return checkpoints.some(checkpoint => artifactKeys.every(key => checkpoint.artifactKeys.includes(key)));
+  }
+
   async loadArtifactRecord(projectIdInput: string, artifactKeyInput: string): Promise<ArtifactManifestRecord | null> {
     const projectId = storageIdSchema.parse(projectIdInput);
     const artifactKey = storageIdSchema.parse(artifactKeyInput);

@@ -1,5 +1,12 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5K persistência de revisão OCR (2026-09-24)
+- Base: `codex/m4-content-model` limpa e alinhada em `365aeb3`; CI `quality` 35972245202 verde. M4.5J emite recibo `unverified` com hash, ainda volátil; evidência PNG/candidato/recibo já persiste em OPFS/IndexedDB.
+- Objetivo: salvar e reler submissão/recibo de revisão OCR como artefato histórico fixado, ligado aos dois manifests de evidência verificada e ao checkpoint da fonte. Retry do mesmo hash deve ser idempotente.
+- Restrições: TypeScript somente armazenamento/validação de fronteira; Rust recalcula decisão. Nenhuma mutação de DocumentIR, QA ou elegibilidade. Histórico não estabelece atualidade nem autentica revisor.
+- Riscos: decisão órfã, evidência trocada, fonte/checkpoint alterados, JSON/manifest corrompido, retry que cria novo checkpoint, perda entre OPFS/IndexedDB. Validar evidência via reader existente, recibo via WASM, CAS na gravação, referência de checkpoint na leitura, integridade do OPFS e regressões de race/corrupção.
+- Verificação: Web typecheck/test/build, Rust fmt/test/clippy, teste IndexedDB+OPFS com WASM real, smoke browser se possível, diff check e QA independente. Risco HIGH; Lead único writer, Explorer e QA read-only.
+
 ## PRE-FLIGHT — M4.5J submissão de revisão OCR (2026-09-24)
 - Base: `codex/m4-content-model` limpa em `fd80455`, alinhada ao remoto; CI do HEAD anterior verde. Recibo OCR, evidência histórica e comparação Rust estão implementados, mas não existe decisão de revisão vinculada.
 - Objetivo: registrar em Rust submissão explícita e determinística sobre uma evidência OCR, com hash do recibo/comparação, escolha e justificativa; estado sempre não atestado. Expor por WASM e adapter/schema Web.
