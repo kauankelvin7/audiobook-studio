@@ -1,86 +1,61 @@
 # Handoff — Audiobook Studio
 
-> Documento curto de retomada. Para detalhes, consulte `.ai/TASK_PACKET.md`, `.ai/WORKLOG.md` e `docs/CONTEXT_INDEX.md`.
+> Estado operacional curto. Histórico detalhado: `.ai/WORKLOG.md` somente quando necessário.
 
 ## Estado atual
 
-- Data do handoff: 2026-09-24.
-- Branch de trabalho esperada: `main`.
-- Último commit funcional antes deste handoff: `8bbf5055d35ed73eda284f663902cb83c7d1139b` — `feat(narrative): adiciona quality guards deterministas`.
-- Milestone atual: M4 — Narrative Compiler.
-- Última fatia concluída: **M4.1 Narrative Quality determinístico**.
-- Status da M4.1: **IMPLEMENTED/TESTED** no escopo descrito abaixo.
+- Data: 2026-09-24.
+- Branch esperada para retomada: `main`.
+- Milestone: M4 — Narrative Compiler.
+- Última fatia: **M4.2a — contratos semânticos + planner boundary**.
+- Baseline funcional validado: `fcb7f573a8ff4a70cb4815448163e77f44cca42f`.
+- Status: **IMPLEMENTED/TESTED no escopo determinístico**; não existe planner/LLM real ainda.
 
-## O que já está concluído
+## Entregue
 
-- M1: contratos base e DocumentIR v1.
-- M2: importação PDF local, Worker, layout/ruído conservadores e smoke real de browser.
-- Ingestão v2: contratos/migração, OCR seletivo desenhado e testado em políticas; engines OCR/visão reais continuam pendentes.
-- M3.1: checkpoints, recuperação e quota com IndexedDB.
-- M3.2: OPFS, Web Locks, manifests/checkpoints coordenados, retomada local, reconciliação e retenção segura.
-- M4.1: normalização narrativa, deduplicação de heading anunciado, overlap determinístico, memória narrativa compacta, detecção de aberturas formulaicas, validação de source refs e QA determinístico.
+- M1/M2: DocumentIR e importação PDF local testados.
+- M3: IndexedDB, OPFS, locks, recuperação e retenção local testados.
+- M4.1: guards narrativos, memória compacta, source refs e QA determinístico.
+- M4.2a: `ContentModel`, `SemanticOutline`, fixtures e validação fail-closed de structured output.
 
-## Evidência mais recente
+A fronteira do planner rejeita schema inválido, documento divergente, conceito fora do contexto aprovado e source ref desconhecida.
 
-M4.1:
-- teste focado: 9/9;
-- typecheck: PASS;
-- STANDARD: 83/83 testes Web + typecheck + build PASS;
-- sem dependências novas;
-- sem TTS, OCR engine ou modelo externo nesta fatia.
+## Validação mais recente
 
-M3.2:
-- FAST: 27/27;
-- STANDARD: 74/74 + typecheck + build;
-- smoke real em Chrome confirmou importação, persistência e recuperação após reload.
-
-Consulte `.ai/WORKLOG.md` para hashes, CI e resultados históricos completos.
+- Web: **94/94 testes PASS**.
+- Typecheck: PASS.
+- Build: PASS.
+- Audit: **0 vulnerabilidades**.
+- Rust CI: fmt, `cargo test --workspace` e clippy `-D warnings` PASS.
+- Evidência inicial da fatia: workflow `quality` run `35979288303`.
 
 ## Próximo passo
 
-### M4.2 — ContentModel / SemanticOutline + planner adapter
+### M4.2b — paridade Rust/TS + port provider-neutral do planner
 
-Objetivo da próxima fatia:
-1. definir e validar `ContentModel` e `SemanticOutline`;
-2. criar o adapter de planner com structured output;
-3. preservar source refs/proveniência;
-4. integrar os guards determinísticos da M4.1 ao fluxo do planner;
-5. adicionar fixtures e testes de contrato;
-6. manter TTS real fora desta fatia.
+1. espelhar contratos semânticos necessários no domínio Rust;
+2. criar fixture/paridade Rust↔TypeScript;
+3. definir port do planner sem escolher provider/modelo;
+4. manter validação structured-output antes de persistência/uso;
+5. adicionar eval harness determinístico antes de integrar modelo real.
 
-Antes de implementar:
-- ler `AGENTS.md`;
-- ler este arquivo;
-- ler a seção atual de `.ai/TASK_PACKET.md`;
-- consultar a rota **Narrativa/QA/performance** em `docs/CONTEXT_INDEX.md`;
-- executar PRE-FLIGHT novo e atualizar `.ai/TASK_PACKET.md`.
+Não integrar TTS nesta fatia.
 
-## Pendências e bloqueios conhecidos
+## Pendências
 
-- Golden/mainframe real ainda não foi fornecido.
-- Similaridade semântica/model judge ainda não foi implementada.
-- Planner/model adapter ainda não foi implementado.
-- TTS real, engine router, profiler, player progressivo e benchmarks reproduzíveis continuam posteriores.
-- OCR/visão reais e integração completa do DocumentIR v2 continuam pendentes.
-- Matriz ampla de browsers/dispositivos, fuzz/soak e hardening continuam pendentes.
-- Testes Rust locais no ambiente Windows usado anteriormente ficaram bloqueados por ausência de `link.exe`; CI Linux cobre os gates publicados.
+- provider/modelo real, prompts e evals semânticos;
+- golden/mainframe real não fornecido;
+- similaridade semântica/model judge;
+- OCR/visão reais;
+- TTS, router, profiler, player e benchmarks;
+- browser/device matrix e hardening amplo.
 
-## Regras para continuar sem perder o estado
-
-- Não repetir trabalho marcado como concluído sem evidência de regressão.
-- Não declarar engine/modelo funcional quando existir apenas contrato, schema ou scaffold.
-- Manter um único writer por change set.
-- Atualizar `.ai/WORKLOG.md` com fatos, alterações e verificações.
-- Atualizar este `.ai/HANDOFF.md` ao encerrar uma sessão relevante ou mudar o próximo passo.
-- Se uma decisão arquitetural mudar, registrar/atualizar ADR.
-- Não alterar o relatório mestre preservado sem necessidade transversal explícita.
-
-## Ordem mínima de leitura para retomada
+## Retomada mínima
 
 1. `AGENTS.md`
 2. `.ai/HANDOFF.md`
 3. `.ai/TASK_PACKET.md`
 4. rota relevante em `docs/CONTEXT_INDEX.md`
-5. somente então os arquivos de implementação diretamente relacionados
+5. arquivos diretamente relacionados
 
-O `.ai/WORKLOG.md` deve ser consultado quando for necessário recuperar evidência histórica, resultados de testes, decisões anteriores ou contexto que não caiba neste resumo.
+Use `.ai/WORKLOG.md` apenas para recuperar evidência histórica específica.
