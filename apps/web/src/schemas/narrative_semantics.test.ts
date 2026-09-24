@@ -21,6 +21,13 @@ describe("M4.2a semantic contracts", () => {
     expect(contentModelSchema.safeParse(invalidRelation).success).toBe(false);
   });
 
+  it("rejects cyclic concept prerequisites", () => {
+    const invalid = structuredClone(contentModelFixture);
+    invalid.concepts[0].prerequisiteConceptIds = ["PIC"];
+    invalid.concepts[1].prerequisiteConceptIds = ["COBOL"];
+    expect(contentModelSchema.safeParse(invalid).success).toBe(false);
+  });
+
   it("validates SemanticOutline as ordered semantic units, not spoken chapters", () => {
     const outline = semanticOutlineSchema.parse(semanticOutlineFixture);
     expect(outline.order).toEqual(["ou_1", "ou_2"]);
