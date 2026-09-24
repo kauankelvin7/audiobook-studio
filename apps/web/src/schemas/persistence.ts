@@ -7,6 +7,7 @@ export const artifactKindSchema = z.enum([
   "source_pdf",
   "document_ir",
   "ocr_cache",
+  "ocr_evidence",
   "model",
   "audio_chunk",
   "audio_metadata",

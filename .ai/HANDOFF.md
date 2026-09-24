@@ -1,5 +1,10 @@
 # HANDOFF — retorno ao Codex Work
 
+## M4.5G — evidência OCR local em validação (2026-09-23)
+- PNG, candidato e recibo OCR `pending` passam a ter persistência histórica OPFS/IndexedDB com revalidação de integridade e contexto Rust/WASM. Retry do mesmo recibo é idempotente; artefatos sem checkpoint não são apresentados como histórico.
+- Corpus COBOL/CICS privado não está neste checkout, então não há medição de fidelidade nem golden novo. Próxima etapa: fornecer/reencontrar corpus, revisar recortes de prosa e código, medir recuperação antes de qualquer reconciliação/promocão.
+- Gates locais passaram: Rust fmt/43 testes; Web 137 testes (2 opt-in ignorados), typecheck/build e diff check. Chromium validou OCR, persistência real, retry e recuperação após reload. Revisão independente final sem P0/P1/P2. Usuário autorizou publicação recorrente, mas pediu concluir esta etapa antes do push.
+
 ## M4.5F — engine OCR local validada (2026-09-23)
 - Tesseract.js e idioma português fixados no lockfile. Worker/core/modelo servidos localmente; nenhuma requisição externa no smoke Chromium da fixture. Texto foi reconhecido e recebido pelo Rust/WASM como candidato `pending`.
 - Gates locais: Rust fmt/43 testes; Web 131 testes, typecheck/build; audit 0 vulnerabilidades; diff check. Não há golden real COBOL/CICS nem interface OCR. Assets adicionam cerca de 21 MB ao build.

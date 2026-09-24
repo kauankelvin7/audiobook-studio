@@ -40,19 +40,64 @@ try {
     const { analyzeDocumentV1 } = await import("/src/adapters/rust_content_pipeline.ts");
     const { proposeLocalOcrCandidate } = await import("/src/adapters/local_ocr_candidate.ts");
     const { TesseractLocalOcrEngine } = await import("/src/adapters/tesseract_local_ocr.ts");
+    const { IndexedDbCheckpointRepository } = await import("/src/adapters/indexeddb_checkpoint_repository.ts");
+    const { OpfsArtifactStore } = await import("/src/adapters/opfs_artifact_store.ts");
+    const { WebLocksProjectLock } = await import("/src/adapters/web_locks_project_lock.ts");
+    const { LocalProjectPersistence } = await import("/src/adapters/local_project_persistence.ts");
+    const { OcrEvidencePersistence } = await import("/src/adapters/ocr_evidence_persistence.ts");
     const bytes = new Uint8Array(input);
     const v1 = await extractPdf(bytes);
     const { documentV2 } = await analyzeDocumentV1(v1);
     const region = documentV2.pages[0].regions.find(item => item.bbox && item.sources.rawText?.includes("Capitulo"));
     if (!region) throw new Error("Expected text region missing");
     const result = await proposeLocalOcrCandidate(bytes, documentV2, 1, region.id, new TesseractLocalOcrEngine());
+    const databaseName = `ocr-smoke-${Date.now()}`;
+    const state = new IndexedDbCheckpointRepository({ databaseName });
+    const persistence = new LocalProjectPersistence(state, new OpfsArtifactStore(), new WebLocksProjectLock());
+    await persistence.persist({ schemaVersion: 1, projectId: "ocr_smoke", sequence: 1,
+      createdAtMs: Date.now(), pipelineVersion: "smoke", sourceHash: documentV2.sourceHash,
+      job: { state: "VERIFYING", resumeState: null }, artifactKeys: [] }, []);
+    const evidence = new OcrEvidencePersistence(persistence);
+    const saved = await evidence.save("ocr_smoke", documentV2, result);
+    const restored = await evidence.readHistorical("ocr_smoke", documentV2, saved.imageArtifact, saved.recordArtifact);
+    const sequence = (await persistence.loadLatest("ocr_smoke")).sequence;
+    await evidence.save("ocr_smoke", documentV2, result);
+    const retrySequence = (await persistence.loadLatest("ocr_smoke")).sequence;
+    state.close();
     return { text: result.candidate.text, status: result.receipt.status, imageHash: result.crop.imageHash,
-      receiptImageHash: result.receipt.imageHash, engineId: result.receipt.engineId };
+      receiptImageHash: result.receipt.imageHash, engineId: result.receipt.engineId,
+      restoredImageHash: restored.receipt.imageHash, currentness: restored.currentness,
+      sequence, retrySequence, databaseName,
+      imageArtifact: saved.imageArtifact, recordArtifact: saved.recordArtifact };
   }, bytes);
   assert.match(result.text, /Capitulo/i);
   assert.equal(result.status, "pending");
   assert.equal(result.imageHash, result.receiptImageHash);
+  assert.equal(result.imageHash, result.restoredImageHash);
   assert.equal(result.engineId, "tesseract-js-local-por");
+  assert.equal(result.currentness, "not_established");
+  assert.equal(result.retrySequence, result.sequence);
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  const afterReload = await page.evaluate(async ({ input, imageArtifact, recordArtifact, databaseName }) => {
+    await import("/src/adapters/pdf_ocr_crop.ts");
+    const { extractPdf } = await import("/src/adapters/pdf.ts");
+    const { analyzeDocumentV1 } = await import("/src/adapters/rust_content_pipeline.ts");
+    const { IndexedDbCheckpointRepository } = await import("/src/adapters/indexeddb_checkpoint_repository.ts");
+    const { OpfsArtifactStore } = await import("/src/adapters/opfs_artifact_store.ts");
+    const { WebLocksProjectLock } = await import("/src/adapters/web_locks_project_lock.ts");
+    const { LocalProjectPersistence } = await import("/src/adapters/local_project_persistence.ts");
+    const { OcrEvidencePersistence } = await import("/src/adapters/ocr_evidence_persistence.ts");
+    const v1 = await extractPdf(new Uint8Array(input));
+    const { documentV2 } = await analyzeDocumentV1(v1);
+    const state = new IndexedDbCheckpointRepository({ databaseName });
+    const persistence = new LocalProjectPersistence(state, new OpfsArtifactStore(), new WebLocksProjectLock());
+    const restored = await new OcrEvidencePersistence(persistence).readHistorical("ocr_smoke", documentV2, imageArtifact, recordArtifact);
+    state.close();
+    return { imageHash: restored.receipt.imageHash, currentness: restored.currentness };
+  }, { input: bytes, imageArtifact: result.imageArtifact, recordArtifact: result.recordArtifact, databaseName: result.databaseName });
+  assert.equal(afterReload.imageHash, result.imageHash);
+  assert.equal(afterReload.currentness, "not_established");
   assert.deepEqual(foreignRequests, []);
   console.log(`PASS local OCR receipt=${result.status} textLength=${result.text.length} foreignRequests=0`);
 } finally {

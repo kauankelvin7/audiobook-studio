@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-09-23 — M4.5G evidência OCR persistente
+- Corpus privado não encontrado neste checkout. Em vez de atribuir qualidade a transcrição não revisada, a etapa preserva PNG/candidato/recibo como dois artefatos `ocr_evidence` fixados em OPFS, com manifests e checkpoint IndexedDB publicados juntos sob lock.
+- Gravação exige fonte ativa correspondente e revalida PNG, dimensões, bbox, candidato e recibo pelo Rust/WASM. Leitura histórica reconfere manifests, bytes e contexto fornecido; retorna `currentness: not_established`, inclusive após troca de fonte. Não promove texto.
+- Revisão independente apontou leitura sem checkpoint e retry que criava novo checkpoint. Ambos corrigidos; testes cobrem idempotência, manifest órfão, corrupção, troca de fonte e corrida de leitura. Segunda revisão pendente neste registro.
+- Segunda revisão encontrou corrida no retry e PNG truncado aceito com hash coerente. O retry agora compara o checkpoint inicial após a leitura; PNG exige estrutura de chunks, CRC, IDAT e IEND terminal. Regressões específicas passaram. Gates finais: Rust fmt/43 testes; Web 137 testes (2 opt-in ignorados), typecheck/build e diff check. Revisão final read-only pendente neste registro.
+- Revisão final ainda apontou PNG semanticamente inválido com CRC correto. O adapter agora limita o perfil IHDR, ordem dos chunks e exige decodificação via `createImageBitmap` no navegador antes de salvar/ler. Gates a repetir após essa correção.
+- Smoke Chromium com OPFS, IndexedDB e Web Locks reais passou: OCR da fixture pública, gravação de dois artefatos, leitura, retry idempotente e recuperação após reload. A primeira execução revelou que OPFS devolve Blob sem MIME; leitura passa a atribuir `image/png` após confirmar o MIME do manifest e os bytes/decodificação. Testes completos serão repetidos antes da publicação.
+- Revisão independente final apontou custo evitável em PNG malicioso; dimensões agora são limitadas antes do parse, chunks têm limite de 4.096 e CRC usa tabela. Revisor confirmou ausência de P0/P1/P2. Gates finais após correção: Rust fmt/43 testes, Web 137 testes (2 opt-in ignorados), typecheck/build, diff check; smoke Chromium real passou após reload. Publicação/CI a confirmar.
+
 ## 2026-09-23 — M4.5F engine OCR no navegador
 - Tesseract.js 7.0.0 e `@tesseract.js-data/por` 1.0.0 adicionados com versões fixas. Staging copia worker, três variantes LSTM do core e idioma português para assets locais no dev/build. O adapter configura apenas URLs da própria origem e encerra worker ao concluir ou cancelar.
 - Smoke em Chromium isolado executou PDF.js, captura, engine Tesseract real e recibo Rust/WASM: reconheceu o título da fixture pública, estado `pending`, hash da imagem igual no recibo e 0 requisições externas observadas. A primeira tentativa falhou por ausência de Chrome no host; um Chromium foi instalado em `/tmp` e a execução passou. Não houve teste de qualidade em PDF privado.

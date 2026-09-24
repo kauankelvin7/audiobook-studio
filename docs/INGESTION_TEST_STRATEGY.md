@@ -1,5 +1,9 @@
 # Estratégia de testes de ingestão
 
+## M4.5F–G — OCR local e evidência histórica
+
+Tesseract.js 7 com dados portugueses roda no navegador usando assets da própria origem. Um smoke em Chromium sobre `text_and_blank.pdf` reconheceu o título e produziu candidato/recibo Rust `pending`, com hash de PNG vinculado e zero requisições externas observadas. Isso testa execução, não fidelidade em COBOL/CICS. O par PNG e envelope OCR pode ser salvo como evidência histórica fixada em OPFS/IndexedDB; a leitura reconfere hash, geometria, documento e recibo pelo WASM real. Nenhuma etapa promove o texto ou libera fala. Os dois PDFs privados e goldens revisados não estavam acessíveis neste checkout; a medição de recuperação e falsos positivos continua pendente.
+
 ## Estado atual
 
 - `text_and_blank.pdf`: fixture sintética real, texto nativo + página sem texto; testada em Vitest e Chrome local.

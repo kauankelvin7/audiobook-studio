@@ -1,5 +1,13 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — M4.5G evidência OCR persistente (2026-09-23)
+- Base: `d4ed6ac` local; engine e recibo `pending` testados. Corpus privado não está acessível neste checkout; só a fixture pública foi localizada.
+- Objetivo: preservar PNG, candidato e recibo em OPFS/IndexedDB, reler com integridade e revalidar contra DocumentIR v2 pelo Rust/WASM, sem alterar o documento nem elegibilidade.
+- Evidência: `LocalProjectPersistence` já coordena escrita OPFS verificada e commit de manifests/checkpoint sob lock; revisão histórica oferece padrão conservador.
+- Restrições: dados OCR são não confiáveis; chaves derivadas de hash Rust; histórico não se apresenta como atual; sem deleção automática, UI ou narração.
+- Riscos: imagem trocada, recibo stale, manifest ausente, fonte ativa mudando, corrida de checkpoint e leitura histórica bloqueada indevidamente. Plano: dois artefatos fixados, vínculo explícito, validação na leitura, regressões de corrupção/troca/race e gates.
+- Verificação: Rust fmt/test, Web typecheck/test/build, teste com IndexedDB+OPFS fake e WASM real, diff check. Risco HIGH; Lead writer único.
+
 ## PRE-FLIGHT — M4.5F engine OCR local (2026-09-23)
 - Base: `9f7e683` com mudanças M4.5E locais e gates verdes. Handoff, ADRs 0014/0018, segurança e documentação oficial Tesseract.js consultados.
 - Objetivo: executar OCR português no navegador com worker, core WASM e idioma servidos pelo próprio app; alimentar somente o candidato `pending` do Rust.
