@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "documentId": "doc_test",
+  "concepts": [
+    {
+      "id": "COBOL",
+      "label": "COBOL",
+      "importance": "core",
+      "certainty": "source",
+      "sourceRefs": [
+        "p1-t1"
+      ],
+      "prerequisiteConceptIds": []
+    },
+    {
+      "id": "PIC",
+      "label": "PIC",
+      "importance": "core",
+      "certainty": "source",
+      "sourceRefs": [
+        "p2-t1"
+      ],
+      "prerequisiteConceptIds": [
+        "COBOL"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel_cobol_pic",
+      "fromConceptId": "COBOL",
+      "toConceptId": "PIC",
+      "kind": "contains_field_description",
+      "certainty": "source",
+      "sourceRefs": [
+        "p2-t1"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev_cobol_definition",
+      "kind": "definition",
+      "conceptIds": [
+        "COBOL"
+      ],
+      "sourceRefs": [
+        "p1-t1"
+      ]
+    },
+    {
+      "id": "ev_pic_definition",
+      "kind": "definition",
+      "conceptIds": [
+        "PIC"
+      ],
+      "sourceRefs": [
+        "p2-t1"
+      ]
+    }
+  ]
+}
