@@ -136,3 +136,10 @@
 - Escopo factual: não há chamada a LLM, provider, TTS ou OCR; esta fatia valida contratos e grounding estrutural, não qualidade semântica do planner.
 - Testes novos: 12, incluindo regressão para ciclo de pré-requisitos. CI `quality` run `35979717099` passou: Web 95/95 + typecheck + build + audit com 0 vulnerabilidades; Rust fmt + test + clippy `-D warnings`.
 - Próximo passo: paridade Rust/TS e port provider-neutral do planner; provider/modelo real só após contratos/evals estáveis.
+
+
+## 2026-09-24 — Squash merge M4.2a
+- PR #1 saiu de draft após revisão e CI.
+- CI final do PR: workflow `quality` run `35979886840`, jobs Web e Rust concluídos com `success`.
+- Squash merge em `main`: `fc1989c71843175bcb703d6bf3b70b5ef0945b59`.
+- Após o merge, `.ai/TASK_PACKET.md` voltou ao estado mínimo sem tarefa ativa; próximo trabalho deve criar novo PRE-FLIGHT em vez de reutilizar histórico encerrado.
