@@ -1,5 +1,21 @@
 # HANDOFF — retorno ao Codex Work
 
+## Frontend Studio & Paper — refatoração estrutural (2026-09-24)
+
+- Base funcional preservada: importação PDF, revisão OCR, aprovação nativa/canônica, narrativa aprovada, áudio literal/narrativo, capítulos, exportação e reload continuam no mesmo pipeline. Esta rodada alterou UI/estrutura React, não domínio Rust, schemas canônicos ou persistência.
+- A tela de Revisão agora usa um `ReviewBottomDock` próprio. Narrativa, Áudio e Exportar não são mais painéis completos comprimidos por CSS.
+- Narrativa foi separada em outline, editor, fonte/proveniência e conferência. A microcopy não expõe `SpeechUnits`, claims/headings ou códigos de QA como linguagem principal.
+- OCR foi separado em target picker, comparação, memória local, formulário de decisão, conteúdo Nativo/Reconciliado e histórico. `unknown` continua no domínio e aparece na UI como “Texto não classificado”.
+- As abas Nativo/OCR/Reconciliado/Histórico agora são tabs semânticas, com `aria-selected`, `aria-controls`, roving tabindex e teclado Left/Right/Home/End.
+- Áudio foi dividido em `AudioWorkspace`, `AudioHistory`, `CompleteAudiobookPanel`, `LiteralReadingPanel`, `AudioPlayer` e `ChapterList`.
+- `main.tsx` contém apenas bootstrap React/fontes/CSS; orquestração está em `App.tsx`. Hooks independentes: `useLocalSpeechPlayer` e `useApprovedNarrativeRecord`.
+- CSS novo está separado em `review.css`, `narrative.css` e `accessibility.css`; `shell.css` mantém o layout legado/base. Não fazer nova pilha de overrides com `!important`.
+- Acessibilidade: foco visível global, targets de 44 px para pointer coarse, reduced motion reforçado, forced-colors básico e estados sempre acompanhados de texto.
+- Testes de contrato de UI em `ui_contracts.test.tsx` cobrem tablist/ARIA, linguagem de OCR, dock e capítulo ativo. `presentation_labels.test.ts` protege o mapeamento `unknown -> Texto não classificado`.
+- Gates verdes confirmados nos commits intermediários até `acf4c63`: Rust fmt/test/clippy e Web wasm build/audit/typecheck/tests/build. Os commits de microcopy/a11y posteriores devem ser considerados pendentes até o workflow do HEAD concluir.
+- NÃO foi feita comparação visual real 1440×960/390×844 nesta sessão porque o Desktop Commander estava offline e não havia projeto Vercel importado. Não declarar fidelidade visual final.
+- Próxima ação recomendada: abrir a branch no navegador, comparar `#review` com a referência aprovada, ajustar somente proporções/density/spacing que divergirem e então repetir em 390×844. Evitar reabrir core/backend sem bug funcional reproduzido.
+
 ## Product UX — foundations e shell (2026-09-24)
 - Baseline funcional: literal e narrativo E2E, capítulos, player, download, reload e bloqueio OCR aprovados no checkpoint anterior; ver `docs/PRODUCT_UX_BASELINE.md`.
 - Batch atual: tokens Studio & Paper, shell desktop/mobile, estados vazios e mensagens de erro em português. Core, TTS e player preservados.
