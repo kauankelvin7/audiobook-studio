@@ -126,3 +126,13 @@
 - Próximo passo registrado: M4.2 ContentModel/SemanticOutline + planner adapter estruturado, mantendo TTS real fora da fatia.
 - `AGENTS.md` passa a exigir leitura do handoff na retomada e atualização ao encerrar sessão relevante ou mudar o próximo passo.
 - `docs/CONTEXT_INDEX.md` passa a incluir o handoff na rota de governança/retomada.
+
+
+## 2026-09-24 — M4.2a contratos semânticos e planner boundary
+- Estratégia de contexto: `.ai/TASK_PACKET.md` passa a conter somente a tarefa ativa; histórico encerrado fica no WORKLOG/Git. `docs/CONTEXT_INDEX.md` deixa o WORKLOG sob demanda.
+- Implementados `ContentModel` e `SemanticOutline` v1 com schemas estritos, IDs únicos, relações/pré-requisitos válidos, ordem semântica e source refs obrigatórias.
+- Criadas fixtures COBOL/PIC para contratos semânticos.
+- Implementado `planner_boundary.ts`: structured output é validado antes do pipeline e falha fechado para schema inválido, documento divergente, conceito fora do conteúdo/outline ou source ref desconhecida.
+- Escopo factual: não há chamada a LLM, provider, TTS ou OCR; esta fatia valida contratos e grounding estrutural, não qualidade semântica do planner.
+- Testes novos: 11. CI `quality` run `35979288303` passou: Web 94/94 + typecheck + build + audit com 0 vulnerabilidades; Rust fmt + test + clippy `-D warnings`.
+- Próximo passo: paridade Rust/TS e port provider-neutral do planner; provider/modelo real só após contratos/evals estáveis.
