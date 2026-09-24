@@ -1,8 +1,8 @@
-import { build_ocr_correction_training_record_json, suggest_ocr_corrections_json } from "../generated/audiobook_wasm/audiobook_wasm.js";
+import { build_ocr_correction_training_record_json, compile_ocr_correction_model_json, suggest_ocr_corrections_json, suggest_ocr_corrections_with_model_json } from "../generated/audiobook_wasm/audiobook_wasm.js";
 import { documentIrV2Schema, type DocumentIrV2 } from "../schemas/ingestion";
 import { ocrCandidateSchema, ocrReviewSubmissionSchema, type OcrCandidate, type OcrReviewSubmission } from "../schemas/ocr_candidate";
-import { ocrCorrectionSuggestionReportSchema, ocrCorrectionTrainingRecordSchema,
-  type OcrCorrectionSuggestionReport, type OcrCorrectionTrainingRecord } from "../schemas/ocr_learning";
+import { ocrCorrectionModelSchema, ocrCorrectionSuggestionReportSchema, ocrCorrectionTrainingRecordSchema,
+  type OcrCorrectionModel, type OcrCorrectionSuggestionReport, type OcrCorrectionTrainingRecord } from "../schemas/ocr_learning";
 import { ensureRustWasm } from "./rust_wasm_runtime";
 
 export class RustOcrLearningError extends Error {
@@ -63,6 +63,39 @@ export async function suggestOcrCorrections(document: DocumentIrV2, candidate: O
   if (!report.success) throw new RustOcrLearningError("INVALID_CORE_OUTPUT", "A sugestão OCR retornada é inválida.", { cause: report.error });
   if (report.data.candidateTextHash !== `sha256:${await digest(candidate.text)}`) {
     throw new RustOcrLearningError("INVALID_CORE_OUTPUT", "A sugestão OCR não confere com o texto candidato.");
+  }
+  return report.data;
+}
+
+export async function compileOcrCorrectionModel(records: OcrCorrectionTrainingRecord[]): Promise<OcrCorrectionModel> {
+  const parsedRecords = records.map(item => ocrCorrectionTrainingRecordSchema.parse(item));
+  if (parsedRecords.length > 1_024 || new TextEncoder().encode(JSON.stringify(parsedRecords)).length > 8_000_000) {
+    throw new RustOcrLearningError("INVALID_INPUT", "A memória OCR excede o limite seguro.");
+  }
+  try { await ensureRustWasm(); }
+  catch (error) { throw new RustOcrLearningError("WASM_INIT_FAILED", "Não foi possível carregar o núcleo Rust/WASM.", { cause: error }); }
+  try {
+    const model = ocrCorrectionModelSchema.safeParse(JSON.parse(compile_ocr_correction_model_json(JSON.stringify(parsedRecords))));
+    if (!model.success) throw new RustOcrLearningError("INVALID_CORE_OUTPUT", "O modelo OCR retornado é inválido.", { cause: model.error });
+    return model.data;
+  } catch (error) {
+    if (error instanceof RustOcrLearningError) throw error;
+    throw new RustOcrLearningError("CORE_REJECTED", "O núcleo Rust recusou treinar a memória OCR.", { cause: error });
+  }
+}
+
+export async function suggestOcrCorrectionsWithModel(document: DocumentIrV2, candidate: OcrCandidate,
+  model: OcrCorrectionModel): Promise<OcrCorrectionSuggestionReport> {
+  const parsed = inputs(document, candidate);
+  const parsedModel = ocrCorrectionModelSchema.parse(model);
+  try { await ensureRustWasm(); }
+  catch (error) { throw new RustOcrLearningError("WASM_INIT_FAILED", "Não foi possível carregar o núcleo Rust/WASM.", { cause: error }); }
+  let output: unknown;
+  try { output = JSON.parse(suggest_ocr_corrections_with_model_json(JSON.stringify(parsed.document), JSON.stringify(parsed.candidate), JSON.stringify(parsedModel))); }
+  catch (error) { throw new RustOcrLearningError("CORE_REJECTED", "O núcleo Rust recusou aplicar o modelo OCR.", { cause: error }); }
+  const report = ocrCorrectionSuggestionReportSchema.safeParse(output);
+  if (!report.success || report.data.candidateTextHash !== `sha256:${await digest(candidate.text)}`) {
+    throw new RustOcrLearningError("INVALID_CORE_OUTPUT", "A sugestão OCR do modelo é inválida.", { cause: report.success ? undefined : report.error });
   }
   return report.data;
 }

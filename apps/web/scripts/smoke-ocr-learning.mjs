@@ -35,7 +35,7 @@ try {
   const report = await page.evaluate(async document => {
     const { documentIrV2Schema } = await import("/src/schemas/ingestion.ts");
     const { buildOcrCandidateReceipt } = await import("/src/adapters/rust_ocr_candidate.ts");
-    const { buildOcrCorrectionTrainingRecord, suggestOcrCorrections } = await import("/src/adapters/rust_ocr_learning.ts");
+    const { buildOcrCorrectionTrainingRecord, compileOcrCorrectionModel, suggestOcrCorrectionsWithModel } = await import("/src/adapters/rust_ocr_learning.ts");
     const { OcrLearningRepository } = await import("/src/adapters/ocr_learning_repository.ts");
     const parsed = documentIrV2Schema.parse(document);
     const native = parsed.pages[0].regions[0].sources.rawText;
@@ -56,7 +56,10 @@ try {
       await repository.save(record);
     }
     const records = await repository.list();
-    const suggestion = await suggestOcrCorrections(parsed, candidate, records);
+    const model = await compileOcrCorrectionModel(records);
+    await repository.saveModel(model);
+    const persistedModel = await repository.loadModel();
+    const suggestion = await suggestOcrCorrectionsWithModel(parsed, candidate, persistedModel);
     return { stored: records.length, status: suggestion.status, text: suggestion.suggestedText,
       suggestions: suggestion.suggestions.map(item => `${item.observedToken}:${item.suggestedToken}:${item.evidenceCount}`) };
   }, fixture);

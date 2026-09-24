@@ -50,6 +50,20 @@ export const ocrCorrectionSuggestionReportSchema = z.object({
   methodVersion: z.literal("ocr-ambiguity-suggestion-rust-v1"),
 }).strict();
 
+export const ocrCorrectionModelSchema = z.object({
+  schemaVersion: z.literal(1),
+  trainingRecordCount: z.number().int().min(0).max(1_024),
+  trainingRecordHashes: z.array(hash).max(1_024),
+  rules: z.array(ocrCorrectionSuggestionSchema).max(1_024),
+  modelHash: hash,
+  methodVersion: z.literal("ocr-ambiguity-model-rust-v1"),
+}).strict().superRefine((value, context) => {
+  if (value.trainingRecordCount !== value.trainingRecordHashes.length
+    || new Set(value.trainingRecordHashes).size !== value.trainingRecordHashes.length) {
+    context.addIssue({ code: "custom", message: "O modelo OCR não contém uma lista válida de evidências." });
+  }
+});
+
 export const ocrLearningRequestSchema = z.object({
   document: documentIrV2Schema,
   candidate: ocrCandidateSchema,
@@ -59,3 +73,4 @@ export const ocrLearningRequestSchema = z.object({
 
 export type OcrCorrectionTrainingRecord = z.infer<typeof ocrCorrectionTrainingRecordSchema>;
 export type OcrCorrectionSuggestionReport = z.infer<typeof ocrCorrectionSuggestionReportSchema>;
+export type OcrCorrectionModel = z.infer<typeof ocrCorrectionModelSchema>;

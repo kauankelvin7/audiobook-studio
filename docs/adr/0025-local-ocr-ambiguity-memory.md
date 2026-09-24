@@ -14,6 +14,8 @@ O navegador salva os registros derivados pelo Rust em IndexedDB, em banco separa
 
 O core agrega registros de evidências OCR distintas, identificadas pelo recibo do candidato. Uma regra precisa de três confirmações sem empate antes de aparecer como sugestão. A saída permanece `review_required` e a interface só preenche o campo de texto proposto depois de uma ação explícita. A sugestão não modifica DocumentIR, evidência, checkpoint, elegibilidade de leitura ou TTS.
 
+O operador aciona a atualização em lote para compilar um `OcrCorrectionModel` determinístico. O modelo contém os hashes dos registros distintos e as regras que atingiram o limiar, recebe `modelHash` e é salvo separadamente no IndexedDB. Uma nova correção não muda o snapshot já publicado; a atualização precisa ser acionada novamente. Apagar a memória remove registros e modelo.
+
 ## Consequências
 
 O produto aprende padrões repetidos de ambiguidade técnica de forma reproduzível e auditável. O hash protege consistência do registro, mas não autentica o revisor. Registros locais podem refletir uma correção humana errada; o limiar e a revisão obrigatória reduzem esse risco, sem eliminá-lo.

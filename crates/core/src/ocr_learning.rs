@@ -74,6 +74,20 @@ pub struct OcrCorrectionSuggestionReport {
     pub method_version: String,
 }
 
+/// Immutable, deterministic result of a local batch training run.  It contains
+/// only the narrow ambiguity rules that reached the evidence threshold; no OCR
+/// text, image bytes, or human rationale is copied into the model.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OcrCorrectionModel {
+    pub schema_version: u32,
+    pub training_record_count: usize,
+    pub training_record_hashes: Vec<String>,
+    pub rules: Vec<OcrCorrectionSuggestion>,
+    pub model_hash: String,
+    pub method_version: String,
+}
+
 pub fn build_ocr_correction_training_record(
     document: &DocumentIrV2,
     candidate: &OcrCandidate,
@@ -118,18 +132,25 @@ pub fn suggest_ocr_corrections(
     candidate: &OcrCandidate,
     records: &[OcrCorrectionTrainingRecord],
 ) -> Result<OcrCorrectionSuggestionReport, OcrLearningError> {
+    let model = compile_ocr_correction_model(records)?;
+    suggest_ocr_corrections_with_model(document, candidate, &model)
+}
+
+pub fn compile_ocr_correction_model(
+    records: &[OcrCorrectionTrainingRecord],
+) -> Result<OcrCorrectionModel, OcrLearningError> {
     if records.len() > MAX_TRAINING_RECORDS {
         return Err(OcrLearningError::InputTooLarge);
     }
-    let candidate_receipt = build_ocr_candidate_receipt(document, candidate)
-        .map_err(|_| OcrLearningError::InvalidInput)?;
     let mut seen_evidence = BTreeSet::new();
     let mut votes: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
+    let mut training_record_hashes = Vec::new();
     for record in records {
         validate_record(record)?;
         if !seen_evidence.insert(record.candidate_receipt_hash.as_str()) {
             continue;
         }
+        training_record_hashes.push(record.record_hash.clone());
         for rule in &record.rules {
             let count = votes
                 .entry(rule.observed_token.clone())
@@ -139,7 +160,7 @@ pub fn suggest_ocr_corrections(
             *count = count.saturating_add(1);
         }
     }
-    let mut accepted = BTreeMap::new();
+    let mut rules = Vec::new();
     for (observed, alternatives) in votes {
         let mut ranked = alternatives.into_iter().collect::<Vec<_>>();
         ranked.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
@@ -150,9 +171,45 @@ pub fn suggest_ocr_corrections(
             .get(1)
             .is_some_and(|second| second.1 == *evidence_count);
         if *evidence_count >= MIN_CONFIRMATIONS && !tied {
-            accepted.insert(observed.clone(), (suggested.clone(), *evidence_count));
+            rules.push(OcrCorrectionSuggestion {
+                observed_token: observed,
+                suggested_token: suggested.clone(),
+                evidence_count: *evidence_count,
+            });
         }
     }
+    training_record_hashes.sort();
+    rules.sort_by(|left, right| left.observed_token.cmp(&right.observed_token));
+    let method_version = "ocr-ambiguity-model-rust-v1";
+    let model_hash = model_hash(&training_record_hashes, &rules, method_version)?;
+    Ok(OcrCorrectionModel {
+        schema_version: 1,
+        training_record_count: seen_evidence.len(),
+        training_record_hashes,
+        rules,
+        model_hash,
+        method_version: method_version.to_owned(),
+    })
+}
+
+pub fn suggest_ocr_corrections_with_model(
+    document: &DocumentIrV2,
+    candidate: &OcrCandidate,
+    model: &OcrCorrectionModel,
+) -> Result<OcrCorrectionSuggestionReport, OcrLearningError> {
+    validate_model(model)?;
+    let candidate_receipt = build_ocr_candidate_receipt(document, candidate)
+        .map_err(|_| OcrLearningError::InvalidInput)?;
+    let accepted = model
+        .rules
+        .iter()
+        .map(|rule| {
+            (
+                rule.observed_token.clone(),
+                (rule.suggested_token.clone(), rule.evidence_count),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
     let (suggested_text, seen_tokens) = replace_accepted_tokens(&candidate.text, &accepted);
     let suggestions = seen_tokens
         .into_iter()
@@ -170,13 +227,55 @@ pub fn suggest_ocr_corrections(
         schema_version: 1,
         candidate_receipt_hash: candidate_receipt.receipt_hash,
         candidate_text_hash: sha256_source(candidate.text.as_bytes()),
-        training_record_count: seen_evidence.len(),
+        training_record_count: model.training_record_count,
         accepted_rule_count: accepted.len(),
         suggestions,
         suggested_text,
         status: OcrCorrectionSuggestionStatus::ReviewRequired,
         method_version: "ocr-ambiguity-suggestion-rust-v1".to_owned(),
     })
+}
+
+fn validate_model(model: &OcrCorrectionModel) -> Result<(), OcrLearningError> {
+    if model.schema_version != 1
+        || model.method_version != "ocr-ambiguity-model-rust-v1"
+        || !is_sha256(&model.model_hash)
+        || model.training_record_count != model.training_record_hashes.len()
+        || model.training_record_count > MAX_TRAINING_RECORDS
+        || !model
+            .training_record_hashes
+            .iter()
+            .all(|hash| is_sha256(hash))
+    {
+        return Err(OcrLearningError::InvalidRecord);
+    }
+    if model
+        .training_record_hashes
+        .windows(2)
+        .any(|pair| pair[0] >= pair[1])
+    {
+        return Err(OcrLearningError::InvalidRecord);
+    }
+    let mut previous: Option<&str> = None;
+    for rule in &model.rules {
+        if !valid_ambiguity_rule(&rule.observed_token, &rule.suggested_token)
+            || rule.evidence_count < MIN_CONFIRMATIONS
+            || rule.evidence_count > model.training_record_count
+            || previous.is_some_and(|observed| observed >= rule.observed_token.as_str())
+        {
+            return Err(OcrLearningError::InvalidRecord);
+        }
+        previous = Some(&rule.observed_token);
+    }
+    if model_hash(
+        &model.training_record_hashes,
+        &model.rules,
+        &model.method_version,
+    )? != model.model_hash
+    {
+        return Err(OcrLearningError::InvalidRecord);
+    }
+    Ok(())
 }
 
 fn derive_rules(observed: &str, corrected: &str) -> Vec<OcrCorrectionRule> {
@@ -253,6 +352,16 @@ fn record_hash(
         method_version,
     ))
     .map_err(|_| OcrLearningError::Serialization)?;
+    Ok(sha256_source(&bytes))
+}
+
+fn model_hash(
+    training_record_hashes: &[String],
+    rules: &[OcrCorrectionSuggestion],
+    method_version: &str,
+) -> Result<String, OcrLearningError> {
+    let bytes = serde_json::to_vec(&(1u32, training_record_hashes, rules, method_version))
+        .map_err(|_| OcrLearningError::Serialization)?;
     Ok(sha256_source(&bytes))
 }
 

@@ -7,7 +7,7 @@ import documentV2Fixture from "../../../../tests/fixtures/document_ir_v2.json";
 import { documentIrV2Schema } from "../schemas/ingestion";
 import { ocrCandidateSchema, PAGE_OCR_TARGET_ID } from "../schemas/ocr_candidate";
 import { buildOcrCandidateReceipt, buildOcrReviewReceipt, compareOcrCandidate } from "./rust_ocr_candidate";
-import { buildOcrCorrectionTrainingRecord, suggestOcrCorrections } from "./rust_ocr_learning";
+import { buildOcrCorrectionTrainingRecord, compileOcrCorrectionModel, suggestOcrCorrections, suggestOcrCorrectionsWithModel } from "./rust_ocr_learning";
 
 const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
 initSync({ module: readFileSync(wasmPath) });
@@ -115,6 +115,13 @@ describe("real Rust/WASM OCR candidate contract", () => {
       });
     }));
     expect((await suggestOcrCorrections(document, observed, records.slice(0, 2))).suggestions).toEqual([]);
+    const model = await compileOcrCorrectionModel(records);
+    expect(model).toMatchObject({ trainingRecordCount: 3, rules: expect.arrayContaining([
+      expect.objectContaining({ observedToken: "M0VE", suggestedToken: "MOVE", evidenceCount: 3 }),
+    ]) });
+    await expect(suggestOcrCorrectionsWithModel(document, observed, model)).resolves.toMatchObject({
+      status: "review_required", suggestedText: "MOVE TO SAMPLE01",
+    });
     const report = await suggestOcrCorrections(document, observed, records);
     expect(report).toMatchObject({ status: "review_required", suggestedText: "MOVE TO SAMPLE01", acceptedRuleCount: 2 });
     expect(report.suggestions).toEqual(expect.arrayContaining([

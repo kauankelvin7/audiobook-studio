@@ -40,7 +40,8 @@ pub use ocr::{
     OcrReviewSubmission, OcrTokenDifference, PAGE_OCR_TARGET_ID,
 };
 pub use ocr_learning::{
-    build_ocr_correction_training_record, suggest_ocr_corrections, OcrCorrectionRule,
+    build_ocr_correction_training_record, compile_ocr_correction_model, suggest_ocr_corrections,
+    suggest_ocr_corrections_with_model, OcrCorrectionModel, OcrCorrectionRule,
     OcrCorrectionSuggestion, OcrCorrectionSuggestionReport, OcrCorrectionSuggestionStatus,
     OcrCorrectionTrainingRecord, OcrLearningError,
 };

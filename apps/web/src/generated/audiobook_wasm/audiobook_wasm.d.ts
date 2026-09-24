@@ -25,6 +25,8 @@ export function build_semantic_outline_json(content_model_json: string): string;
 
 export function compare_ocr_candidate_json(document_json: string, candidate_json: string): string;
 
+export function compile_ocr_correction_model_json(records_json: string): string;
+
 export function core_version(): string;
 
 export function document_v2_has_source_units_json(input: string): boolean;
@@ -34,6 +36,8 @@ export function evaluate_review_against_active_json(expected_plan_id: string, sc
 export function migrate_document_v1_to_v2_json(input: string): string;
 
 export function suggest_ocr_corrections_json(document_json: string, candidate_json: string, records_json: string): string;
+
+export function suggest_ocr_corrections_with_model_json(document_json: string, candidate_json: string, model_json: string): string;
 
 export function validate_active_narrative_activation_json(job_json: string): void;
 
@@ -59,11 +63,13 @@ export interface InitOutput {
     readonly build_script_review_packet_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];
     readonly compare_ocr_candidate_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly compile_ocr_correction_model_json: (a: number, b: number) => [number, number, number, number];
     readonly core_version: () => [number, number];
     readonly document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
     readonly evaluate_review_against_active_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number, number, number];
     readonly migrate_document_v1_to_v2_json: (a: number, b: number) => [number, number, number, number];
     readonly suggest_ocr_corrections_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly suggest_ocr_corrections_with_model_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly validate_active_narrative_activation_json: (a: number, b: number) => [number, number];
     readonly validate_document_v2_json: (a: number, b: number) => [number, number, number, number];
     readonly validate_narrative_plan_json: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];

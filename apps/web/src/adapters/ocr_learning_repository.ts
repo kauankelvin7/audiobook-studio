@@ -1,8 +1,10 @@
-import { ocrCorrectionTrainingRecordSchema, type OcrCorrectionTrainingRecord } from "../schemas/ocr_learning";
+import { ocrCorrectionModelSchema, ocrCorrectionTrainingRecordSchema, type OcrCorrectionModel, type OcrCorrectionTrainingRecord } from "../schemas/ocr_learning";
 
 const DATABASE_NAME = "audiobook-studio-ocr-learning";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const STORE = "training_records";
+const MODEL_STORE = "models";
+const CURRENT_MODEL_KEY = "current";
 const MAX_RECORDS = 1_024;
 
 type StoredRecord = OcrCorrectionTrainingRecord & { createdAtMs: number };
@@ -91,6 +93,35 @@ export class OcrLearningRepository {
     }
   }
 
+  async loadModel(): Promise<OcrCorrectionModel | null> {
+    const database = await this.database();
+    try {
+      const transaction = database.transaction(MODEL_STORE, "readonly");
+      const done = completed(transaction);
+      const value = await request(transaction.objectStore(MODEL_STORE).get(CURRENT_MODEL_KEY));
+      await done;
+      if (value === undefined) return null;
+      if (!value || typeof value !== "object") throw new Error("missing model");
+      const { key: _key, trainedAtMs: _trainedAtMs, ...model } = value as OcrCorrectionModel & { key?: unknown; trainedAtMs?: unknown };
+      return ocrCorrectionModelSchema.parse(model);
+    } catch (error) {
+      throw new OcrLearningRepositoryError("CORRUPT_RECORD", "O modelo OCR local está inválido.", { cause: error });
+    }
+  }
+
+  async saveModel(input: OcrCorrectionModel): Promise<void> {
+    const model = ocrCorrectionModelSchema.parse(input);
+    const database = await this.database();
+    try {
+      const transaction = database.transaction(MODEL_STORE, "readwrite");
+      const done = completed(transaction);
+      await request(transaction.objectStore(MODEL_STORE).put({ ...model, key: CURRENT_MODEL_KEY, trainedAtMs: Date.now() }));
+      await done;
+    } catch (error) {
+      throw new OcrLearningRepositoryError("OPEN_FAILED", "Não foi possível salvar o modelo OCR local.", { cause: error });
+    }
+  }
+
   async remove(recordHash: string): Promise<void> {
     if (!/^sha256:[0-9a-f]{64}$/.test(recordHash)) {
       throw new OcrLearningRepositoryError("CORRUPT_RECORD", "A chave de memória OCR é inválida.");
@@ -109,9 +140,10 @@ export class OcrLearningRepository {
   async clear(): Promise<void> {
     const database = await this.database();
     try {
-      const transaction = database.transaction(STORE, "readwrite");
+      const transaction = database.transaction([STORE, MODEL_STORE], "readwrite");
       const done = completed(transaction);
       await request(transaction.objectStore(STORE).clear());
+      await request(transaction.objectStore(MODEL_STORE).clear());
       await done;
     } catch (error) {
       throw new OcrLearningRepositoryError("OPEN_FAILED", "Não foi possível apagar a memória OCR local.", { cause: error });
@@ -124,6 +156,7 @@ export class OcrLearningRepository {
       const opening = this.indexedDb.open(this.databaseName, DATABASE_VERSION);
       opening.onupgradeneeded = () => {
         if (!opening.result.objectStoreNames.contains(STORE)) opening.result.createObjectStore(STORE, { keyPath: "recordHash" });
+        if (!opening.result.objectStoreNames.contains(MODEL_STORE)) opening.result.createObjectStore(MODEL_STORE, { keyPath: "key" });
       };
       opening.onsuccess = () => resolve(opening.result);
       opening.onerror = () => reject(new OcrLearningRepositoryError("OPEN_FAILED", "Não foi possível abrir a memória OCR local.", { cause: opening.error ?? undefined }));

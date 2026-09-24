@@ -4,9 +4,10 @@ use audiobook_core::{
     build_active_narrative_identity, build_ocr_candidate_receipt,
     build_ocr_correction_training_record, build_ocr_review_receipt, build_reading_preview,
     build_reading_session, build_script_review_packet, build_validated_narration_qa,
-    compare_ocr_candidate, evaluate_review_against_active, suggest_ocr_corrections,
-    validate_script_review_submission, ContentModel, DocumentIr, DocumentIrV2, GenerationJob,
-    NarrativePlan, NarrativeScript, OcrCandidate, OcrCorrectionTrainingRecord, OcrReviewSubmission,
+    compare_ocr_candidate, compile_ocr_correction_model, evaluate_review_against_active,
+    suggest_ocr_corrections, suggest_ocr_corrections_with_model, validate_script_review_submission,
+    ContentModel, DocumentIr, DocumentIrV2, GenerationJob, NarrativePlan, NarrativeScript,
+    OcrCandidate, OcrCorrectionModel, OcrCorrectionTrainingRecord, OcrReviewSubmission,
     ReviewBindingReference, ScriptReviewSubmission, SemanticOutline,
 };
 use serde::Deserialize;
@@ -169,6 +170,37 @@ pub fn suggest_ocr_corrections_json(
     let records: Vec<OcrCorrectionTrainingRecord> =
         serde_json::from_str(records_json).map_err(js_error)?;
     let report = suggest_ocr_corrections(&document, &candidate, &records).map_err(js_error)?;
+    serde_json::to_string(&report).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn compile_ocr_correction_model_json(records_json: &str) -> Result<String, JsValue> {
+    if records_json.len() > 8_000_000 {
+        return Err(js_error("OCR learning input exceeds the size limit"));
+    }
+    let records: Vec<OcrCorrectionTrainingRecord> =
+        serde_json::from_str(records_json).map_err(js_error)?;
+    let model = compile_ocr_correction_model(&records).map_err(js_error)?;
+    serde_json::to_string(&model).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn suggest_ocr_corrections_with_model_json(
+    document_json: &str,
+    candidate_json: &str,
+    model_json: &str,
+) -> Result<String, JsValue> {
+    if document_json.len() > 32_000_000
+        || candidate_json.len() > 8_000_000
+        || model_json.len() > 8_000_000
+    {
+        return Err(js_error("OCR learning input exceeds the size limit"));
+    }
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let candidate = OcrCandidate::from_json(candidate_json).map_err(js_error)?;
+    let model: OcrCorrectionModel = serde_json::from_str(model_json).map_err(js_error)?;
+    let report =
+        suggest_ocr_corrections_with_model(&document, &candidate, &model).map_err(js_error)?;
     serde_json::to_string(&report).map_err(js_error)
 }
 

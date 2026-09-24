@@ -19,7 +19,7 @@ O loop de feedback local começa com regras determinísticas, não com um modelo
 
 O navegador salva somente hashes e pares de tokens em IndexedDB. Cada regra precisa aparecer em três evidências OCR diferentes e sem empate para gerar uma sugestão. A sugestão continua em `review_required`, nunca reescreve o candidato ou o DocumentIR e só preenche o texto proposto depois de clique explícito. Testes Rust/WASM cobrem o limiar, a deduplicação por recibo de candidato, a rejeição de mudança ampla e o resultado sem aplicação automática. O teste de repositório cobre persistência idempotente e conflito de hash.
 
-O limiar não transforma uma revisão local em atestação de identidade. A memória pode refletir uma correção humana errada e deve ser tratada como auxílio. Métricas em corpus revisado, limpeza controlada da memória, auditoria de falsos positivos, versões de pesos e rollback são necessários antes de avaliar um classificador ONNX ou retreinamento offline.
+O operador atualiza explicitamente um modelo local em lote. O snapshot contém somente hashes de registros e regras aceitas, recebe hash próprio e é salvo em store IndexedDB separado; uma correção nova não altera o modelo até a próxima atualização. O smoke Chromium cria três revisões, compila, persiste, relê e usa esse modelo com zero rede externa. O limiar não transforma uma revisão local em atestação de identidade. Métricas em corpus revisado, auditoria de falsos positivos, versões de pesos e rollback são necessários antes de avaliar um classificador ONNX.
 
 ## M4.5F–G — OCR local e evidência histórica
 
