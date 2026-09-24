@@ -12,7 +12,7 @@ Classificações: estado `COMPLETE | PARTIAL | NOT STARTED | BLOCKED`; maturidad
 | OCR seletivo | PARTIAL | SCAFFOLDED | Policy pura testada; engine, adapter, benchmarks e reconciliação real não iniciados. |
 | Conteúdo visual | PARTIAL | SCAFFOLDED | Contratos de disposition/proveniência existem; adapter visual não existe. |
 | Código/tabelas/fórmulas | PARTIAL | SCAFFOLDED | Schemas validam forma; extração e validadores reais faltam. |
-| Narrative Compiler/IA | PARTIAL | IMPLEMENTED | M4.1 adiciona guards determinísticos de heading, memória compacta, source refs e QA básico; planner/modelo IA, coesão semântica e evals reais ainda faltam. |
+| Narrative Compiler/IA | PARTIAL | TESTED | M4.1 cobre guards/QA determinísticos; M4.2a adiciona `ContentModel`, `SemanticOutline` e fronteira validada de structured output. Provider/modelo IA, paridade Rust, coesão semântica e evals reais ainda faltam. |
 | TTS e áudio | NOT STARTED | DESIGNED | Requisitos e fronteiras documentados; engine, player e export ausentes. |
 | Performance adaptativa | PARTIAL | SCAFFOLDED | Schemas/ADRs testados; profiler/router/benchmarks não implementados. |
 | Execução em background | PARTIAL | IMPLEMENTED | Web persiste e retoma estado após reload; aba fechada continua sem garantia de execução e desktop/Tauri durável ainda não existe. |
