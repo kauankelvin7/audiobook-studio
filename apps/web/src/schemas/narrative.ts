@@ -49,6 +49,24 @@ export const contentModelSchema = z.object({
     }
   }
 
+  const prerequisitesByConcept = new Map(model.concepts.map(concept => [concept.id, concept.prerequisiteConceptIds]));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const hasPrerequisiteCycle = (conceptId: string): boolean => {
+    if (visiting.has(conceptId)) return true;
+    if (visited.has(conceptId)) return false;
+    visiting.add(conceptId);
+    for (const prerequisite of prerequisitesByConcept.get(conceptId) ?? []) {
+      if (prerequisitesByConcept.has(prerequisite) && hasPrerequisiteCycle(prerequisite)) return true;
+    }
+    visiting.delete(conceptId);
+    visited.add(conceptId);
+    return false;
+  };
+  if (model.concepts.some(concept => hasPrerequisiteCycle(concept.id))) {
+    context.addIssue({ code: "custom", message: "Cyclic concept prerequisites" });
+  }
+
   const relationIds = new Set(model.relations.map(relation => relation.id));
   if (relationIds.size !== model.relations.length) {
     context.addIssue({ code: "custom", message: "Duplicate relation ID" });
