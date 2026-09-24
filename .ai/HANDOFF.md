@@ -8,7 +8,7 @@
 - Branch esperada para retomada: `main`.
 - Milestone: M4 — Narrative Compiler.
 - Última fatia: **M4.2a — contratos semânticos + planner boundary**.
-- Baseline funcional validado: `fcb7f573a8ff4a70cb4815448163e77f44cca42f`.
+- Baseline funcional validado: `9f946903fcbb005724a3d393dd57aa81a2a25145`.
 - Status: **IMPLEMENTED/TESTED no escopo determinístico**; não existe planner/LLM real ainda.
 
 ## Entregue
@@ -22,12 +22,12 @@ A fronteira do planner rejeita schema inválido, documento divergente, conceito 
 
 ## Validação mais recente
 
-- Web: **94/94 testes PASS**.
+- Web: **95/95 testes PASS**.
 - Typecheck: PASS.
 - Build: PASS.
 - Audit: **0 vulnerabilidades**.
 - Rust CI: fmt, `cargo test --workspace` e clippy `-D warnings` PASS.
-- Evidência inicial da fatia: workflow `quality` run `35979288303`.
+- Evidência pós-revisão: workflow `quality` run `35979717099`.
 
 ## Próximo passo
 
