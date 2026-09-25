@@ -459,3 +459,10 @@
 - Gerações literal, integral e narrativa solicitam Screen Wake Lock como melhoria progressiva e sempre o liberam no fim. Falta de suporte não bloqueia o fluxo.
 - Diagnóstico da interface agora mostra Worker/WASM, OPFS/Web Locks, voz local e Wake Lock, com aviso específico no Android sobre manter a tela aberta durante geração.
 - Testes unitários foram ampliados para classificação de runtime, política de chunk mobile, preservação de ordem de tokens e montagem multi-chunk. Gates locais não foram executados nesta sessão remota; o workflow `quality` da branch será usado como gate de publicação antes do merge.
+
+## 2026-09-25 — leitor PDF e composição de leitura
+- A referência visual mostrou o fac-símile comprimido por três colunas simultâneas. A implementação existente também tratava 100% como multiplicador do fit-to-width, limitava 70–200% e mantinha scroll dentro do próprio `original-page-shell`.
+- O leitor foi reorganizado em três zonas de toolbar (navegação, modo e ferramentas). O rail de páginas começa recolhido entre 740–1540 px e pode ser aberto sob demanda; mobile continua com rail horizontal.
+- `PdfOriginalPage` continua usando `pdfjs-dist` já presente no projeto. Agora distingue `fit-width`, `fit-page` e zoom manual 50–300%; 100% manual usa 96/72 como escala CSS de PDF. O scroll fica no `paper-scroll`, sem scroll aninhado no canvas.
+- Rasterização em DPI alto é limitada a 18 milhões de pixels por página renderizada; o canvas mantém o tamanho CSS solicitado e reduz apenas o fator de raster quando necessário.
+- Contratos não visuais passam a exigir zoom avançado, rail recolhível e limite de raster. OCR, persistência, narrativa e TTS não foram alterados.

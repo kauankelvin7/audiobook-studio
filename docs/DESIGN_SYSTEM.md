@@ -163,6 +163,8 @@ ReviewBottomDock
 
 - **Texto**: padrão; mantém o conteúdo reflowed derivado do DocumentIR e a seleção de trechos para revisão.
 - **Original**: fac-símile opcional do `source_pdf` persistido, renderizado sob demanda por `pdfjs-dist`. Não participa da extração, OCR ou promoção de texto.
+- O leitor original oferece ajuste à largura, página inteira e zoom manual de 50% a 300%. O percentual manual usa a escala CSS convencional de PDF (96/72); o raster respeita limite de pixels para evitar consumo excessivo de memória em zoom alto.
+- Entre 740 px e 1540 px o rail de páginas começa recolhido para priorizar a largura do documento e pode ser reaberto pelo controle da toolbar. Em mobile ele volta a ser uma faixa horizontal.
 - A troca de página pode usar transição visual, mas `onPageChange`, zoom, seleção e contratos de revisão permanecem os mesmos.
 
 A tela de Revisão desktop deve continuar reconhecível como:
@@ -277,7 +279,7 @@ Alvos de verificação:
 
 Desktop largo: Page Navigator + documento + Evidence Inspector quando houver largura real.
 
-Intermediário: a partir de 1120 px para baixo, o inspector deixa de disputar largura com o documento e empilha em fluxo normal.
+Intermediário: o rail de páginas deixa de ocupar largura permanente entre 740–1540 px e pode ser reaberto sob demanda; a partir de 1120 px para baixo, o inspector também deixa de disputar largura com o documento e empilha em fluxo normal.
 
 Mobile (<740 px): sidebar desktop desaparece e a navegação vira tab bar inferior fixa com safe area; o rail de páginas vira lista horizontal; toolbar recompõe em duas linhas; documento, inspector, Narrativa, Áudio e Exportar empilham sem largura mínima artificial.
 

@@ -688,6 +688,13 @@ textarea:hover { border-color: #aeb7c0; }
   background: #fff;
 }
 
+.zoom-select {
+  border-left-color: #d8dde2;
+  border-right-color: #d8dde2;
+  color: #596672;
+  background: #fff;
+}
+
 .review-toggle {
   color: #596672;
 }
@@ -751,6 +758,11 @@ textarea:hover { border-color: #aeb7c0; }
   border-radius: 6px;
   background: #dfe2e4;
   box-shadow: 0 10px 28px rgba(25,35,45,.10);
+}
+
+.original-view {
+  width: max-content;
+  min-width: 100%;
 }
 
 /* Inspector */
@@ -1189,7 +1201,7 @@ textarea:hover { border-color: #aeb7c0; }
   .toolbar-actions { gap: 6px; }
 
   .viewer-mode button { min-width: 46px; }
-  .fullscreen-button { display: none; }
+  .fullscreen-button { display: grid; }
 
   .paper-scroll {
     padding: 12px;
@@ -1293,7 +1305,7 @@ textarea:hover { border-color: #aeb7c0; }
   .shell { padding-inline: 7px; }
   .page-rail li { flex-basis: 118px; }
   .viewer-mode button { min-width: 43px; padding-inline: 6px; }
-  .zoom-control output { min-width: 29px; }
+  .zoom-select { min-width: 96px; }
   .review-toggle input { width: 32px; }
 }
 
@@ -1329,4 +1341,68 @@ input[type="file"]::file-selector-button {
   border-radius: 8px;
   background: #2169d6;
   box-shadow: inset 0 -1px 0 rgba(0,0,0,.14);
+}
+
+
+/* Reader workspace: preserve document width before secondary chrome. */
+@media (min-width: 740px) and (max-width: 1540px) {
+  .document-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .document-workspace > .page-rail {
+    display: none;
+  }
+
+  .document-workspace.pages-open {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .document-workspace.pages-open > .page-rail {
+    display: block;
+  }
+
+  .page-panel-button {
+    display: grid;
+  }
+}
+
+@media (max-width: 980px) and (min-width: 740px) {
+  .document-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .viewer-mode {
+    justify-self: end;
+  }
+
+  .viewer-tools {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-self: stretch;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 739px) {
+  .document-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .viewer-tools {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .zoom-control {
+    flex: 1 1 auto;
+    max-width: 250px;
+  }
+
+  .zoom-select {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
 }
