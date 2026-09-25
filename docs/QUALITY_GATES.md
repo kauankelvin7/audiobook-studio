@@ -2,6 +2,8 @@
 
 Gates obrigatórios quando as ferramentas existirem no ambiente:
 
+M4 Rust/WASM/Web: `npm run wasm:build` em `apps/web` regenera o módulo com Rust 1.94.1 e `wasm-bindgen-cli` 0.2.128. A CI compara os arquivos gerados versionados antes dos testes Web. `rust_content_pipeline.test.ts` carrega o `.wasm` real e verifica as fixtures compartilhadas; typecheck isolado não comprova execução do módulo.
+
 ```text
 FAST
 cd apps/web && npm run test:fast
@@ -28,4 +30,4 @@ Configuração multiagente exige TOML parseável, limite máximo de três subage
 
 Persistência exige round-trip IndexedDB, isolamento por projeto, escrita idempotente, conflito entre writers, rejeição de schema desconhecido, checksum inválido, recuperação explícita do último checkpoint válido e degradação segura quando quota/persistência não estiver disponível. Testes com `fake-indexeddb` não substituem a matriz real de browsers.
 
-Contratos narrativos/performance possuem fixtures e testes de schema. A fronteira M4.2a também deve rejeitar `documentId`, `conceptId` e `sourceRef` fora do contexto aprovado antes de aceitar structured output. Esses gates comprovam forma e grounding estrutural, não qualidade semântica nem existência de planner/LLM funcional. Quando implementados em M4/M5, os gates adicionais incluem `duplicated_spoken_heading_count = 0`, source mapping e claims críticos, relatório QA local/global, fallback testado, resume/cache e TTFA/RTF medidos em perfis de dispositivo. Limiares de performance só serão fixados com benchmarks reproduzíveis; não usar score subjetivo como prova.
+Contratos narrativos/performance v1 possuem fixtures e testes de schema em `apps/web/src/schemas/architecture.test.ts`; isto não comprova planner, QA ou TTS funcional. Quando implementados em M4/M5, os gates adicionais incluem `duplicated_spoken_heading_count = 0`, source mapping e claims críticos, relatório QA local/global, fallback testado, resume/cache e TTFA/RTF medidos em perfis de dispositivo. Limiares de performance só serão fixados com benchmarks reproduzíveis; não usar score subjetivo como prova.

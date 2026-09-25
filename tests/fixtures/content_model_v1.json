@@ -1,62 +1,20 @@
 {
   "schemaVersion": 1,
-  "documentId": "doc_test",
-  "concepts": [
-    {
-      "id": "COBOL",
-      "label": "COBOL",
-      "importance": "core",
-      "certainty": "source",
-      "sourceRefs": [
-        "p1-t1"
-      ],
-      "prerequisiteConceptIds": []
-    },
-    {
-      "id": "PIC",
-      "label": "PIC",
-      "importance": "core",
-      "certainty": "source",
-      "sourceRefs": [
-        "p2-t1"
-      ],
-      "prerequisiteConceptIds": [
-        "COBOL"
-      ]
-    }
-  ],
-  "relations": [
-    {
-      "id": "rel_cobol_pic",
-      "fromConceptId": "COBOL",
-      "toConceptId": "PIC",
-      "kind": "contains_field_description",
-      "certainty": "source",
-      "sourceRefs": [
-        "p2-t1"
-      ]
-    }
-  ],
-  "evidence": [
-    {
-      "id": "ev_cobol_definition",
-      "kind": "definition",
-      "conceptIds": [
-        "COBOL"
-      ],
-      "sourceRefs": [
-        "p1-t1"
-      ]
-    },
-    {
-      "id": "ev_pic_definition",
-      "kind": "definition",
-      "conceptIds": [
-        "PIC"
-      ],
-      "sourceRefs": [
-        "p2-t1"
-      ]
-    }
-  ]
+  "documentId": "doc_0000000000000000000000000000000000000000000000000000000000000000",
+  "sourceHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "language": null,
+  "sourceUnits": [{
+    "id": "unit_r_1_1",
+    "sourceRefs": ["r_1_1"],
+    "regionType": "code",
+    "language": null,
+    "analysisText": "PR0CEDURE DIVISI0N",
+    "structuredSource": true,
+    "uncertainty": "reconstructed",
+    "qualityStatus": "review_required",
+    "narrationEligibility": "review_required",
+    "flags": ["technical_token_review"]
+  }],
+  "concepts": [],
+  "relations": []
 }

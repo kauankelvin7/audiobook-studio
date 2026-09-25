@@ -1,6 +1,8 @@
 # Arquitetura de ingestão, OCR e conteúdo complexo
 
-Status geral: `DESIGNED`; contratos centrais `SCAFFOLDED/TESTED`; extração nativa `IMPLEMENTED/TESTED`; OCR e visão `NOT STARTED`.
+Status geral: `DESIGNED`; extração nativa, captura limitada e engine OCR local `IMPLEMENTED/TESTED` em Chromium; evidência OCR histórica e comparação Rust `IMPLEMENTED/TESTED`; visão e reconciliação aplicada `NOT STARTED`.
+
+M4.5D–J vinculam candidato, crop PNG e fonte (ADRs 0014/0018), executam Tesseract local, preservam evidência em OPFS/IndexedDB (ADR 0020), comparam tokens no Rust (ADR 0021) e registram submissão de revisão não atestada (ADR 0022). Não há reconciliação aplicada nem promoção de qualidade. A correção semântica da bbox não foi validada por revisão humana.
 
 ## Pipeline
 
@@ -16,10 +18,12 @@ Code validator preserva whitespace e marca tokens suspeitos sem correção silen
 
 ## Segurança e recursos
 
-Limites atuais: PDF 32 MB e 500 páginas. Antes de OCR real, adicionar limite de pixels por página/região, resolução, dimensões, timeout, concorrência e memória. Conteúdo importado nunca executa script, HTML ou comandos. UI renderiza texto, não HTML. Formatos futuros com arquivo compactado exigem limite de expansão e path traversal guard. Logs não contêm texto integral.
+Limites atuais: PDF 32 MB e 500 páginas; captura OCR limitada por tamanho do PDF, pixels e prazo; engine local por região com cancelamento. Concorrência global e memória total ainda exigem medição. Conteúdo importado nunca executa script, HTML ou comandos. UI renderiza texto, não HTML. Formatos futuros com arquivo compactado exigem limite de expansão e path traversal guard. Logs não contêm texto integral.
 
 ## Revisão humana e auditoria
 
-UI futura lista página/região, original, OCR/reconstrução, confiança medida e ações `ver original`, `editar`, `ignorar`, `aceitar`. Região pequena não bloqueia o livro quando política permite `COMPLETED_WITH_WARNINGS`; decisões humanas entram no audit log e invalidam só descendentes.
+M4.5L oferece comparação local para uma região existente com bbox e texto nativo: seleciona página/região, lê o PDF salvo, gera candidato, mostra recorte, texto nativo/OCR, diferenças do Rust e registra uma escolha `unverified` em histórico. M4.5M adiciona página `no_text` sem regiões e `rawText` vazio como alvo virtual `__page__`, sob validação Rust e captura integral PDF.js; região real com esse ID tem precedência. Gravação e releitura histórica conferem geometria/dimensões contra o PDF salvo. O limite da captura é PDF de 8 MB e 4 milhões de pixels. Atestação, aplicação da correção e ações sobre o texto do documento continuam pendentes. Região pequena não bloqueia o livro quando política futura permitir `COMPLETED_WITH_WARNINGS`; uma decisão local ainda não altera QA ou descendentes.
+
+A interface escapa caracteres invisíveis de controle apenas na exibição e mantém os bytes originais para hashes. O cancelamento interrompe captura/OCR e aborta a validação de evidência até o início de `persistNext`. Durante o commit OPFS/IndexedDB, a interface desabilita cancelamento e nova importação; uma recarga do navegador nesse intervalo pode concluir a gravação histórica no projeto anterior. O checkpoint com CAS preserva consistência da fonte.
 
 Relatórios planejados: `ocr-report.json`, `visual-analysis.json` e `document-quality.json`, versionados e derivados de manifests. Contagens não provam qualidade. Nesta fase existem schemas, não geração/persistência dos relatórios.

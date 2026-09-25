@@ -40,6 +40,7 @@ PDF original, edição humana, artefato final e dados não regeneráveis nunca s
 
 - IndexedDB v1: store `checkpoints`.
 - IndexedDB v2: adiciona store `artifacts` e índice `by_project`, preservando checkpoints existentes.
+- IndexedDB v3: adiciona `pending_file_deletions` para concluir exclusões de WAV históricos após falha/fechamento, preservando stores anteriores (ADR 0017).
 - Checkpoints e manifests mantêm `schemaVersion: 1` no wire format; schema futuro incompatível falha explicitamente.
 
 ## Test tiers
@@ -50,7 +51,17 @@ PDF original, edição humana, artefato final e dados não regeneráveis nunca s
 
 Fuzz, browser matrix, soak e hardware/performance continuam como gates futuros/nightly; não são simulados como concluídos.
 
+## Exclusão de WAV histórico
+
+O usuário pode excluir uma gravação literal antiga após confirmação. O serviço protege o checkpoint atual e um fallback recuperável da mesma fonte, valida o histórico inteiro até 1.000 registros e remove as referências antigas em uma transação IndexedDB. A limpeza OPFS é retomável por fila persistida. Fonte PDF, artefatos finais e revisões não entram nessa seleção. Não há exclusão automática por quota ou idade. Consulte ADR 0017.
+
 ## Pendências pós-M3.2
+
+M4.4F adiciona um artefato não regenerável `active_narrative`. O core Rust calcula sua identidade; o checkpoint referencia somente a versão ativa. O adapter verifica OPFS, manifest e hashes na leitura. A integração com edição de plano/roteiro e invalidação de áudio ainda está pendente (ADR 0012).
+
+M4.4G mantém revisões históricas v1 legíveis e com atualidade `not_established`. `saveForActive` grava revisão v2 fixada com hash de vínculo calculado pelo Rust a partir da identidade narrativa completa e da submissão. A chave do artefato deriva desse vínculo, evitando colisão entre a mesma submissão salva sob outlines diferentes. O avaliador verifica os dois artefatos e relê o checksum do checkpoint; `bound_unverified` não é atestação nem liberação de áudio (ADR 0013).
+
+M4.5K grava revisões OCR em artefato `ocr_review_submission` fixado, ligado aos dois manifests `ocr_evidence`. Releitura confere bytes OPFS, checkpoint histórico contendo o trio e recibo Rust/WASM recalculado; retry é idempotente. Atualidade e identidade do revisor não são estabelecidas. Ver ADR 0023.
 
 - browser matrix Chrome/Edge/Firefox conforme suporte real;
 - UI específica para escolha/retomada de múltiplos projetos;

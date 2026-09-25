@@ -1,38 +1,13 @@
 {
   "schemaVersion": 1,
-  "documentId": "doc_test",
-  "units": [
-    {
-      "id": "ou_1",
-      "title": "COBOL",
-      "objective": "Estabelecer o contexto da linguagem.",
-      "importance": "core",
-      "conceptIds": [
-        "COBOL"
-      ],
-      "sourceRefs": [
-        "p1-t1"
-      ],
-      "prerequisiteUnitIds": []
-    },
-    {
-      "id": "ou_2",
-      "title": "PIC",
-      "objective": "Relacionar PIC à descrição dos campos.",
-      "importance": "core",
-      "conceptIds": [
-        "PIC"
-      ],
-      "sourceRefs": [
-        "p2-t1"
-      ],
-      "prerequisiteUnitIds": [
-        "ou_1"
-      ]
-    }
-  ],
-  "order": [
-    "ou_1",
-    "ou_2"
-  ]
+  "documentId": "doc_0000000000000000000000000000000000000000000000000000000000000000",
+  "sections": [{
+    "id": "outline_section_1",
+    "headingUnitId": null,
+    "topicLabel": null,
+    "sourceUnitIds": ["unit_r_1_1"],
+    "candidateNarrationUnitIds": ["unit_r_1_1"],
+    "conceptIds": [],
+    "requiresReview": true
+  }]
 }

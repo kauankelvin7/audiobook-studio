@@ -100,6 +100,14 @@ impl GenerationJob {
         self.state = to;
         Ok(())
     }
+
+    pub fn ensure_narrative_activation_allowed(&self) -> Result<(), DomainError> {
+        self.validate()?;
+        if self.state != JobState::Verifying {
+            return Err(DomainError::InvalidNarrativeActivationState(self.state));
+        }
+        Ok(())
+    }
 }
 
 fn is_suspended(state: JobState) -> bool {

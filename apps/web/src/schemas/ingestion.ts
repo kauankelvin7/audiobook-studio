@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { DocumentIr } from "./document";
 
 const finite = z.number().finite();
 const id = z.string().trim().min(1);
@@ -126,31 +125,3 @@ export const projectManifestSchema = z.object({
 
 export type DocumentIrV2 = z.infer<typeof documentIrV2Schema>;
 export type ExtractionQuality = z.infer<typeof extractionQualitySchema>;
-
-export function migrateDocumentV1ToV2(document: DocumentIr): DocumentIrV2 {
-  return documentIrV2Schema.parse({
-    schemaVersion: 2,
-    documentId: document.documentId,
-    sourceHash: document.sourceHash,
-    language: document.language,
-    pages: document.pages.map(page => ({
-      number: page.number,
-      extractionQuality: page.textQuality === "needs_ocr" ? "no_text" : "good",
-      rawText: page.rawText,
-      ocrText: null,
-      reconstructedText: null,
-      regions: page.blocks.map(block => ({
-        id: block.id,
-        type: block.type,
-        bbox: block.bbox,
-        language: block.language,
-        sources: { rawText: block.text, ocrText: null, reconstructedText: null },
-        content: { kind: "legacy_text", text: block.text, sourceSchemaVersion: 1 },
-        uncertainty: "uncertain",
-        qualityStatus: "review_required",
-        confidence: block.confidence,
-        flags: [...block.flags, "migrated_from_v1_requires_source_review"],
-      })),
-    })),
-  });
-}

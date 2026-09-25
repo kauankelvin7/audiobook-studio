@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Audiobook Studio</title>
+  <rect width="64" height="64" rx="15" fill="#182531"/>
+  <path d="M9 16c9-3 15-2 23 3 8-5 14-6 23-3v35c-9-3-15-2-23 3-8-5-14-6-23-3V16Z" fill="none" stroke="#dce9ec" stroke-width="2.8" stroke-linejoin="round"/>
+  <path d="M32 19v35M14 34h4l3-7 5 14 3-7h5l3-5 4 11 3-6h6" fill="none" stroke="#70b9df" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

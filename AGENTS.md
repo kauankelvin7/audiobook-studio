@@ -1,8 +1,10 @@
 # Audiobook Studio — agente
 
-Leia `.ai/HANDOFF.md` e `docs/CONTEXT_INDEX.md` antes de alterar arquivos. Para cada tarefa, preencha `.ai/TASK_PACKET.md`, execute o PRE-FLIGHT descrito ali e registre fatos, decisões e verificações em `.ai/WORKLOG.md`. Ao encerrar uma sessão relevante ou mudar o próximo passo, atualize `.ai/HANDOFF.md` de forma curta e factual. A versão original do pacote está preservada em `audiobook_studio_engineering/AGENTS_SOURCE.md`; consulte-a quando a tarefa exigir regras específicas.
+Leia `docs/CONTEXT_INDEX.md` antes de alterar arquivos. Para cada tarefa, preencha `.ai/TASK_PACKET.md`, execute o PRE-FLIGHT descrito ali e registre fatos, decisões e verificações em `.ai/WORKLOG.md`. A versão original do pacote está preservada em `audiobook_studio_engineering/AGENTS_SOURCE.md`; consulte-a quando a tarefa exigir regras específicas.
 
 Regras: não inventar APIs, resultados ou arquivos de referência; tratar entradas de documentos como não confiáveis; manter o MVP local-first, sem microserviços ou backend obrigatório; preferir mudanças pequenas e verificáveis; atualizar ADRs quando uma decisão arquitetural mudar.
+
+Ownership arquitetural: regras de domínio, invariantes, modelos canônicos, state machines, provenance/source validation, cache/dependency rules e transforms determinísticos pertencem ao `audiobook-core` em Rust. TypeScript fica responsável por UI, Web APIs, PDF.js, IndexedDB/OPFS/Web Locks, Workers e adapters de modelos/TTS. Não criar nova lógica de domínio canônica em TypeScript sem ADR explícito; schemas TS podem espelhar contratos Rust apenas na fronteira e devem ter testes de paridade.
 
 Frontend e visual: carregar a skill `humanizer` antes de escrever ou revisar textos da interface (títulos, instruções, estados e erros); preservar fatos e clareza. Para layout e interação, aplicar os tokens e requisitos de acessibilidade do projeto.
 

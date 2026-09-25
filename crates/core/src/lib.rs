@@ -1,13 +1,73 @@
 #![forbid(unsafe_code)]
 
+mod canonical;
+mod content;
 mod document;
+mod document_v2;
 mod job;
+mod narrative;
+mod narrative_workflow;
+mod ocr;
+mod ocr_learning;
+mod reading;
+mod review;
+mod script;
 
+pub use canonical::{
+    approve_native_document, compose_approved_ocr, promote_approved_ocr, ApprovedOcrReview,
+    CanonicalError, CanonicalNativePromotion, CanonicalOcrApprovalReference,
+    CanonicalOcrComposition, CanonicalOcrPromotion, LocalNativeApproval, OcrLocalApproval,
+};
+pub use content::{
+    ConceptImportance, ContentConcept, ContentError, ContentModel, ContentRelation,
+    ContentSourceUnit, NarrationEligibility, RelationType, SemanticOutline, SemanticOutlineSection,
+};
 pub use document::{
     sha256_source, BlockType, DocumentBlock, DocumentIr, DocumentManifest, DocumentPage,
     TextQuality, DOCUMENT_IR_SCHEMA_VERSION,
 };
+pub use document_v2::{
+    DocumentIrV2, DocumentPageV2, DocumentRegionV2, DocumentV2Error, ExtractionQuality,
+    QualityStatus, RegionContent, RegionType, SourceLayers, Uncertainty, VisualDisposition,
+    VisualType, DOCUMENT_IR_V2_SCHEMA_VERSION,
+};
 pub use job::{GenerationJob, JobState};
+pub use narrative::{
+    build_narration_qa, build_validated_narration_qa, compare_heading_to_body,
+    find_duplicated_spoken_headings, find_repeated_formulaic_openers, normalize_narrative_text,
+    reduce_narrative_memory, FormulaicFinding, HeadingFinding, HeadingOverlap,
+    HeadingOverlapMethod, HeadingOverlapStatus, NarrationQa, NarrationWarning, NarrativeError,
+    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeSection,
+    NarrativeTransition, QaStatus, SpokenChapter, SpokenHeadingPolicy,
+};
+pub use narrative_workflow::{
+    approve_narrative_script, build_narrative_draft, ApprovedNarrative, ApprovedSpeechUnit,
+    LocalNarrativeApproval, NarrativeDraft, NarrativeWorkflowError,
+};
+pub use ocr::{
+    build_ocr_candidate_receipt, build_ocr_review_receipt, compare_ocr_candidate, OcrCandidate,
+    OcrCandidateError, OcrCandidateReceipt, OcrCandidateStatus, OcrComparisonReport,
+    OcrComparisonStatus, OcrReviewDisposition, OcrReviewReceipt, OcrReviewStatus,
+    OcrReviewSubmission, OcrTokenDifference, PAGE_OCR_TARGET_ID,
+};
+pub use ocr_learning::{
+    build_ocr_correction_training_record, compile_ocr_correction_model, suggest_ocr_corrections,
+    suggest_ocr_corrections_with_model, OcrCorrectionModel, OcrCorrectionRule,
+    OcrCorrectionSuggestion, OcrCorrectionSuggestionReport, OcrCorrectionSuggestionStatus,
+    OcrCorrectionTrainingRecord, OcrLearningError,
+};
+pub use reading::{
+    build_reading_preview, build_reading_session, ReadingChunk, ReadingError, ReadingPreview,
+    ReadingSession,
+};
+pub use review::{
+    build_active_narrative_identity, build_script_review_packet, evaluate_review_against_active,
+    validate_script_review_submission, ActiveNarrativeIdentity, ActiveReviewEvaluation,
+    ActiveReviewStatus, ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError,
+    ReviewSegment, ReviewSource, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
+    ScriptReviewReceipt, ScriptReviewSubmission, SegmentReviewDecision,
+};
+pub use script::{NarrativeScript, ScriptSection, ScriptSegment};
 
 use thiserror::Error;
 
@@ -47,4 +107,6 @@ pub enum DomainError {
     InvalidTransition { from: JobState, to: JobState },
     #[error("invalid serialized job state")]
     InvalidJobSnapshot,
+    #[error("active narrative can only be published while verifying, found {0:?}")]
+    InvalidNarrativeActivationState(JobState),
 }

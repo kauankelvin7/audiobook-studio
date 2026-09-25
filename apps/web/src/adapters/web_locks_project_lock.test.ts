@@ -34,6 +34,11 @@ describe("WebLocksProjectLock", () => {
   });
 
   it("reports an unavailable API explicitly", () => {
-    expect(() => new WebLocksProjectLock(undefined)).toThrow(ProjectLockError);
+    vi.stubGlobal("navigator", {});
+    try {
+      expect(() => new WebLocksProjectLock()).toThrow(ProjectLockError);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

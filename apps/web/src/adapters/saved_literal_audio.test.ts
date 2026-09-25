@@ -1,0 +1,150 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it, vi } from "vitest";
+import { initSync } from "../generated/audiobook_wasm/audiobook_wasm.js";
+import documentV1Fixture from "../../../../tests/fixtures/document_ir_v1.json";
+import type { ArtifactManifestRecord, CheckpointRecord } from "../schemas/persistence";
+import { documentIrSchema } from "../schemas/document";
+import type { ArtifactWrite } from "./ports";
+import { analyzeDocumentV1 } from "./rust_content_pipeline";
+import { buildReadingSession } from "./rust_reading_preview";
+import { listLiteralAudios, loadCompleteLiteralAudio, loadLiteralAudio, loadLiteralAudioByKey,
+  removeHistoricalLiteralAudio, saveCompleteLiteralAudio, saveLiteralAudio } from "./saved_literal_audio";
+
+const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wasm_bg.wasm", import.meta.url));
+initSync({ module: readFileSync(wasmPath) });
+
+function wav(): Blob {
+  const view = new DataView(new ArrayBuffer(46));
+  view.setUint32(0, 0x46464952, true);
+  view.setUint32(4, 38, true);
+  view.setUint32(8, 0x45564157, true);
+  view.setUint32(12, 0x20746d66, true);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 22_050, true);
+  view.setUint32(28, 44_100, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  view.setUint32(36, 0x61746164, true);
+  view.setUint32(40, 2, true);
+  return new Blob([view.buffer], { type: "audio/wav" });
+}
+
+describe("saved literal audio", () => {
+  it("exports the complete readable PDF and reopens the same final WAV after checkpoint changes", async () => {
+    const analysis = await analyzeDocumentV1(documentIrSchema.parse(documentV1Fixture));
+    const document = { ...analysis.documentV2, pages: [analysis.documentV2.pages[0]] };
+    const session = await buildReadingSession(document, 1, 1);
+    const documentDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(document)));
+    const documentHash = `sha256:${Array.from(new Uint8Array(documentDigest), byte => byte.toString(16).padStart(2, "0")).join("")}`;
+    let latest: CheckpointRecord = { schemaVersion: 1, projectId: document.documentId, sequence: 1,
+      createdAtMs: 1, pipelineVersion: "m4.2", sourceHash: document.sourceHash,
+      job: { state: "STRUCTURING", resumeState: null }, artifactKeys: ["source_pdf", "document_ir_v2"],
+      checksum: `sha256:${"a".repeat(64)}` };
+    const writes = new Map<string, ArtifactWrite>();
+    const store = {
+      loadLatest: vi.fn(async () => latest),
+      persistNext: vi.fn(async (draft: Omit<CheckpointRecord, "sequence" | "checksum">, artifacts: ArtifactWrite[]) => {
+        for (const artifact of artifacts) writes.set(artifact.artifactKey, artifact);
+        latest = { ...draft, sequence: latest.sequence + 1, checksum: `sha256:${String(latest.sequence).padStart(64, "0")}` };
+        return { checkpoint: latest, artifacts: artifacts.map(write => ({ ...write,
+          contentHash: `sha256:${"c".repeat(64)}`, fileName: `v1_${"d".repeat(64)}.bin`,
+          schemaVersion: 1 as const, sizeBytes: write.value.size, lastAccessedAtMs: write.createdAtMs })) };
+      }),
+      loadArtifactRecord: vi.fn(async (_projectId: string, key: string) => {
+        if (key === "document_ir_v2") return { schemaVersion: 1, projectId: document.documentId,
+          artifactKey: key, kind: "document_ir", contentHash: documentHash,
+          fileName: `v1_${"d".repeat(64)}.bin`, mediaType: "application/json", sizeBytes: 100,
+          createdAtMs: 1, lastAccessedAtMs: 1, regenerable: true, pinned: false,
+          finalArtifact: false, expiresAtMs: null } as ArtifactManifestRecord;
+        const write = writes.get(key);
+        return write ? { ...write, contentHash: `sha256:${"c".repeat(64)}`,
+          fileName: `v1_${"d".repeat(64)}.bin`, schemaVersion: 1, sizeBytes: write.value.size,
+          lastAccessedAtMs: write.createdAtMs } as ArtifactManifestRecord : null;
+      }),
+      readArtifact: vi.fn(async (record: ArtifactManifestRecord) => writes.get(record.artifactKey)!.value),
+    };
+    const chunkKey = await saveLiteralAudio(store, document, session, wav());
+    const complete = await saveCompleteLiteralAudio(store, document, [chunkKey]);
+    expect(complete.chapters).toMatchObject([{ pageNumber: 1, audioKey: chunkKey, startSeconds: 0 }]);
+    expect(writes.get(complete.artifactKey)?.finalArtifact).toBe(true);
+    expect((await loadCompleteLiteralAudio(store, document))?.artifactKey).toBe(complete.artifactKey);
+    await expect(loadCompleteLiteralAudio(store, { ...document, pages: [{ ...document.pages[0], rawText: "Texto alterado" }] }))
+      .rejects.toThrow(/não correspondem/);
+    await saveLiteralAudio(store, document, session, wav());
+    expect((await loadCompleteLiteralAudio(store, document))?.artifactKey).toBe(complete.artifactKey);
+    await expect(saveCompleteLiteralAudio(store, analysis.documentV2, [chunkKey])).rejects.toThrow(/Faltam capítulos/);
+  });
+
+  it("commits a non-final WAV and recovers only the matching Rust reading session", async () => {
+    const analysis = await analyzeDocumentV1(documentIrSchema.parse(documentV1Fixture));
+    const document = analysis.documentV2;
+    const session = await buildReadingSession(document, 1, 1);
+    const audio = wav();
+    let latest: CheckpointRecord = {
+      schemaVersion: 1, projectId: document.documentId, sequence: 1, createdAtMs: 1,
+      pipelineVersion: "m4.2", sourceHash: document.sourceHash,
+      job: { state: "STRUCTURING", resumeState: null },
+      artifactKeys: ["source_pdf", "document_ir_v2"], checksum: `sha256:${"a".repeat(64)}`,
+    };
+    const writes = new Map<string, ArtifactWrite>();
+    const store = {
+      loadLatest: vi.fn(async () => latest),
+      persistNext: vi.fn(async (draft: Omit<CheckpointRecord, "sequence" | "checksum">, artifacts: ArtifactWrite[]) => {
+        for (const artifact of artifacts) writes.set(artifact.artifactKey, artifact);
+        latest = { ...draft, sequence: latest.sequence + 1, checksum: `sha256:${"b".repeat(64)}` };
+        return { checkpoint: latest, artifacts: [] };
+      }),
+      loadArtifactRecord: vi.fn(async (_projectId: string, key: string) => {
+        const write = writes.get(key);
+        return write ? { ...write, artifactKey: key, contentHash: `sha256:${"c".repeat(64)}`,
+          fileName: `v1_${"d".repeat(64)}.bin`, schemaVersion: 1, sizeBytes: write.value.size,
+          lastAccessedAtMs: write.createdAtMs } as ArtifactManifestRecord : null;
+      }),
+      listArtifactRecords: vi.fn(async () => (await Promise.all([...writes.keys()].map(key =>
+        store.loadArtifactRecord(document.documentId, key)))).filter((record): record is ArtifactManifestRecord => record !== null)),
+      compactHistoricalLiteralAudio: vi.fn(async () => ({ removedCheckpoints: 1, reclaimedBytes: audio.size, pendingFiles: 0 })),
+      readArtifact: vi.fn(async (record: ArtifactManifestRecord) => writes.get(record.artifactKey)!.value),
+    };
+    await saveLiteralAudio(store, document, session, audio);
+    const savedWrites = store.persistNext.mock.calls[0][1];
+    expect(savedWrites.map(write => write.kind)).toEqual(["audio_chunk", "audio_metadata"]);
+    expect(savedWrites.every(write => write.pinned && !write.finalArtifact)).toBe(true);
+    expect(latest.artifactKeys).toHaveLength(4);
+    await expect(loadLiteralAudio(store, document)).resolves.toMatchObject({ blob: audio, startPage: 1, endPage: 1 });
+    const newerAudio = wav();
+    await saveLiteralAudio(store, document, session, newerAudio);
+    expect(latest.artifactKeys.filter(key => /^literal_wav_[0-9a-f]{32}$/.test(key))).toHaveLength(1);
+    await expect(loadLiteralAudio(store, document)).resolves.toMatchObject({ blob: newerAudio, startPage: 1, endPage: 1 });
+    const history = await listLiteralAudios(store, document);
+    expect(history).toHaveLength(2);
+    expect(history.map(entry => entry.artifactKey)).toContain(savedWrites[0].artifactKey);
+    await expect(listLiteralAudios(store, { ...document, sourceHash: `sha256:${"e".repeat(64)}` }))
+      .resolves.toEqual([]);
+    await expect(loadLiteralAudioByKey(store, document, savedWrites[0].artifactKey))
+      .resolves.toMatchObject({ blob: audio, startPage: 1, endPage: 1 });
+    await expect(loadLiteralAudioByKey(store, document, "source_pdf")).resolves.toBeNull();
+    await expect(removeHistoricalLiteralAudio(store, document, savedWrites[0].artifactKey))
+      .resolves.toMatchObject({ removedCheckpoints: 1 });
+    expect(store.compactHistoricalLiteralAudio).toHaveBeenCalledWith(document.documentId, document.sourceHash, savedWrites[0].artifactKey);
+    await expect(removeHistoricalLiteralAudio(store, { ...document, sourceHash: `sha256:${"e".repeat(64)}` }, savedWrites[0].artifactKey))
+      .rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(loadLiteralAudio(store, { ...document, sourceHash: `sha256:${"e".repeat(64)}` }))
+      .resolves.toBeNull();
+    await expect(saveLiteralAudio(store, document, { ...session, pages: [{ ...session.pages[0],
+      chunks: [{ ...session.pages[0].chunks[0], text: "Texto alterado" }] }] }, audio)).rejects.toThrow(/sessão mudou/);
+    const metaKey = `${latest.artifactKeys.find(key => /^literal_wav_[0-9a-f]{32}$/.test(key))!}_meta`;
+    const storedMeta = writes.get(metaKey)!;
+    writes.set(metaKey, { ...storedMeta, value: new Blob([JSON.stringify({
+      ...JSON.parse(await storedMeta.value.text()), sessionHash: `sha256:${"f".repeat(64)}`,
+    })], { type: "application/json" }) });
+    await expect(loadLiteralAudio(store, document)).resolves.toBeNull();
+    writes.set(metaKey, { ...storedMeta, value: new Blob(["{"], { type: "application/json" }) });
+    await expect(loadLiteralAudio(store, document)).resolves.toBeNull();
+    expect(await listLiteralAudios(store, document)).toHaveLength(1);
+    writes.delete(savedWrites[0].artifactKey);
+    expect(await listLiteralAudios(store, document)).toHaveLength(0);
+  });
+});
