@@ -1,4 +1,5 @@
 import type { ReadingSession } from "./rust_reading_preview";
+import { recommendedTtsChunkChars } from "./runtime_capabilities";
 
 export type WavProgress = { loaded: number; total: number };
 type WorkerPort = Pick<Worker, "postMessage" | "terminate" | "onmessage" | "onerror">;
@@ -27,6 +28,35 @@ export function readingTextForTts(session: ReadingSession): string {
     throw new LocalWavError("TOO_LONG", "O trecho excede o limite de 12 mil caracteres para gerar WAV. Selecione menos páginas.");
   }
   return text;
+}
+
+export function splitTextForTts(textInput: string, requestedLimit: number): string[] {
+  const text = textInput.trim();
+  if (!text) throw new LocalWavError("INVALID_SESSION", "A sessão de leitura não contém texto para síntese.");
+  const limit = Math.max(128, Math.min(MAX_RENDER_CHARS, Math.floor(requestedLimit)));
+  if (text.length <= limit) return [text];
+
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > limit) {
+    const window = remaining.slice(0, limit);
+    const minimumUsefulCut = Math.floor(limit * 0.5);
+    let cut = Math.max(window.lastIndexOf("\n\n"), window.lastIndexOf("\n"));
+
+    if (cut < minimumUsefulCut) {
+      const sentenceEnds = Array.from(window.matchAll(/[.!?;:]\s+/g));
+      const last = sentenceEnds[sentenceEnds.length - 1];
+      cut = last?.index !== undefined ? last.index + last[0].length : -1;
+    }
+    if (cut < minimumUsefulCut) cut = window.lastIndexOf(" ");
+    if (cut < minimumUsefulCut) cut = limit;
+
+    const chunk = remaining.slice(0, cut).trim();
+    if (chunk) chunks.push(chunk);
+    remaining = remaining.slice(cut).trimStart();
+  }
+  if (remaining.trim()) chunks.push(remaining.trim());
+  return chunks;
 }
 
 export async function validateWav(blob: Blob, maxBytes = MAX_WAV_BYTES): Promise<void> {
@@ -80,10 +110,17 @@ export async function joinValidatedWavs(chunks: Blob[]): Promise<Blob> {
   return result;
 }
 
-export function renderLocalWav(session: ReadingSession, signal: AbortSignal, onProgress: (progress: WavProgress) => void,
-  workerFactory: WorkerFactory = () => new Worker(new URL("../workers/local_tts.worker.ts", import.meta.url), { type: "module" })): Promise<Blob> {
+export function renderLocalWav(
+  session: ReadingSession,
+  signal: AbortSignal,
+  onProgress: (progress: WavProgress) => void,
+  workerFactory: WorkerFactory = () => new Worker(new URL("../workers/local_tts.worker.ts", import.meta.url), { type: "module" }),
+  maxChunkChars = recommendedTtsChunkChars(),
+): Promise<Blob> {
   const text = readingTextForTts(session);
+  const texts = splitTextForTts(text, maxChunkChars);
   if (signal.aborted) return Promise.reject(new LocalWavError("CANCELLED", "Geração cancelada."));
+
   return new Promise((resolve, reject) => {
     let worker: WorkerPort;
     try {
@@ -92,7 +129,9 @@ export function renderLocalWav(session: ReadingSession, signal: AbortSignal, onP
       reject(new LocalWavError("ENGINE_FAILED", "O motor de áudio não pôde ser iniciado neste navegador."));
       return;
     }
+
     let settled = false;
+    const chunks = new Map<number, Blob>();
     const finish = (error?: LocalWavError, wav?: Blob) => {
       if (settled) return;
       settled = true;
@@ -108,24 +147,43 @@ export function renderLocalWav(session: ReadingSession, signal: AbortSignal, onP
       if (settled) return;
       const message: unknown = event.data;
       if (!message || typeof message !== "object" || !("type" in message)) return;
+
       if (message.type === "progress" && "loaded" in message && "total" in message
         && typeof message.loaded === "number" && typeof message.total === "number") {
         onProgress({ loaded: message.loaded, total: message.total });
-      } else if (message.type === "result" && "wav" in message) {
+        return;
+      }
+
+      if (message.type === "chunk" && "index" in message && "wav" in message
+        && typeof message.index === "number" && Number.isInteger(message.index)
+        && message.index >= 0 && message.index < texts.length && message.wav instanceof Blob) {
+        chunks.set(message.index, message.wav);
+        return;
+      }
+
+      if (message.type === "complete" && "count" in message && message.count === texts.length) {
         try {
-          await validateWav(message.wav as Blob);
-          if (!signal.aborted) finish(undefined, message.wav as Blob);
-        } catch {
-          finish(new LocalWavError("INVALID_AUDIO", "O arquivo de áudio recebido não passou na validação."));
+          const ordered = Array.from({ length: texts.length }, (_, index) => chunks.get(index));
+          if (ordered.some(chunk => !chunk)) throw new LocalWavError("INVALID_AUDIO", "A geração terminou com trechos de áudio ausentes.");
+          const wav = await joinValidatedWavs(ordered as Blob[]);
+          await validateWav(wav, MAX_WAV_BYTES);
+          if (!signal.aborted) finish(undefined, wav);
+        } catch (error) {
+          finish(error instanceof LocalWavError
+            ? error
+            : new LocalWavError("INVALID_AUDIO", "O arquivo de áudio recebido não passou na validação."));
         }
-      } else if (message.type === "error") {
+        return;
+      }
+
+      if (message.type === "error") {
         const detail = "message" in message && typeof message.message === "string" && message.message.trim()
           ? message.message.trim()
           : "Não foi possível gerar áudio. Confira conexão, espaço livre e suporte a WebAssembly.";
         finish(new LocalWavError("ENGINE_FAILED", detail));
       }
     };
-    worker.postMessage({ type: "render", text });
+    worker.postMessage({ type: "render", texts });
     if (signal.aborted) abort();
   });
 }

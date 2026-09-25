@@ -452,3 +452,10 @@
 - Reconstruídos page navigator, paper viewer, toolbar, inspector OCR com abas e dock Narrativa/Áudio/Exportar. O tipo interno `unknown` é apresentado como "Texto não classificado".
 - O visor usa PDF público GnuCOBOL de 29 páginas para captura visual; não foram inventados capítulos, qualidade de OCR ou estados de aprovação.
 - Validações: typecheck, 160 testes Web, build, smoke OCR e E2E literal+narrativo com capítulos/reload. Capturas 1440×960 e 390×844 passaram sem overflow horizontal.
+
+## 2026-09-25 — compatibilidade Android / runtime móvel
+- Análise do estado atual confirmou que a composição móvel já possui navegação inferior, safe area, breakpoint 739 px e touch targets. O principal risco funcional está no runtime: Piper/ONNX + modelo ~63 MB, Web Workers, voz local exposta pelo navegador, OPFS/Web Locks e suspensão de abas Android.
+- Implementação em `fix/android-runtime-compat`: síntese local passa a dividir entrada longa em blocos menores no mobile, mantendo uma única `TtsSession` no Worker e reunindo os PCM WAVs na ordem original com as validações existentes. Desktop conserva o limite de 12 mil caracteres por chamada; mobile usa 2.800 caracteres, ou 1.800 em dispositivo com <=4 GB / <=4 threads quando essa informação existe.
+- Gerações literal, integral e narrativa solicitam Screen Wake Lock como melhoria progressiva e sempre o liberam no fim. Falta de suporte não bloqueia o fluxo.
+- Diagnóstico da interface agora mostra Worker/WASM, OPFS/Web Locks, voz local e Wake Lock, com aviso específico no Android sobre manter a tela aberta durante geração.
+- Testes unitários foram ampliados para classificação de runtime, política de chunk mobile, preservação de ordem de tokens e montagem multi-chunk. Gates locais não foram executados nesta sessão remota; o workflow `quality` da branch será usado como gate de publicação antes do merge.
