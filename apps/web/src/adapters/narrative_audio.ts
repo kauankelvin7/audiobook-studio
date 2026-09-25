@@ -182,7 +182,7 @@ export async function loadCompleteNarrativeAudio(store: LocalProjectPersistence,
   for (const [index, chapter] of meta.chapters.entries()) {
     if (chapter.pageNumber !== index + 1 || Math.abs(chapter.startSeconds - expectedSeconds) > 0.001
       || !latest.artifactKeys.includes(chapter.audioKey)) throw new Error("Índice de capítulos inválido.");
-    const chunk = await loadChapter(store, source, approved, chapter.audioKey, index + 1);
+    const chunk = await loadNarrativeChapter(store, source, approved, chapter.audioKey, index + 1);
     if (!chunk || Math.abs((chunk.size - 44) / 44_100 - chapter.durationSeconds) > 0.001)
       throw new Error("O capítulo narrativo salvo não confere.");
     expectedSeconds += chapter.durationSeconds;
