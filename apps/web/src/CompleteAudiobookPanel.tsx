@@ -11,6 +11,8 @@ export function CompleteAudiobookPanel({
   wavBusy,
   busy,
   ocrCommitBusy,
+  narrativeReady,
+  narrativeAudioStatus,
   completeAudioRef,
   onGenerateLiteral,
   onGenerateNarrative,
@@ -25,6 +27,8 @@ export function CompleteAudiobookPanel({
   wavBusy: boolean;
   busy: boolean;
   ocrCommitBusy: boolean;
+  narrativeReady: boolean;
+  narrativeAudioStatus: string;
   completeAudioRef: MutableRefObject<HTMLAudioElement | null>;
   onGenerateLiteral: () => void | Promise<void>;
   onGenerateNarrative: () => void | Promise<void>;
@@ -39,12 +43,18 @@ export function CompleteAudiobookPanel({
       <button type="button" onClick={() => void onGenerateLiteral()} disabled={wavBusy || busy || ocrCommitBusy}>
         {wavBusy ? "Gerando áudio…" : "Gerar audiobook completo em WAV"}
       </button>
-      <button type="button" onClick={() => void onGenerateNarrative()} disabled={wavBusy || busy || ocrCommitBusy}>
+      <button type="button" onClick={() => void onGenerateNarrative()}
+        disabled={wavBusy || busy || ocrCommitBusy || !narrativeReady}
+        aria-describedby={!narrativeReady ? "narrative-audio-requirement" : undefined}>
         {wavBusy ? "Gerando áudio…" : "Gerar audiobook narrativo em WAV"}
       </button>
       {wavBusy && <button type="button" onClick={onCancel}>Cancelar geração</button>}
     </div>
 
+    {!narrativeReady && <p id="narrative-audio-requirement" className="audio-inline-note">
+      Aprove o roteiro na etapa Narrativa para habilitar a geração narrada.
+    </p>}
+    {narrativeAudioStatus && <p className="audio-generation-status" role="status" aria-live="polite">{narrativeAudioStatus}</p>}
     {completeProgress !== null && <p role="status" aria-live="polite">{completeProgress} de {completeTotal} capítulos processados.</p>}
 
     {completeWav && <div className="wav-result">

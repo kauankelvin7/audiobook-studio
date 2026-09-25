@@ -22,10 +22,20 @@ import { OcrNativeTextView, OcrReconciledTextView } from "./OcrInspectorContent"
 
 type Disposition = OcrReviewSubmission["disposition"];
 
-export function OcrReviewPanel({ document, persistence, activePageNumber, onCommitChange, onApproved }: {
+export function OcrReviewPanel({
+  document,
+  persistence,
+  activePageNumber,
+  activeRegionId,
+  onSelectionChange,
+  onCommitChange,
+  onApproved,
+}: {
   document: DocumentIrV2;
   persistence: LocalProjectPersistence | null;
   activePageNumber?: number;
+  activeRegionId?: string;
+  onSelectionChange?: (selection: { pageNumber: number; regionId: string }) => void;
   onCommitChange?: (committing: boolean) => void;
   onApproved?: () => void;
 }) {
@@ -266,10 +276,15 @@ export function OcrReviewPanel({ document, persistence, activePageNumber, onComm
 
   useEffect(() => {
     if (!activePageNumber || !document.pages.some(page => page.number === activePageNumber)) return;
+    const page = document.pages[activePageNumber - 1];
+    const nextRegion = activeRegionId && page?.regions.some(region => region.id === activeRegionId)
+      ? activeRegionId
+      : "";
     clearSelection();
     setPageNumber(activePageNumber);
-    setRegionId("");
-  }, [activePageNumber, document.documentId]);
+    setRegionId(nextRegion);
+    if (nextRegion) setInspectorTab("native");
+  }, [activePageNumber, activeRegionId, document.documentId]);
 
   async function approveReview() {
     if (!persistence || !savedReview || approving || savedReview.submission.disposition !== "propose_correction"
@@ -356,8 +371,17 @@ export function OcrReviewPanel({ document, persistence, activePageNumber, onComm
           committing={committing}
           selectedRegion={!!selectedRegion}
           showGenerate={inspectorTab === "ocr"}
-          onPageChange={value => { clearSelection(); setPageNumber(value); setRegionId(""); }}
-          onRegionChange={value => { clearSelection(); setRegionId(value); }}
+          onPageChange={value => {
+            clearSelection();
+            setPageNumber(value);
+            setRegionId("");
+            onSelectionChange?.({ pageNumber: value, regionId: "" });
+          }}
+          onRegionChange={value => {
+            clearSelection();
+            setRegionId(value);
+            onSelectionChange?.({ pageNumber, regionId: value });
+          }}
           onGenerate={() => void generate()}
           onCancel={() => { clearSelection(); setStatus("OCR cancelado."); }}
         />

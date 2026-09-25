@@ -242,3 +242,27 @@
   .audio-history-panel .audio-history li { grid-template-columns: minmax(0, 1fr); }
   .audio-history-panel .audio-history li button { width: 100%; }
 }
+
+.audio-inline-note,
+.audio-generation-status {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: rgba(255,255,255,.025);
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.audio-inline-note {
+  border-color: rgba(255,159,10,.22);
+  background: var(--color-review-soft);
+  color: #ffc15d;
+}
+
+.audio-generation-status {
+  border-color: var(--color-accent-soft-border);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+}

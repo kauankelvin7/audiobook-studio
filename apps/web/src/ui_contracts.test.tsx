@@ -78,12 +78,35 @@ describe("frontend UI contracts", () => {
       document={document}
       pageNumber={1}
       onPageChange={() => undefined}
+      reviewMode={true}
     />);
     expect(html).toContain('aria-label="Visualização do documento"');
     expect(html).toContain(">Texto<");
     expect(html).toContain(">Original<");
     expect(html).toContain("disabled");
     expect(html).toContain("Trecho de teste");
+    expect(html).toContain('checked=""');
+    expect(html).toContain('role="button"');
+  });
+
+  it("turns review mode into a real reader state instead of a decorative toggle", () => {
+    const document = {
+      pages: [{
+        number: 1,
+        rawText: "Trecho de teste",
+        textQuality: "extracted",
+        blocks: [{ id: "region-1", type: "paragraph", text: "Trecho de teste" }],
+      }],
+    } as unknown as DocumentIr;
+    const html = renderToStaticMarkup(<DocumentViewer
+      document={document}
+      pageNumber={1}
+      onPageChange={() => undefined}
+      reviewMode={false}
+    />);
+    expect(html).not.toContain('checked=""');
+    expect(html).not.toContain('role="button"');
+    expect(html).toContain('aria-label="Modo de revisão"');
   });
 
   it("keeps native approval compact by listing only pages that need attention", () => {

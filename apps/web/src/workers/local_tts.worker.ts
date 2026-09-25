@@ -4,7 +4,7 @@ type Request = { type: "render"; text: string };
 type Response =
   | { type: "progress"; loaded: number; total: number }
   | { type: "result"; wav: Blob }
-  | { type: "error" };
+  | { type: "error"; message: string };
 
 self.onmessage = async (event: MessageEvent<Request>) => {
   if (event.data.type !== "render") return;
@@ -25,7 +25,8 @@ self.onmessage = async (event: MessageEvent<Request>) => {
     });
     const wav = await session.predict(event.data.text);
     self.postMessage({ type: "result", wav } satisfies Response);
-  } catch {
-    self.postMessage({ type: "error" } satisfies Response);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "Falha desconhecida no motor de voz.");
+    self.postMessage({ type: "error", message: message.slice(0, 500) } satisfies Response);
   }
 };

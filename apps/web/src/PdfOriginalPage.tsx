@@ -13,9 +13,21 @@ export function PdfOriginalPage({
   pageNumber: number;
   zoom: number;
 }) {
+  const shellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
   const [readyVersion, setReadyVersion] = useState(0);
+  const [availableWidth, setAvailableWidth] = useState(0);
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    const update = () => setAvailableWidth(shell.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +73,10 @@ export function PdfOriginalPage({
         page.cleanup();
         return;
       }
-      const viewport = page.getViewport({ scale: zoom / 100 });
+      const natural = page.getViewport({ scale: 1 });
+      const fitWidth = availableWidth > 0 ? Math.max(220, availableWidth - 28) : natural.width;
+      const fitScale = Math.min(1, fitWidth / natural.width);
+      const viewport = page.getViewport({ scale: fitScale * (zoom / 100) });
       const outputScale = Math.min(globalThis.devicePixelRatio || 1, 2);
       const context = canvas.getContext("2d", { alpha: false });
       if (!context) {
@@ -96,9 +111,9 @@ export function PdfOriginalPage({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [pageNumber, zoom, readyVersion]);
+  }, [pageNumber, zoom, readyVersion, availableWidth]);
 
-  return <div className="original-page-shell" aria-label={`Página ${pageNumber} no formato original`}>
+  return <div ref={shellRef} className="original-page-shell" aria-label={`Página ${pageNumber} no formato original`}>
     <canvas ref={canvasRef} className="original-page-canvas" />
   </div>;
 }

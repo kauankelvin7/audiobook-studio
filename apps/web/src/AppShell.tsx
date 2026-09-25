@@ -3,7 +3,33 @@ import { StudioIcon, type StudioIconName } from "./StudioIcon";
 const sections: [string, string, StudioIconName][] = [["project", "Projeto", "project"], ["document", "Documento", "document"], ["review", "Revisão", "review"], ["narrative", "Narrativa", "narrative"], ["audio", "Áudio", "audio"], ["export", "Exportar", "export"]];
 export function useProductStage() {
   const [stage, setStage] = useState(() => window.location.hash.slice(1) || "project");
-  useEffect(() => { const update = () => setStage(window.location.hash.slice(1) || "project"); window.addEventListener("hashchange", update); return () => window.removeEventListener("hashchange", update); }, []);
+
+  useEffect(() => {
+    const updateFromHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (sections.some(([id]) => id === hash)) setStage(hash);
+    };
+    window.addEventListener("hashchange", updateFromHash);
+
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+      const id = visible?.target.id;
+      if (id && sections.some(([sectionId]) => sectionId === id)) setStage(id);
+    }, { rootMargin: "-22% 0px -58% 0px", threshold: [0.05, 0.2, 0.5] });
+
+    for (const [id] of sections) {
+      const element = document.getElementById(id);
+      if (element) observer.observe(element);
+    }
+
+    return () => {
+      window.removeEventListener("hashchange", updateFromHash);
+      observer.disconnect();
+    };
+  }, []);
+
   return stage;
 }
 function StudioSidebar({ active, fileName, pageCount, saved, onUtility }: { active: string; fileName: string; pageCount: number; saved: boolean; onUtility: (value: string) => void }) {

@@ -11,6 +11,8 @@ type Props = {
   selectedRegion?: string;
   onRegionSelect?: (id: string) => void;
   sourcePdf?: Blob | null;
+  reviewMode?: boolean;
+  onReviewModeChange?: (enabled: boolean) => void;
 };
 
 export function PageNavigator({ document, pageNumber, onPageChange }: Props) {
@@ -24,9 +26,17 @@ export function PageNavigator({ document, pageNumber, onPageChange }: Props) {
   </aside>;
 }
 
-export function DocumentViewer({ document, pageNumber, onPageChange, selectedRegion, onRegionSelect, sourcePdf }: Props) {
+export function DocumentViewer({
+  document,
+  pageNumber,
+  onPageChange,
+  selectedRegion,
+  onRegionSelect,
+  sourcePdf,
+  reviewMode = true,
+  onReviewModeChange,
+}: Props) {
   const [zoom, setZoom] = useState(100);
-  const [review, setReview] = useState(true);
   const [viewMode, setViewMode] = useState<"text" | "original">("text");
   const viewer = useRef<HTMLDivElement>(null);
   const selectedPage = document.pages.find(page => page.number === pageNumber) ?? document.pages[0];
@@ -38,7 +48,7 @@ export function DocumentViewer({ document, pageNumber, onPageChange, selectedReg
         <button type="button" aria-pressed={viewMode === "text"} onClick={() => setViewMode("text")}>Texto</button>
         <button type="button" aria-pressed={viewMode === "original"} disabled={!sourcePdf} onClick={() => setViewMode("original")}>Original</button>
       </div>
-      <div className="viewer-tools"><div className="zoom-control"><button className="icon-button" aria-label="Diminuir zoom" onClick={() => setZoom(Math.max(70,zoom-10))} disabled={zoom <= 70}>−</button><output aria-label="Zoom do documento">{zoom}%</output><button className="icon-button" aria-label="Aumentar zoom" onClick={() => setZoom(Math.min(200,zoom+10))} disabled={zoom >= 200}>+</button></div><button className="icon-button fullscreen-button" aria-label="Expandir documento" onClick={() => { if (globalThis.document.fullscreenElement) void globalThis.document.exitFullscreen(); else void viewer.current?.requestFullscreen().catch(() => {}); }}><StudioIcon name="fullscreen" size={17} /></button><label className="review-toggle" title="Modo de revisão"><StudioIcon name="book" size={17} /><span>Modo de revisão</span><input aria-label="Modo de revisão" type="checkbox" checked={review} onChange={event => setReview(event.target.checked)} /></label></div>
+      <div className="viewer-tools"><div className="zoom-control"><button className="icon-button" aria-label="Diminuir zoom" onClick={() => setZoom(Math.max(70,zoom-10))} disabled={zoom <= 70}>−</button><output aria-label="Zoom do documento">{zoom}%</output><button className="icon-button" aria-label="Aumentar zoom" onClick={() => setZoom(Math.min(200,zoom+10))} disabled={zoom >= 200}>+</button></div><button className="icon-button fullscreen-button" aria-label="Expandir documento" onClick={() => { if (globalThis.document.fullscreenElement) void globalThis.document.exitFullscreen(); else void viewer.current?.requestFullscreen().catch(() => {}); }}><StudioIcon name="fullscreen" size={17} /></button><label className="review-toggle" title={reviewMode ? "Sair do modo de revisão" : "Ativar modo de revisão"}><StudioIcon name="book" size={17} /><span>Modo de revisão</span><input aria-label="Modo de revisão" type="checkbox" checked={reviewMode} onChange={event => onReviewModeChange?.(event.target.checked)} /></label></div>
     </div>
   </div>
     <div className="paper-scroll">
@@ -46,7 +56,7 @@ export function DocumentViewer({ document, pageNumber, onPageChange, selectedReg
         ? <div className="page-view original-view" key={`original-${pageNumber}`}><Suspense fallback={<div className="original-page-shell" aria-busy="true" />}>
             <PdfOriginalPage source={sourcePdf} pageNumber={pageNumber} zoom={zoom} />
           </Suspense></div>
-        : <div className="page-view text-view" key={`text-${pageNumber}`}><article className="page" style={{fontSize: `${18*zoom/100}px`}} aria-labelledby={`page-${selectedPage.number}`}><p className="paper-eyebrow" id={`page-${selectedPage.number}`}>PÁGINA {selectedPage.number}</p>{selectedPage.textQuality === "needs_ocr" ? <p className="notice">Esta página não tem texto selecionável. Use o OCR para conferir seu conteúdo.</p> : <div className="blocks">{selectedPage.blocks.map(block => <div key={block.id} className={`document-block${review && selectedRegion === block.id ? " selected" : ""}`} tabIndex={review ? 0 : undefined} role={review ? "button" : undefined} aria-label={review ? `Selecionar trecho: ${block.text.slice(0,60)}` : undefined} onClick={() => { if (review) onRegionSelect?.(block.id); }} onKeyDown={event => { if (review && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onRegionSelect?.(block.id); } }}>
+        : <div className="page-view text-view" key={`text-${pageNumber}`}><article className="page" style={{fontSize: `${18*zoom/100}px`}} aria-labelledby={`page-${selectedPage.number}`}><p className="paper-eyebrow" id={`page-${selectedPage.number}`}>PÁGINA {selectedPage.number}</p>{selectedPage.textQuality === "needs_ocr" ? <p className="notice">Esta página não tem texto selecionável. Use o OCR para conferir seu conteúdo.</p> : <div className="blocks">{selectedPage.blocks.map(block => <div key={block.id} className={`document-block${reviewMode && selectedRegion === block.id ? " selected" : ""}`} tabIndex={reviewMode ? 0 : undefined} role={reviewMode ? "button" : undefined} aria-label={reviewMode ? `Selecionar trecho: ${block.text.slice(0,60)}` : undefined} onClick={() => { if (reviewMode) onRegionSelect?.(block.id); }} onKeyDown={event => { if (reviewMode && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onRegionSelect?.(block.id); } }}>
           {block.type === "heading" ? <h2>{block.text}</h2> : block.type === "code" ? <pre><code>{block.text}</code></pre> : <p>{block.text}</p>}
         </div>)}</div>}</article></div>}
     </div>

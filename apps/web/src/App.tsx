@@ -15,7 +15,7 @@ import { documentIrSchema, type DocumentIr } from "./schemas/document";
 import { documentIrV2Schema, type DocumentIrV2 } from "./schemas/ingestion";
 import { decodePipelineResponse } from "./workers/protocol";
 import { userError } from "./adapters/user_error";
-import { AppShell, useProductStage } from "./AppShell";
+import { AppShell } from "./AppShell";
 import { DocumentWorkspace } from "./DocumentWorkspace";
 import { NativeTextApprovalPanel } from "./NativeTextApprovalPanel";
 import { ProjectImportPanel } from "./ProjectImportPanel";
@@ -29,7 +29,6 @@ const OcrReviewPanel = lazy(async () => ({ default: (await import("./OcrReviewPa
 const NarrativePanel = lazy(async () => ({ default: (await import("./NarrativePanel")).NarrativePanel }));
 
 export function App() {
-  const stage = useProductStage();
   const [status, setStatus] = useState("Escolha um PDF para conferir o texto extraído.");
   const { playerRef: speechRef, speechState, voices, voiceURI, setVoiceURI } = useLocalSpeechPlayer(
     () => setStatus("A leitura foi interrompida pelo navegador. Tente novamente."),
@@ -53,6 +52,8 @@ export function App() {
   const [narrativeEpoch, setNarrativeEpoch] = useState(0);
   const [ocrCommitBusy, setOcrCommitBusy] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
+  const [selectedReviewRegionId, setSelectedReviewRegionId] = useState("");
+  const [reviewMode, setReviewMode] = useState(true);
   const [endPage, setEndPage] = useState(1);
   const [preview, setPreview] = useState<ReadingSession | null>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -71,6 +72,7 @@ export function App() {
   const [audioOpening, setAudioOpening] = useState(false);
   const [audioMaintenanceBusy, setAudioMaintenanceBusy] = useState(false);
   const [currentAudioKey, setCurrentAudioKey] = useState<string | null>(null);
+  const [narrativeAudioStatus, setNarrativeAudioStatus] = useState("");
 
   function clearWav() {
     wavAbortRef.current?.abort();
@@ -307,6 +309,9 @@ export function App() {
     workerRef.current = null;
     setDocument(null);
     setSourcePdf(null);
+    setSelectedReviewRegionId("");
+    setReviewMode(true);
+    setNarrativeAudioStatus("");
     setFileName(file.name);
     if (file.size > MAX_PDF_BYTES) {
       setBusy(false);
@@ -569,6 +574,12 @@ export function App() {
 
   async function exportNarrativeWav() {
     if (!documentV2 || !persistenceRef.current || wavBusy || busy || ocrCommitBusy) return;
+    if (!approvedNarrative) {
+      const message = "Aprove o roteiro narrativo antes de gerar o áudio.";
+      setNarrativeAudioStatus(message);
+      setStatus(message);
+      return;
+    }
     const source = documentV2;
     const generation = importGenerationRef.current;
     const store = persistenceRef.current.service;
@@ -576,6 +587,7 @@ export function App() {
     wavAbortRef.current = controller;
     setWavBusy(true);
     setCompleteProgress(0);
+    setNarrativeAudioStatus("Conferindo roteiro e fontes antes da síntese…");
     setStatus("Conferindo roteiro e fontes antes da síntese…");
     try {
       const approved = await loadLatestApprovedNarrative(store, source);
@@ -591,7 +603,9 @@ export function App() {
         const key = cached.get(index + 1);
         if (key) keys.push(key);
         else {
-          setStatus(`Gerando áudio narrativo do capítulo ${index + 1} de ${chapterCount}…`);
+          const progressMessage = `Gerando áudio narrativo do capítulo ${index + 1} de ${chapterCount}…`;
+          setNarrativeAudioStatus(progressMessage);
+          setStatus(progressMessage);
           const wav = await renderLocalWav(session, controller.signal, setWavProgress);
           if (controller.signal.aborted) return;
           keys.push(await saveNarrativeChapter(store, source, approved, index + 1, wav));
@@ -606,10 +620,15 @@ export function App() {
       completeWavUrlRef.current = url;
       setCompleteWav({ ...complete, url });
       setCompleteProgress(chapterCount);
-      setStatus("Audiobook narrativo completo salvo neste dispositivo. Confira o player e baixe o WAV.");
+      const successMessage = "Audiobook narrativo completo salvo neste dispositivo. Confira o player e baixe o WAV.";
+      setNarrativeAudioStatus(successMessage);
+      setStatus(successMessage);
     } catch (error) {
-      if (!controller.signal.aborted && generation === importGenerationRef.current)
-        setStatus(userError(error, "Não foi possível gerar o áudio narrativo. Confira o roteiro e tente novamente."));
+      if (!controller.signal.aborted && generation === importGenerationRef.current) {
+        const message = userError(error, "Não foi possível gerar o áudio narrativo. Confira o roteiro e tente novamente.");
+        setNarrativeAudioStatus(message);
+        setStatus(message);
+      }
     } finally {
       if (wavAbortRef.current === controller) { wavAbortRef.current = null; setWavBusy(false); }
     }
@@ -633,15 +652,43 @@ export function App() {
     </header>}
     <ProjectImportPanel hasDocument={!!document} fileName={fileName} status={status}
       disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} onChange={importFile} />
-    <div className="editor-grid">
+    <div className={"editor-grid" + (reviewMode ? "" : " reading-focus")}>
     <section className="stage-section" id="document" aria-label="Documento">
-    {document ? <DocumentWorkspace document={document} pageNumber={pageNumber} onPageChange={setPageNumber} sourcePdf={sourcePdf} />
+    {document ? <DocumentWorkspace
+      document={document}
+      pageNumber={pageNumber}
+      onPageChange={value => {
+        setPageNumber(value);
+        setSelectedReviewRegionId("");
+      }}
+      selectedRegion={selectedReviewRegionId}
+      onRegionSelect={regionId => {
+        setSelectedReviewRegionId(regionId);
+        if (typeof globalThis.matchMedia === "function" && globalThis.matchMedia("(max-width: 739px)").matches) {
+          const scrollToReview = () => globalThis.document.getElementById("review")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (typeof globalThis.requestAnimationFrame === "function") globalThis.requestAnimationFrame(scrollToReview);
+          else scrollToReview();
+        }
+      }}
+      sourcePdf={sourcePdf}
+      reviewMode={reviewMode}
+      onReviewModeChange={enabled => {
+        setReviewMode(enabled);
+        if (!enabled) setSelectedReviewRegionId("");
+      }}
+    />
       : <div className="stage-empty"><span className="section-number">02</span><div><h2>Documento</h2><p>O texto encontrado no PDF aparecerá aqui para conferência.</p></div></div>}
     </section>
     <section className="stage-section" id="review" aria-label="Revisão do texto">
     {documentV2 ? <Suspense fallback={<p role="status">Carregando comparação OCR…</p>}>
       <OcrReviewPanel key={`${documentV2.documentId}:${ocrEpoch}`} document={documentV2}
         activePageNumber={pageNumber}
+        activeRegionId={selectedReviewRegionId}
+        onSelectionChange={selection => {
+          setPageNumber(selection.pageNumber);
+          setSelectedReviewRegionId(selection.regionId);
+        }}
         persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
         onCommitChange={setOcrCommitBusy} onApproved={() => setCanonicalEpoch(value => value + 1)} />
     </Suspense> : <div className="stage-empty"><span className="section-number">03</span><div><h2>Revisão</h2><p>Importe um PDF para conferir trechos que precisam de revisão.</p></div></div>}
@@ -650,7 +697,7 @@ export function App() {
       onApproved={() => setCanonicalEpoch(value => value + 1)} />}
     </section>
     </div>
-    {stage === "review" && document && <ReviewBottomDock
+    {document && reviewMode && <ReviewBottomDock
       narrativeReady={!!approvedNarrative}
       narrativeChapters={approvedNarrative?.approved.plan.spokenChapters.length ?? 0}
       narrativeQaStatus={approvedNarrative?.approved.qa.status ?? null}
@@ -661,12 +708,15 @@ export function App() {
       audioProgress={completeProgress !== null ? { current: completeProgress, total: completeTotal } : null}
       exportReady={!!completeWav}
     />}
-    <div className={"production-grid" + (stage === "review" && document ? " review-production-hidden" : "")}>
+    <div className="production-grid">
     <section className="stage-section" id="narrative" aria-label="Roteiro narrativo">
     {documentV2 ? <Suspense fallback={<p role="status">Carregando roteiro…</p>}>
       <NarrativePanel key={`${documentV2.documentId}:${canonicalEpoch}`} document={documentV2}
         persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
-        onApproved={() => setNarrativeEpoch(value => value + 1)} />
+        onApproved={() => {
+          setNarrativeAudioStatus("");
+          setNarrativeEpoch(value => value + 1);
+        }} />
     </Suspense> : <div className="stage-empty"><span className="section-number">04</span><div><h2>Narrativa</h2><p>Depois da revisão, prepare o roteiro de cada capítulo.</p></div></div>}
     </section>
     <AudioWorkspace
@@ -676,6 +726,8 @@ export function App() {
         audioMaintenanceBusy, currentAudioKey, completeWav, completeProgress, completeTotal,
         currentChapter, pageNumber, endPage, preview, reviewed, speechState, voices, voiceURI,
         wavBusy, wavProgress, wavUrl, busy, ocrCommitBusy,
+        narrativeReady: !!approvedNarrative,
+        narrativeAudioStatus,
       }}
       actions={{
         openSavedAudio,

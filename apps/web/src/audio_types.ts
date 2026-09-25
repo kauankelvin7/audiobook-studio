@@ -34,6 +34,8 @@ export type AudioWorkspaceModel = {
   wavUrl: string | null;
   busy: boolean;
   ocrCommitBusy: boolean;
+  narrativeReady: boolean;
+  narrativeAudioStatus: string;
 };
 
 export type AudioWorkspaceActions = {

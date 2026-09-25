@@ -15,6 +15,8 @@ export function userError(error: unknown, fallback: string): string {
     return "Não há espaço ou acesso ao armazenamento deste navegador. Libere espaço e tente novamente.";
   if (/network|fetch|download|model/i.test(message))
     return "Não foi possível preparar os arquivos da voz. Confira a conexão e tente novamente.";
+  if (/piper|onnx|webassembly|wasm|phonem/i.test(message))
+    return "O motor de voz local não pôde iniciar neste navegador. Recarregue a página e tente novamente; se persistir, confira o suporte a WebAssembly e o espaço disponível.";
   if (/abort|cancel/i.test(message)) return "Operação cancelada.";
   if (/^(Escolha|Confira|Aprove|Revise|Corrija|Não foi possível|Ainda há|Operação cancelada)\b/u.test(message)
     && /^[\p{L}\d][^{}\[\]<>]{0,240}$/u.test(message)

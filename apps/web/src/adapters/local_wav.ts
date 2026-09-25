@@ -119,7 +119,10 @@ export function renderLocalWav(session: ReadingSession, signal: AbortSignal, onP
           finish(new LocalWavError("INVALID_AUDIO", "O arquivo de áudio recebido não passou na validação."));
         }
       } else if (message.type === "error") {
-        finish(new LocalWavError("ENGINE_FAILED", "Não foi possível gerar áudio. Confira conexão, espaço livre e suporte a WebAssembly."));
+        const detail = "message" in message && typeof message.message === "string" && message.message.trim()
+          ? message.message.trim()
+          : "Não foi possível gerar áudio. Confira conexão, espaço livre e suporte a WebAssembly.";
+        finish(new LocalWavError("ENGINE_FAILED", detail));
       }
     };
     worker.postMessage({ type: "render", text });

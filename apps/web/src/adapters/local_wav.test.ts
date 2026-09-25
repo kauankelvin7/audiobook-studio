@@ -72,7 +72,12 @@ describe("local WAV adapter", () => {
     await expect(promise).rejects.toMatchObject({ code: "CANCELLED" });
     expect(worker.terminate).toHaveBeenCalledOnce();
     const failed = renderLocalWav(session, new AbortController().signal, vi.fn(), () => worker);
-    worker.onmessage?.call(worker as unknown as Worker, { data: { type: "error" } } as MessageEvent);
-    await expect(failed).rejects.toMatchObject({ code: "ENGINE_FAILED" });
+    worker.onmessage?.call(worker as unknown as Worker, {
+      data: { type: "error", message: "Failed to fetch voice model" },
+    } as MessageEvent);
+    await expect(failed).rejects.toMatchObject({
+      code: "ENGINE_FAILED",
+      message: "Failed to fetch voice model",
+    });
   });
 });
