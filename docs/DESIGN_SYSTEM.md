@@ -16,6 +16,7 @@ A interface deve parecer uma ferramenta editorial/técnica, não um dashboard ge
 - Shell/layout/base legado: `apps/web/src/styles/shell.css`
 - Revisão e bottom dock: `apps/web/src/styles/review.css`
 - Narrativa: `apps/web/src/styles/narrative.css`
+- Motion e feedback de interação: `apps/web/src/styles/motion.css`
 - Acessibilidade transversal: `apps/web/src/styles/accessibility.css`
 - Bootstrap: `apps/web/src/main.tsx`
 - Orquestração do app: `apps/web/src/App.tsx`
@@ -87,7 +88,7 @@ Motion:
 - spring UI: stiffness 300 / damping 30
 - spring tap: stiffness 500 / damping 25
 - spring sheet: stiffness 260 / damping 26
-- feedback de tap CSS pode usar `scale(.97)` quando não houver Motion.
+- feedback de tap usa `scale(.97)`; `motion.css` também anima seleção de páginas, indicador das tabs, dock e diálogo sem alterar semântica.
 - `prefers-reduced-motion` deve neutralizar animações não essenciais e continua obrigatório.
 
 O arquivo legado ainda usa aliases antigos `--space-1..4`; não alterar toda a escala em massa sem comparação visual, pois isso muda a densidade do produto inteiro.
@@ -125,6 +126,7 @@ App
 DocumentWorkspace
 ├── PageNavigator
 └── DocumentViewer
+    └── PdfOriginalPage (lazy, via pdfjs-dist)
 
 OcrReviewPanel
 ├── OcrInspectorTabs
@@ -141,6 +143,12 @@ ReviewBottomDock
 ├── Audio summary
 └── Export summary
 ```
+
+### Modos do leitor
+
+- **Texto**: padrão; mantém o conteúdo reflowed derivado do DocumentIR e a seleção de trechos para revisão.
+- **Original**: fac-símile opcional do `source_pdf` persistido, renderizado sob demanda por `pdfjs-dist`. Não participa da extração, OCR ou promoção de texto.
+- A troca de página pode usar transição visual, mas `onPageChange`, zoom, seleção e contratos de revisão permanecem os mesmos.
 
 A tela de Revisão desktop deve continuar reconhecível como:
 

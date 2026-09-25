@@ -1,5 +1,13 @@
 # HANDOFF — retorno ao Codex Work
 
+## Estado do redesign Dark/Glass após implementação estrutural
+- `b3c3bee`: tokens e CSS Studio Dark/Glass aplicados sem alteração de domínio.
+- `cee7e78`: DESIGN_SYSTEM e PRODUCT_UX_BASELINE alinhados à nova decisão.
+- `da73c7a`: leitor ganhou modos Texto/Original; Original usa o `source_pdf` persistido e `pdfjs-dist` em chunk lazy.
+- `79b3a3d`: `motion.css` adiciona feedback/transições preservando reduced-motion e forced-colors.
+- `88868d0`: contrato do seletor do leitor e correção de warning dark adicionados.
+- CI dos quatro primeiros commits do redesign concluiu com sucesso; validar o HEAD mais recente antes de nova edição.
+
 ## Redesign Studio Dark/Glass — 2026-09-24
 - Decisão explícita do autor: Studio & Paper foi substituído por tema escuro iOS/glass. Não reverter para paleta clara.
 - Canvas/sidebar: `#0B0D12`; surface: `#14171E`; accent: `#3F8CFF`; glass e hairlines translúcidos definidos em `tokens.css`.
