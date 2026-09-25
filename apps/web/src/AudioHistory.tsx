@@ -27,7 +27,7 @@ export function AudioHistory({
 }) {
   if (entries.length === 0) return null;
 
-  return <section className="panel" aria-labelledby="saved-audio-title">
+  return <section className="panel audio-history-panel" aria-labelledby="saved-audio-title">
     <h2 id="saved-audio-title">Gravações neste dispositivo</h2>
     <p>Abra uma gravação para ouvir ou baixar. Cada WAV contém o texto extraído do intervalo indicado.</p>
     <ul className="audio-history">{entries.map(entry => <li key={entry.artifactKey}>
