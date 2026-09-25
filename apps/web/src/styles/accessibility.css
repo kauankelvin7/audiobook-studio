@@ -20,7 +20,8 @@
   .utility-nav button,
   .mobile-nav > a,
   .mobile-more > summary,
-  .inspector-tabs button {
+  .inspector-tabs button,
+  .viewer-mode button {
     min-height: 44px;
   }
 
@@ -46,6 +47,14 @@
 }
 
 @media (forced-colors: active) {
+  .inspector-tabs::after {
+    display: none;
+  }
+
+  .inspector-tabs button[aria-selected="true"] {
+    border-bottom: 3px solid Highlight;
+  }
+
   .status-badge,
   .saved-badge,
   .summary-action,
