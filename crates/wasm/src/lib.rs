@@ -5,12 +5,12 @@ use audiobook_core::{
     build_narrative_draft, build_ocr_candidate_receipt, build_ocr_correction_training_record,
     build_ocr_review_receipt, build_reading_preview, build_reading_session,
     build_script_review_packet, build_validated_narration_qa, compare_ocr_candidate,
-    compile_ocr_correction_model, evaluate_review_against_active, promote_approved_ocr,
-    suggest_ocr_corrections, suggest_ocr_corrections_with_model, validate_script_review_submission,
-    ContentModel, DocumentIr, DocumentIrV2, GenerationJob, LocalNarrativeApproval,
-    LocalNativeApproval, NarrativePlan, NarrativeScript, OcrCandidate, OcrCorrectionModel,
-    OcrCorrectionTrainingRecord, OcrLocalApproval, OcrReviewSubmission, ReviewBindingReference,
-    ScriptReviewSubmission, SemanticOutline,
+    compile_ocr_correction_model, compose_approved_ocr, evaluate_review_against_active,
+    promote_approved_ocr, suggest_ocr_corrections, suggest_ocr_corrections_with_model,
+    validate_script_review_submission, ApprovedOcrReview, ContentModel, DocumentIr, DocumentIrV2,
+    GenerationJob, LocalNarrativeApproval, LocalNativeApproval, NarrativePlan, NarrativeScript,
+    OcrCandidate, OcrCorrectionModel, OcrCorrectionTrainingRecord, OcrLocalApproval,
+    OcrReviewSubmission, ReviewBindingReference, ScriptReviewSubmission, SemanticOutline,
 };
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
@@ -149,6 +149,20 @@ pub fn promote_approved_ocr_json(
     let promoted =
         promote_approved_ocr(&document, &candidate, &submission, &approval).map_err(js_error)?;
     serde_json::to_string(&promoted).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn compose_approved_ocr_json(
+    document_json: &str,
+    reviews_json: &str,
+) -> Result<String, JsValue> {
+    if document_json.len() > 32_000_000 || reviews_json.len() > 16_000_000 {
+        return Err(js_error("OCR composition input exceeds the size limit"));
+    }
+    let document = DocumentIrV2::from_json(document_json).map_err(js_error)?;
+    let reviews: Vec<ApprovedOcrReview> = serde_json::from_str(reviews_json).map_err(js_error)?;
+    let composed = compose_approved_ocr(&document, &reviews).map_err(js_error)?;
+    serde_json::to_string(&composed).map_err(js_error)
 }
 
 #[wasm_bindgen]

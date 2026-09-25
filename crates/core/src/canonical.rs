@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, HashSet};
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -42,6 +44,36 @@ pub struct CanonicalOcrPromotion {
     pub attestation: String,
     pub page_number: u32,
     pub region_id: String,
+    pub document: DocumentIrV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ApprovedOcrReview {
+    pub candidate: OcrCandidate,
+    pub submission: OcrReviewSubmission,
+    pub approval: OcrLocalApproval,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CanonicalOcrApprovalReference {
+    pub page_number: u32,
+    pub region_id: String,
+    pub review_hash: String,
+    pub approved_text_hash: String,
+    pub revision: u32,
+    pub attestation: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CanonicalOcrComposition {
+    pub schema_version: u32,
+    pub source_document_hash: String,
+    pub canonical_document_hash: String,
+    pub composition_hash: String,
+    pub approvals: Vec<CanonicalOcrApprovalReference>,
     pub document: DocumentIrV2,
 }
 
@@ -258,6 +290,108 @@ pub fn promote_approved_ocr(
         attestation: approval.attestation.clone(),
         page_number: candidate.page_number,
         region_id: candidate.region_id.clone(),
+        document,
+    })
+}
+
+pub fn compose_approved_ocr(
+    source: &DocumentIrV2,
+    reviews: &[ApprovedOcrReview],
+) -> Result<CanonicalOcrComposition, CanonicalError> {
+    if reviews.is_empty() || reviews.len() > 8 {
+        return Err(CanonicalError::InvalidApproval);
+    }
+    let source_json = source
+        .to_json()
+        .map_err(|error| CanonicalError::InvalidDocument(error.to_string()))?;
+    // Each single-review promotion serializes the source repeatedly while checking receipts.
+    if source_json.len().saturating_mul(1 + 3 * reviews.len()) > 128_000_000 {
+        return Err(CanonicalError::InvalidApproval);
+    }
+    let source_document_hash = sha256_source(source_json.as_bytes());
+    let mut promotions = BTreeMap::new();
+    let mut review_hashes = HashSet::new();
+    for entry in reviews {
+        let promotion =
+            promote_approved_ocr(source, &entry.candidate, &entry.submission, &entry.approval)?;
+        let target = (promotion.page_number, promotion.region_id.clone());
+        if !review_hashes.insert(promotion.review_hash.clone())
+            || promotions.insert(target, promotion).is_some()
+        {
+            return Err(CanonicalError::InvalidApproval);
+        }
+    }
+
+    let mut document = source.clone();
+    for page in &mut document.pages {
+        for region in &mut page.regions {
+            if region.quality_status != QualityStatus::Unusable {
+                region.quality_status = QualityStatus::ReviewRequired;
+            }
+            region.flags.push("not_approved_in_ocr_promotion".into());
+        }
+    }
+    let mut approvals = Vec::with_capacity(promotions.len());
+    for ((page_number, region_id), promotion) in promotions {
+        let page = document
+            .pages
+            .iter_mut()
+            .find(|page| page.number == page_number)
+            .ok_or(CanonicalError::InvalidApproval)?;
+        let promoted_page = promotion
+            .document
+            .pages
+            .iter()
+            .find(|page| page.number == page_number)
+            .ok_or(CanonicalError::InvalidApproval)?;
+        let approved_region_id = if region_id == PAGE_OCR_TARGET_ID {
+            if !page.regions.is_empty() {
+                return Err(CanonicalError::InvalidApproval);
+            }
+            page.extraction_quality = promoted_page.extraction_quality;
+            page.ocr_text = promoted_page.ocr_text.clone();
+            page.reconstructed_text = promoted_page.reconstructed_text.clone();
+            format!("ocr_page_{page_number}")
+        } else {
+            region_id.clone()
+        };
+        let approved_region = promoted_page
+            .regions
+            .iter()
+            .find(|region| region.id == approved_region_id)
+            .ok_or(CanonicalError::InvalidApproval)?
+            .clone();
+        if let Some(existing) = page
+            .regions
+            .iter_mut()
+            .find(|region| region.id == approved_region_id)
+        {
+            *existing = approved_region;
+        } else if region_id == PAGE_OCR_TARGET_ID {
+            page.regions.push(approved_region);
+        } else {
+            return Err(CanonicalError::InvalidApproval);
+        }
+        approvals.push(CanonicalOcrApprovalReference {
+            page_number,
+            region_id,
+            review_hash: promotion.review_hash,
+            approved_text_hash: promotion.approved_text_hash,
+            revision: promotion.revision,
+            attestation: promotion.attestation,
+        });
+    }
+    let canonical_json = document
+        .to_json()
+        .map_err(|error| CanonicalError::InvalidDocument(error.to_string()))?;
+    let composition_json = serde_json::to_string(&(&source_document_hash, &approvals))
+        .map_err(|error| CanonicalError::InvalidDocument(error.to_string()))?;
+    Ok(CanonicalOcrComposition {
+        schema_version: 1,
+        source_document_hash,
+        canonical_document_hash: sha256_source(canonical_json.as_bytes()),
+        composition_hash: sha256_source(composition_json.as_bytes()),
+        approvals,
         document,
     })
 }

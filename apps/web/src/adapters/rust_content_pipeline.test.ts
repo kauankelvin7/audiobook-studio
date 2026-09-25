@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import initWasm, {
   build_content_model_json,
+  build_ocr_candidate_receipt_json,
+  build_ocr_review_receipt_json,
   build_semantic_outline_json,
+  compose_approved_ocr_json,
   core_version,
   initSync,
   validate_document_v2_json,
@@ -19,6 +23,36 @@ const wasmPath = fileURLToPath(new URL("../generated/audiobook_wasm/audiobook_wa
 initSync({ module: readFileSync(wasmPath) });
 
 describe("real audiobook-wasm integration", () => {
+  it("composes distinct OCR approvals through the real Rust export", () => {
+    const document = structuredClone(documentV2Fixture);
+    const second = structuredClone(document.pages[0].regions[0]);
+    second.id = "r_1_2";
+    document.pages[0].regions.push(second);
+    const hash = (text: string) => `sha256:${createHash("sha256").update(text).digest("hex")}`;
+    const review = (regionId: string, text: string) => {
+      const region = document.pages[0].regions.find(item => item.id === regionId)!;
+      const candidate = { schemaVersion: 1, documentId: document.documentId, sourceHash: document.sourceHash,
+        pageNumber: 1, regionId, nativeTextHash: hash(region.sources.rawText!), imageHash: hash(regionId),
+        engineId: "test", engineVersion: "1", text: `OCR ${regionId}` };
+      const receipt = JSON.parse(build_ocr_candidate_receipt_json(JSON.stringify(document), JSON.stringify(candidate)));
+      const submission = { schemaVersion: 1, receiptHash: receipt.receiptHash, disposition: "propose_correction",
+        rationale: "Conferido na imagem original", proposedText: text };
+      const reviewed = JSON.parse(build_ocr_review_receipt_json(JSON.stringify(document),
+        JSON.stringify(candidate), JSON.stringify(submission)));
+      return { candidate, submission, approval: { schemaVersion: 1, documentHash: receipt.documentHash,
+        reviewHash: reviewed.reviewHash, approvedTextHash: hash(text), revision: 1,
+        attestation: "local_operator_confirmed" } };
+    };
+    const first = review("r_1_1", "Primeiro texto corrigido");
+    const another = review("r_1_2", "Segundo texto corrigido");
+    const composed = JSON.parse(compose_approved_ocr_json(JSON.stringify(document), JSON.stringify([another, first])));
+    expect(composed.approvals.map((entry: { regionId: string }) => entry.regionId)).toEqual(["r_1_1", "r_1_2"]);
+    expect(composed.approvals[0].attestation).toBe("local_operator_confirmed");
+    expect(composed.document.pages[0].regions.map((region: { qualityStatus: string }) => region.qualityStatus))
+      .toEqual(["reconciled", "reconciled"]);
+    expect(() => compose_approved_ocr_json(JSON.stringify(document), JSON.stringify([first, first]))).toThrow();
+  });
+
   it("runs the Rust v1 migration and content pipeline", async () => {
     const analysis = await analyzeDocumentV1(documentIrSchema.parse(documentV1Fixture));
     expect(analysis.documentV2.schemaVersion).toBe(2);

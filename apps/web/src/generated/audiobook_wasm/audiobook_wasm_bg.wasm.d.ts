@@ -18,6 +18,7 @@ export const build_script_review_packet_json: (a: number, b: number, c: number, 
 export const build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];
 export const compare_ocr_candidate_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const compile_ocr_correction_model_json: (a: number, b: number) => [number, number, number, number];
+export const compose_approved_ocr_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const core_version: () => [number, number];
 export const document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
 export const document_v2_hash_json: (a: number, b: number) => [number, number, number, number];

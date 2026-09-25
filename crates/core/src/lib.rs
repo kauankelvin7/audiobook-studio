@@ -14,8 +14,9 @@ mod review;
 mod script;
 
 pub use canonical::{
-    approve_native_document, promote_approved_ocr, CanonicalError, CanonicalNativePromotion,
-    CanonicalOcrPromotion, LocalNativeApproval, OcrLocalApproval,
+    approve_native_document, compose_approved_ocr, promote_approved_ocr, ApprovedOcrReview,
+    CanonicalError, CanonicalNativePromotion, CanonicalOcrApprovalReference,
+    CanonicalOcrComposition, CanonicalOcrPromotion, LocalNativeApproval, OcrLocalApproval,
 };
 pub use content::{
     ConceptImportance, ContentConcept, ContentError, ContentModel, ContentRelation,

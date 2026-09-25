@@ -5,17 +5,18 @@ use audiobook_core::{
     build_narration_qa, build_narrative_draft, build_ocr_candidate_receipt,
     build_ocr_correction_training_record, build_ocr_review_receipt, build_script_review_packet,
     build_validated_narration_qa, compare_heading_to_body, compare_ocr_candidate,
-    evaluate_review_against_active, find_repeated_formulaic_openers, normalize_narrative_text,
-    promote_approved_ocr, reduce_narrative_memory, suggest_ocr_corrections,
-    validate_script_review_submission, ActiveReviewStatus, CanonicalError, ContentModel,
-    DocumentIr, DocumentIrV2, ExtractionQuality, GenerationJob, HeadingOverlapMethod,
-    HeadingOverlapStatus, LocalNarrativeApproval, LocalNativeApproval, NarrationEligibility,
-    NarrativeHeading, NarrativeMemory, NarrativeMemoryDelta, NarrativePlan, NarrativeScript,
-    NarrativeSection, OcrCandidate, OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus,
-    OcrLearningError, OcrLocalApproval, OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission,
-    QaStatus, ReviewAttestationStatus, ReviewBindingReference, ReviewDecisionError, ReviewStatus,
-    ReviewVerdict, ScriptReviewPacket, ScriptReviewSubmission, SegmentReviewDecision,
-    SemanticOutline, SpokenChapter, SpokenHeadingPolicy, PAGE_OCR_TARGET_ID,
+    compose_approved_ocr, evaluate_review_against_active, find_repeated_formulaic_openers,
+    normalize_narrative_text, promote_approved_ocr, reduce_narrative_memory,
+    suggest_ocr_corrections, validate_script_review_submission, ActiveReviewStatus,
+    ApprovedOcrReview, CanonicalError, ContentModel, DocumentIr, DocumentIrV2, ExtractionQuality,
+    GenerationJob, HeadingOverlapMethod, HeadingOverlapStatus, LocalNarrativeApproval,
+    LocalNativeApproval, NarrationEligibility, NarrativeHeading, NarrativeMemory,
+    NarrativeMemoryDelta, NarrativePlan, NarrativeScript, NarrativeSection, OcrCandidate,
+    OcrCandidateError, OcrCandidateStatus, OcrComparisonStatus, OcrLearningError, OcrLocalApproval,
+    OcrReviewDisposition, OcrReviewStatus, OcrReviewSubmission, QaStatus, ReviewAttestationStatus,
+    ReviewBindingReference, ReviewDecisionError, ReviewStatus, ReviewVerdict, ScriptReviewPacket,
+    ScriptReviewSubmission, SegmentReviewDecision, SemanticOutline, SpokenChapter,
+    SpokenHeadingPolicy, PAGE_OCR_TARGET_ID,
 };
 
 const DOCUMENT_V1_FIXTURE: &str = include_str!("../../../tests/fixtures/document_ir_v1.json");
@@ -30,6 +31,170 @@ const NARRATIVE_SCRIPT_FIXTURE: &str =
 
 fn document_v2() -> DocumentIrV2 {
     DocumentIrV2::from_json(DOCUMENT_V2_FIXTURE).expect("checked-in v2 fixture must be valid")
+}
+
+fn approved_ocr_review(document: &DocumentIrV2, region_id: &str, text: &str) -> ApprovedOcrReview {
+    approved_ocr_review_on_page(document, 1, region_id, text)
+}
+
+fn approved_ocr_review_on_page(
+    document: &DocumentIrV2,
+    page_number: u32,
+    region_id: &str,
+    text: &str,
+) -> ApprovedOcrReview {
+    let native = if region_id == PAGE_OCR_TARGET_ID {
+        ""
+    } else {
+        document.pages[(page_number - 1) as usize]
+            .regions
+            .iter()
+            .find(|region| region.id == region_id)
+            .unwrap()
+            .sources
+            .raw_text
+            .as_deref()
+            .unwrap()
+    };
+    let candidate = OcrCandidate {
+        schema_version: 1,
+        document_id: document.document_id.clone(),
+        source_hash: document.source_hash.clone(),
+        page_number,
+        region_id: region_id.into(),
+        native_text_hash: audiobook_core::sha256_source(native.as_bytes()),
+        image_hash: audiobook_core::sha256_source(region_id.as_bytes()),
+        engine_id: "test".into(),
+        engine_version: "1".into(),
+        text: format!("OCR {region_id}"),
+    };
+    let receipt = build_ocr_candidate_receipt(document, &candidate).unwrap();
+    let submission = OcrReviewSubmission {
+        schema_version: 1,
+        receipt_hash: receipt.receipt_hash,
+        disposition: OcrReviewDisposition::ProposeCorrection,
+        rationale: "Conferido na imagem original".into(),
+        proposed_text: Some(text.into()),
+    };
+    let review = build_ocr_review_receipt(document, &candidate, &submission).unwrap();
+    let approval = OcrLocalApproval {
+        schema_version: 1,
+        document_hash: receipt.document_hash,
+        review_hash: review.review_hash,
+        approved_text_hash: audiobook_core::sha256_source(text.as_bytes()),
+        revision: 1,
+        attestation: "local_operator_confirmed".into(),
+    };
+    ApprovedOcrReview {
+        candidate,
+        submission,
+        approval,
+    }
+}
+
+#[test]
+fn composed_ocr_approves_only_distinct_reviewed_regions_independent_of_input_order() {
+    let mut document = document_v2();
+    let mut second = document.pages[0].regions[0].clone();
+    second.id = "second_region".into();
+    let mut unreviewed = second.clone();
+    unreviewed.id = "unreviewed_region".into();
+    document.pages[0].regions.extend([second, unreviewed]);
+    let first_id = document.pages[0].regions[0].id.clone();
+    let first = approved_ocr_review(&document, &first_id, "Primeiro texto corrigido");
+    let second = approved_ocr_review(&document, "second_region", "Segundo texto corrigido");
+    let composed = compose_approved_ocr(&document, &[second.clone(), first.clone()]).unwrap();
+    let reversed = compose_approved_ocr(&document, &[first.clone(), second.clone()]).unwrap();
+    assert_eq!(composed, reversed);
+    assert_eq!(composed.approvals.len(), 2);
+    assert_eq!(composed.approvals[0].revision, 1);
+    assert_eq!(
+        composed.approvals[0].attestation,
+        "local_operator_confirmed"
+    );
+    let mut revised = second.clone();
+    revised.approval.revision = 2;
+    assert_ne!(
+        compose_approved_ocr(&document, &[first.clone(), revised])
+            .unwrap()
+            .composition_hash,
+        composed.composition_hash
+    );
+    assert_eq!(
+        ContentModel::from_permitted_document(&composed.document)
+            .unwrap()
+            .source_units
+            .len(),
+        2
+    );
+    assert_eq!(
+        composed.document.pages[0].regions[2].quality_status,
+        audiobook_core::QualityStatus::ReviewRequired
+    );
+    assert_eq!(
+        composed.document.pages[0].regions[2].sources.raw_text,
+        document.pages[0].regions[2].sources.raw_text
+    );
+    assert_eq!(
+        compose_approved_ocr(&document, &[first.clone(), first]),
+        Err(CanonicalError::InvalidApproval)
+    );
+    let mut changed = document.clone();
+    changed.pages[0].regions[0].sources.raw_text = Some("Fonte alterada".into());
+    assert!(compose_approved_ocr(&changed, &[second]).is_err());
+    assert_eq!(
+        compose_approved_ocr(&document, &[]),
+        Err(CanonicalError::InvalidApproval)
+    );
+    assert_eq!(
+        compose_approved_ocr(
+            &document,
+            &vec![approved_ocr_review(&document, &first_id, "Texto aprovado"); 9]
+        ),
+        Err(CanonicalError::InvalidApproval)
+    );
+}
+
+#[test]
+fn composed_ocr_preserves_page_target_and_rejects_stale_approval() {
+    let mut document = document_v2();
+    let mut scanned = document.pages[0].clone();
+    scanned.number = 2;
+    scanned.extraction_quality = ExtractionQuality::NoText;
+    scanned.raw_text.clear();
+    scanned.ocr_text = None;
+    scanned.reconstructed_text = None;
+    scanned.regions.clear();
+    document.pages.push(scanned);
+    let first = approved_ocr_review(
+        &document,
+        &document.pages[0].regions[0].id,
+        "Código conferido",
+    );
+    let page = approved_ocr_review_on_page(
+        &document,
+        2,
+        PAGE_OCR_TARGET_ID,
+        "Página digitalizada conferida",
+    );
+    let result = compose_approved_ocr(&document, &[page.clone(), first]).unwrap();
+    assert_eq!(result.document.pages[1].regions[0].id, "ocr_page_2");
+    assert_eq!(result.document.pages[1].regions[0].sources.raw_text, None);
+    assert_eq!(
+        result.document.pages[1].regions[0].quality_status,
+        audiobook_core::QualityStatus::Reconciled
+    );
+    assert_eq!(result.approvals[1].region_id, PAGE_OCR_TARGET_ID);
+    assert_eq!(
+        ContentModel::from_permitted_document(&result.document)
+            .unwrap()
+            .source_units
+            .len(),
+        2
+    );
+    let mut stale = page;
+    stale.approval.revision = 0;
+    assert!(compose_approved_ocr(&document, &[stale]).is_err());
 }
 
 #[test]

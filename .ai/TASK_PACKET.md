@@ -1,5 +1,21 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — composição canônica de revisões OCR (2026-09-24)
+- Base: `de75a66` alinhado ao remoto; CI `quality` 36076176027 verde. Gates locais após `npm ci`: Rust fmt/test e Web STANDARD verdes. Validação visual delegada pelo usuário.
+- Objetivo: compor múltiplas aprovações OCR independentes em um DocumentIR v2 derivado, com proveniência e hash canônicos, sem liberar regiões não aprovadas.
+- Evidência: ADR 0026 e HANDOFF registram limite de uma revisão por documento; `promote_approved_ocr` marca todas as outras regiões `review_required`.
+- Restrições: domínio no Rust, fachada WASM fina; decisões vinculadas à mesma fonte original, revisão local explícita e alvo único por aprovação. Sem promoção implícita ou atestação de identidade.
+- Riscos: duplicatas, conflito página/região, ordem de entrada, source layers de página enganadoras, perda de texto bruto e elegibilidade indevida. Testar colisões, reordenação, fonte alterada e escopo de aprovação.
+- Verificação: cargo fmt/test/clippy, wasm build, Web STANDARD, diff check e revisão independente. Risco HIGH; Lead writer único, Explorer e QA read-only.
+
+## PRE-FLIGHT — sincronização e validação do redesign (2026-09-24)
+- Base: checkout limpo em `99018f9`; remoto HTTPS confirmado em `de75a66`; fast-forward aplicado, ref `origin` alinhada e CI `quality` 36076176027 verde no HEAD.
+- Objetivo: verificar o estado atual do produto em desktop e mobile e corrigir divergências reproduzíveis do redesign Studio Dark/Glass, preservando fluxo funcional.
+- Evidência: HANDOFF pede comparação visual real em 1440×960 e 390×844; a implementação e testes estruturais já estão publicados.
+- Restrições: Rust continua canônico; não alterar pipeline narrativo, OCR ou TTS sem defeito concreto. Manter acessibilidade, reduced-motion e forced-colors.
+- Riscos: regressão visual responsiva, controles fora da viewport, contraste e interação por teclado. Plano: inspecionar no navegador, corrigir o menor conjunto de arquivos, executar gates Web/Rust e registrar resultado.
+- Verificação: typecheck, testes, build, cargo fmt/test, inspeção visual e diff check. Risco MEDIUM; Lead writer único e revisão independente conforme disponível.
+
 ## PRE-FLIGHT — redesign Studio Dark/Glass (2026-09-24)
 - Base remota inicial: `080f1ac` em `codex/m4-content-model`; CI/deploy anterior verde. Nova instrução explícita substitui Studio & Paper por tema escuro iOS/glass.
 - Objetivo: reskin dirigido por seletores existentes, preservando árvore React, props, domínio Rust/WASM, adapters, schemas, OCR, narrativa, TTS, persistência, exportação e contratos de acessibilidade.

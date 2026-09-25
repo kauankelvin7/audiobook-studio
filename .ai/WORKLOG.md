@@ -1,5 +1,19 @@
 # Worklog
 
+## 2026-09-24 — composição OCR canônica no Rust/WASM
+- A pedido do usuário, validação visual do redesign ficou sob responsabilidade dele; trabalho avançou para a lacuna funcional de múltiplas correções OCR aprovadadas.
+- `compose_approved_ocr` recebe revisões locais contra o mesmo DocumentIR original, valida cada uma pela promoção Rust existente, rejeita duplicatas/alvos repetidos e ordena o resultado por página/região. Referências incluem hash da revisão, hash do texto, revisão e atestado; `compositionHash` fixa o conjunto. Regiões não aprovadas seguem `review_required`.
+- Revisão independente encontrou duas falhas médias: metadados de atestação omitidos e custo potencial de 256 revisões em documentos grandes. Corrigidas com campos por referência, teto de oito revisões e limite de 128 MB considerando uma serialização inicial mais três por revisão. A segunda revisão independente detectou que a primeira fórmula subestimava o trabalho; a fórmula foi corrigida. Testes cobrem duas regiões, entrada reordenada, duplicata, fonte alterada, página `__page__`, revisão inválida e limite de lote. Web testa a exportação WASM real.
+- Gates: `cargo test --workspace` passou (5+13+33 testes), `npm run wasm:build` passou, `npm run test:standard` passou (168 testes, 2 ignorados, typecheck e build). `cargo fmt --all -- --check`, Clippy e `git diff --check` serão confirmados no fechamento.
+- Limite do lote: composição ainda não é selecionável/salva pela UI. A aprovação OCR individual existente permanece ativa; não houve promoção automática nem autorização adicional de TTS.
+
+## 2026-09-24 — sincronização e verificação do redesign
+- Branch `codex/m4-content-model` avançada por fast-forward de `99018f9` a `de75a66` após confirmação HTTPS do HEAD remoto. Ref `origin/codex/m4-content-model` alinhada; árvore inicial limpa.
+- GitHub Actions `quality` 36076176027 do commit `de75a66`: `completed/success`.
+- Próximo escopo no HANDOFF: comparação visual Studio Dark/Glass em 1440×960 e 390×844. Servidor Vite local iniciado, mas `cua.getState()` não encontrou navegador ou app disponível; inspeção visual não executada. Nenhuma alteração de UI sem divergência reproduzida.
+- `cargo fmt --all -- --check` e `cargo test --workspace` passaram. Primeiro `npm run test:standard`: typecheck e 167 testes passaram, build falhou por `@fontsource/geist-sans/latin-400.css` ausente no `node_modules` antigo. `npm ci` pelo lockfile instalou a dependência; segundo `npm run test:standard` passou com 167 testes e build verificado (38 arquivos, 81,39 MB). Node local 24.21.0 gera aviso de engine; pacote requer 22.x.
+- Pendência: comparação visual real e eventual ajuste de proporções/spacing em desktop/mobile. Sem alegação de aceite visual.
+
 ## 2026-09-24 — leitor Original e feedback de interação
 - `da73c7a`: DocumentWorkspace ganhou seletor Texto/Original. Texto reflowed permanece default; Original é lazy-loaded e renderiza o `source_pdf` persistido com `pdfjs-dist`, sem alterar extração ou OCR. Recuperação local relê o mesmo artefato `source_pdf`.
 - `79b3a3d`: camada `motion.css` adiciona feedback de seleção, indicador deslizante das tabs, entrada de dock/dialog e transições curtas. `accessibility.css` continua neutralizando motion e ganhou alvo touch para o seletor do leitor.

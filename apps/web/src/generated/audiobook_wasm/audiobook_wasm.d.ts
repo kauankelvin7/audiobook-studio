@@ -35,6 +35,8 @@ export function compare_ocr_candidate_json(document_json: string, candidate_json
 
 export function compile_ocr_correction_model_json(records_json: string): string;
 
+export function compose_approved_ocr_json(document_json: string, reviews_json: string): string;
+
 export function core_version(): string;
 
 export function document_v2_has_source_units_json(input: string): boolean;
@@ -80,6 +82,7 @@ export interface InitOutput {
     readonly build_semantic_outline_json: (a: number, b: number) => [number, number, number, number];
     readonly compare_ocr_candidate_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly compile_ocr_correction_model_json: (a: number, b: number) => [number, number, number, number];
+    readonly compose_approved_ocr_json: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly core_version: () => [number, number];
     readonly document_v2_has_source_units_json: (a: number, b: number) => [number, number, number];
     readonly document_v2_hash_json: (a: number, b: number) => [number, number, number, number];

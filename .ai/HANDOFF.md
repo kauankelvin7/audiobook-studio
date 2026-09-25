@@ -1,5 +1,11 @@
 # HANDOFF — retorno ao Codex Work
 
+## Composição OCR no core — 2026-09-24
+- O Rust agora compõe até oito aprovações OCR locais distintas contra o mesmo DocumentIR v2 original. Cada aprovação passa pela validação existente de candidato, revisão e hashes; duplicatas e fontes alteradas falham. A ordem da entrada não altera resultado nem `compositionHash`.
+- Saída preserva cada região aprovada, seus hashes de revisão/texto, revisão e atestado local. Regiões não aprovadas continuam `review_required`; página sem texto usa o alvo reservado `__page__`. O contrato está exposto no WASM e coberto por teste real Web/WASM.
+- Limite de custo: uma serialização inicial mais três por revisão até 128 MB. Documentos grandes podem aceitar menos revisões até otimização da validação. Não há ainda seleção de conjunto, persistência da composição ou consumo pela interface; `saveApprovedOcr` permanece no fluxo de uma revisão. Próximo lote funcional: seleção explícita de revisões históricas válidas, persistência/releitura com revalidação Rust e integração à narrativa, sem aprovação implícita.
+- Validação visual do redesign ficou com o usuário, conforme solicitado. Sem alegação de aceite visual.
+
 ## Estado do redesign Dark/Glass após implementação estrutural
 - `b3c3bee`: tokens e CSS Studio Dark/Glass aplicados sem alteração de domínio.
 - `cee7e78`: DESIGN_SYSTEM e PRODUCT_UX_BASELINE alinhados à nova decisão.
