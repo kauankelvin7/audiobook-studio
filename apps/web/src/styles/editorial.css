@@ -304,6 +304,52 @@ audio { color-scheme: dark; border-radius: 10px; }
 .studio-dialog dt { color: var(--color-ink); }
 .studio-dialog dd,.studio-dialog p { color: var(--color-muted); }
 
+
+@media (min-width:740px) and (max-width:1540px) {
+  .document-workspace,
+  .review-mode .document-workspace {
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .document-workspace > .page-rail {
+    display: none;
+  }
+
+  .document-workspace.pages-open,
+  .review-mode .document-workspace.pages-open {
+    grid-template-columns: 220px minmax(0,1fr);
+  }
+
+  .document-workspace.pages-open > .page-rail {
+    display: block;
+  }
+
+  .page-panel-button {
+    display: grid;
+  }
+}
+
+@media (min-width:740px) and (max-width:980px) {
+  .document-toolbar {
+    grid-template-columns: minmax(0,1fr) auto;
+  }
+
+  .toolbar-navigation {
+    min-width: 0;
+  }
+
+  .viewer-mode {
+    justify-self: end;
+  }
+
+  .viewer-tools {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-self: stretch;
+    justify-content: flex-end;
+  }
+}
+
 @media (max-width:1320px) {
   .app-frame { grid-template-columns: 198px minmax(0,1fr); gap: 11px; padding: 11px; }
   .studio-sidebar { top: 11px; height: calc(100dvh - 22px); }
