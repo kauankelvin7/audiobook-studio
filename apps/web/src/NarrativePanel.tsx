@@ -140,14 +140,14 @@ export function NarrativePanel({ document, persistence, onApproved }: {
           <label className="check-label"><input type="checkbox" checked={confirmed}
             onChange={event => setConfirmed(event.target.checked)} />
             Conferi o roteiro com o texto aprovado e confirmo as referências de todas as partes.</label>
-          <button type="button" disabled={busy || !qa || qa.status === "fail" || !rationale.trim() || !confirmed}
+          <button className="button-primary" type="button" disabled={busy || !qa || qa.status === "fail" || !rationale.trim() || !confirmed}
             onClick={() => void approve()}>Aprovar roteiro para áudio</button>
         </div>
       </section>
 
       {approved && <div className="narrative-approved-result">
         <div><strong>{approved.approved.speechUnits.length}</strong><span>trechos de narração aprovados</span></div>
-        <a className="button-link" href={"data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+        <a className="button-link button-secondary" href={"data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
           schemaVersion: 1,
           sourceHash: document.sourceHash,
           canonicalReviewHash: approved.canonicalReviewHash,

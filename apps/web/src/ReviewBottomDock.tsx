@@ -29,7 +29,7 @@ export function ReviewBottomDock({
       : narrativeQaStatus === "fail" ? "Correção necessária" : "Aguardando roteiro";
 
   return <section className="review-bottom-dock" aria-label="Resumo de produção">
-    <article className="review-summary-card">
+    <article className="review-summary-card narrative-summary-card">
       <header className="summary-card-header">
         <div><span className="summary-icon"><StudioIcon name="narrative" size={18} /></span>
           <div><p className="summary-kicker">NARRATIVA</p><h2>Roteiro narrativo</h2></div>
@@ -44,7 +44,7 @@ export function ReviewBottomDock({
         <p><StudioIcon name="document" size={16} />
           <span>{narrativeChapters > 0 ? narrativeChapters + (narrativeChapters === 1 ? " capítulo" : " capítulos") : "Capítulos ainda não aprovados"}</span></p>
       </div>
-      <a className="summary-action" href="#narrative">Revisar roteiro</a>
+      <a className="summary-action subtle" href="#narrative">Revisar roteiro</a>
     </article>
 
     <article className="review-summary-card audio-summary-card">
@@ -61,7 +61,7 @@ export function ReviewBottomDock({
         <p className="audio-mode-label">{audioMode === "narrative" ? "Audiobook narrativo" : "Leitura literal"} · {audioChapters} {audioChapters === 1 ? "capítulo" : "capítulos"}</p>
         <audio className="summary-audio" controls src={audioUrl} aria-label="Audiobook disponível" />
       </> : <p className="summary-empty">Gere o primeiro capítulo na etapa Áudio depois de concluir as aprovações.</p>}
-      <a className="summary-action" href="#audio">{audioUrl ? "Abrir player" : "Ir para áudio"}</a>
+      <a className="summary-action audio-action" href="#audio">{audioUrl ? "Abrir player" : "Ir para áudio"}</a>
     </article>
 
     <article className="review-summary-card export-summary-card">

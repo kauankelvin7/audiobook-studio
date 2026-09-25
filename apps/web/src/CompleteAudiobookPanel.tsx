@@ -40,15 +40,15 @@ export function CompleteAudiobookPanel({
     <h2 id="complete-audio-title">Gerar audiobook completo</h2>
     <p>Escolha leitura literal ou narração aprovada. Páginas sem texto aprovado bloqueiam a geração.</p>
     <div className="audio-generation-actions">
-      <button type="button" onClick={() => void onGenerateLiteral()} disabled={wavBusy || busy || ocrCommitBusy}>
+      <button className="button-secondary" type="button" onClick={() => void onGenerateLiteral()} disabled={wavBusy || busy || ocrCommitBusy}>
         {wavBusy ? "Gerando áudio…" : "Gerar audiobook completo em WAV"}
       </button>
-      <button type="button" onClick={() => void onGenerateNarrative()}
+      <button className="button-primary" type="button" onClick={() => void onGenerateNarrative()}
         disabled={wavBusy || busy || ocrCommitBusy || !narrativeReady}
         aria-describedby={!narrativeReady ? "narrative-audio-requirement" : undefined}>
         {wavBusy ? "Gerando áudio…" : "Gerar audiobook narrativo em WAV"}
       </button>
-      {wavBusy && <button type="button" onClick={onCancel}>Cancelar geração</button>}
+      {wavBusy && <button className="button-ghost danger" type="button" onClick={onCancel}>Cancelar geração</button>}
     </div>
 
     {!narrativeReady && <p id="narrative-audio-requirement" className="audio-inline-note">

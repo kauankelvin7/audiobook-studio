@@ -12,6 +12,7 @@ import "./styles/review.css";
 import "./styles/narrative.css";
 import "./styles/production.css";
 import "./styles/motion.css";
+import "./styles/editorial.css";
 import "./styles/accessibility.css";
 
 createRoot(document.getElementById("root")!).render(
