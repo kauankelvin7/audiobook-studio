@@ -5,7 +5,9 @@ import { OcrNativeTextView } from "./OcrInspectorContent";
 import { OcrInspectorTabs } from "./OcrReviewViews";
 import { ReviewBottomDock } from "./ReviewBottomDock";
 import { DocumentViewer } from "./DocumentWorkspace";
+import { NativeTextApprovalPanel } from "./NativeTextApprovalPanel";
 import type { DocumentIr } from "./schemas/document";
+import type { DocumentIrV2 } from "./schemas/ingestion";
 import type { CompleteAudioWithUrl } from "./audio_types";
 
 describe("frontend UI contracts", () => {
@@ -82,6 +84,24 @@ describe("frontend UI contracts", () => {
     expect(html).toContain(">Original<");
     expect(html).toContain("disabled");
     expect(html).toContain("Trecho de teste");
+  });
+
+  it("keeps native approval compact by listing only pages that need attention", () => {
+    const document = {
+      pages: [
+        { number: 1, extractionQuality: "good", regions: [{ id: "r1", sources: { rawText: "Texto bom" } }] },
+        { number: 2, extractionQuality: "no_text", regions: [] },
+      ],
+    } as unknown as DocumentIrV2;
+    const html = renderToStaticMarkup(<NativeTextApprovalPanel
+      document={document}
+      persistence={null}
+      onApproved={() => undefined}
+    />);
+    expect(html).toContain("1 de 2 páginas com texto selecionável");
+    expect(html).toContain("1 para revisar");
+    expect(html).toContain("Página 2");
+    expect(html).not.toContain("Página 1 · texto encontrado");
   });
 
 });
