@@ -4,6 +4,8 @@ import { ChapterList } from "./ChapterList";
 import { OcrNativeTextView } from "./OcrInspectorContent";
 import { OcrInspectorTabs } from "./OcrReviewViews";
 import { ReviewBottomDock } from "./ReviewBottomDock";
+import { DocumentViewer } from "./DocumentWorkspace";
+import type { DocumentIr } from "./schemas/document";
 import type { CompleteAudioWithUrl } from "./audio_types";
 
 describe("frontend UI contracts", () => {
@@ -61,4 +63,25 @@ describe("frontend UI contracts", () => {
     expect(html).toContain('aria-current="true"');
     expect(html).toContain("Página 2");
   });
+  it("keeps text as the default reader and exposes the original PDF mode", () => {
+    const document = {
+      pages: [{
+        number: 1,
+        rawText: "Trecho de teste",
+        textQuality: "good",
+        blocks: [{ id: "region-1", type: "paragraph", text: "Trecho de teste" }],
+      }],
+    } as unknown as DocumentIr;
+    const html = renderToStaticMarkup(<DocumentViewer
+      document={document}
+      pageNumber={1}
+      onPageChange={() => undefined}
+    />);
+    expect(html).toContain('aria-label="Visualização do documento"');
+    expect(html).toContain(">Texto<");
+    expect(html).toContain(">Original<");
+    expect(html).toContain("disabled");
+    expect(html).toContain("Trecho de teste");
+  });
+
 });

@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-24 — leitor Original e feedback de interação
+- `da73c7a`: DocumentWorkspace ganhou seletor Texto/Original. Texto reflowed permanece default; Original é lazy-loaded e renderiza o `source_pdf` persistido com `pdfjs-dist`, sem alterar extração ou OCR. Recuperação local relê o mesmo artefato `source_pdf`.
+- `79b3a3d`: camada `motion.css` adiciona feedback de seleção, indicador deslizante das tabs, entrada de dock/dialog e transições curtas. `accessibility.css` continua neutralizando motion e ganhou alvo touch para o seletor do leitor.
+- CI de `da73c7a`: Rust e Web concluíram com sucesso. O teste de contrato seguinte protege o modo Texto como default e a disponibilidade explícita de Original.
+- Tema escuro recebeu correção adicional para badge de revisão sem fundo claro legado.
+
 ## 2026-09-24 — redesign Studio Dark/Glass
 - Decisão explícita do autor substitui Studio & Paper. O primeiro lote é somente visual: tokens dark/glass, hairlines translúcidos e superfícies elevadas; domínio, adapters, schemas e comportamento ficaram fora do change set.
 - PRE-FLIGHT registrado no TASK_PACKET. Arquivos reais de shell/review/narrativa, DESIGN_SYSTEM, PRODUCT_UX_BASELINE e handoff foram conferidos antes da edição.

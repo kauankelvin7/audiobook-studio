@@ -68,3 +68,5 @@ button:active:not(:disabled),.icon-button:active:not(:disabled),.summary-action:
 .original-page-canvas{display:block;max-width:none;border-radius:6px;background:#fff;box-shadow:0 8px 28px rgb(0 0 0 / 32%)}
 @keyframes page-view-enter{from{opacity:.72;transform:perspective(1200px) translateX(10px) rotateY(-1.8deg)}to{opacity:1;transform:perspective(1200px) translateX(0) rotateY(0)}}
 @media(max-width:780px){.document-toolbar{flex-wrap:wrap;height:auto;min-height:52px;padding-top:7px;padding-bottom:7px}.viewer-mode{order:3}.original-page-shell{padding:10px}}
+
+.status-badge.warning{background:rgba(255,159,10,.12);color:var(--color-review)}
