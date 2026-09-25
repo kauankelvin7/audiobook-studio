@@ -1,5 +1,15 @@
 # HANDOFF — retorno ao Codex Work
 
+## Refatoração visual de composição — 2026-09-25
+- Princípios aplicados: shell flutuante, glass estrutural, campos mais opacos, hierarquia de botões, sombras em camadas, mobile <740 px com tab bar/safe area, transparência reduzida e teste de overflow.
+- `6e4e51d`: fundação visual, shell, Documento/Revisão e bottom dock refeitos. Remove o antigo `calc(100vh - 64px - 232px)`/overflow fechado; inspector só fica sticky quando há largura e empilha em <=1120 px; rail vira horizontal e toolbar recompõe no mobile.
+- `8b2c73a`: Narrativa, Áudio e Exportar recebem composições próprias; `production.css` separa geração completa, leitura literal, histórico, capítulos e conclusão.
+- `5014dbd`: contratos de qualidade visual e smoke multi-viewport adicionados.
+- `8111084`: grade externa de produção passa a uma coluna para não comprimir Narrativa/Áudio; smoke torna-se autossuficiente e valida largura integral.
+- CI de `6e4e51d`, `8b2c73a` e `5014dbd` concluiu verde. Confirmar o workflow do HEAD antes de continuar.
+- Desktop Commander permanece offline neste checkpoint; não registrar fidelidade visual por screenshot sem navegador real.
+
+
 ## Composição OCR persistente — 2026-09-24
 - Adapter Web aceita seleção explícita de duas a oito chaves `canonical_ocr_...` já aprovadas, reabre cada aprovação/revisão/evidência, chama a composição Rust/WASM e salva `canonical_ocr_batch_<compositionHash>` em OPFS/IndexedDB com CAS. Leitura recalcula todo o conjunto; retry sequencial e concorrente do mesmo hash retorna o artefato existente.
 - Teste com WASM real e storage falso cobriu duas regiões, ordem diferente, reload, retry concorrente, duplicata e corrupção de bytes. Nenhum fluxo de UI usa ainda o batch. Próxima etapa: controle para selecionar aprovações históricas e integração segura da composição ao texto canônico consumido pela Narrativa; requer revisão do binding `canonicalReviewHash` existente.

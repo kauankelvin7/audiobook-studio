@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-09-25 — refatoração visual de composição
+- A revisão concluiu que o principal problema do frontend era composição: pouco respiro, workspaces técnicos comprimidos, superfícies genéricas e breakpoint móvel que apenas reduzia tamanhos.
+- `6e4e51d` substituiu fundação/shell/revisão por shell flutuante, sidebar e header glass com base escura, campos opacos, sombras em camadas, reader/inspector com largura segura e mobile <740 px com tab bar e safe area. A regra de altura fixa/overflow oculto da Revisão foi removida.
+- `8b2c73a` separou visualmente Narrativa, produção de Áudio, histórico, capítulos, leitura literal e Exportação. CI remoto concluiu success.
+- `5014dbd` adicionou `design_quality.test.ts` e expandiu o smoke de shell para 1920/1440/1320/1120/900/768/739/390/320. CI remoto concluiu success.
+- Auditoria seguinte encontrou Narrativa e Áudio ainda comprimidos pela grade externa de duas colunas. `8111084` muda a grade para uma coluna integral, acrescenta regressão e faz o smoke subir/encerrar o Vite sozinho.
+- Rust/core/adapters funcionais não foram alterados por esta refatoração visual. Desktop Commander segue offline, então screenshots 1440/390 ainda não foram inspecionados nesta sessão; o smoke foi preparado para produzi-los assim que houver Chrome disponível.
+
+
 ## 2026-09-24 — persistência da composição OCR
 - Base `b293070` local. `canonical_ocr_batch.ts` salva conjunto escolhido de aprovações individuais já persistidas; cada item reabre a revisão histórica e a evidência, recomputa promoção no Rust e só então compõe no WASM. A chave deriva do `compositionHash`; leitura revalida o conjunto e o checkpoint. Nenhum item é selecionado automaticamente.
 - QA independente identificou retry concorrente que falhava em CAS e ausência de checagem de `pinned`/`regenerable`/`finalArtifact` no manifest da aprovação individual. Corrigidos. Teste com IndexedDB/OPFS falso e WASM real cobre duas regiões, ordem, reload, retry concorrente e corrupção; passou.

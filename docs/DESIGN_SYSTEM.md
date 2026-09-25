@@ -16,12 +16,27 @@ A interface deve parecer uma ferramenta editorial/técnica, não um dashboard ge
 - Shell/layout/base legado: `apps/web/src/styles/shell.css`
 - Revisão e bottom dock: `apps/web/src/styles/review.css`
 - Narrativa: `apps/web/src/styles/narrative.css`
+- Áudio e exportação: `apps/web/src/styles/production.css`
 - Motion e feedback de interação: `apps/web/src/styles/motion.css`
 - Acessibilidade transversal: `apps/web/src/styles/accessibility.css`
 - Bootstrap: `apps/web/src/main.tsx`
 - Orquestração do app: `apps/web/src/App.tsx`
 
-Não recriar tokens localmente em componentes sem necessidade. Literais antigos ainda existem no shell; normalizá-los apenas em mudanças dirigidas por screenshot para não provocar drift visual invisível.
+Não recriar tokens localmente em componentes sem necessidade. A camada visual deve ser organizada por responsabilidade: fundação/tokens, shell/revisão, narrativa e produção. Evitar uma pilha de overrides tardios que recoloque todos os componentes na mesma aparência.
+
+## Princípios de composição
+
+- shell com respiro externo e navegação flutuante; não colar a UI às bordas da viewport;
+- glass apenas na estrutura e superfícies elevadas; campos e áreas de leitura têm base mais opaca;
+- sombras em camadas, hairlines e raios consistentes criam profundidade sem transformar tudo em card;
+- botões neutros por padrão e CTA explícito; controles têm alvo mínimo, foco e feedback de pressão;
+- cada superfície recebe composição conforme a função: revisão, narrativa, áudio e exportação não devem parecer o mesmo painel renomeado;
+- workspaces densos não são comprimidos lado a lado só para preencher uma grade;
+- abaixo de 740 px a composição muda: sidebar vira tab bar inferior, rail vira navegação horizontal e colunas empilham;
+- respeitar safe areas, `prefers-reduced-transparency`, `prefers-reduced-motion`, `forced-colors` e fallback sem `backdrop-filter`;
+- ausência de overflow horizontal deve ser testada em múltiplos breakpoints, não inferida pelo CSS.
+
+O Audiobook Studio mantém identidade própria, Geist/Source Serif, paleta escura e componentes específicos do produto.
 
 ## Tipografia
 
@@ -77,8 +92,8 @@ Raios:
 - small: 8 px
 - control: 10 px
 - card: 14 px
-- panel: 18 px
-- shell: 22 px
+- panel: 22 px
+- shell: 26 px
 
 Motion:
 
@@ -252,22 +267,28 @@ Alvos de verificação:
 
 - 320 px
 - 390 px
+- 739 px
 - 768 px
-- 1024 px
-- 1280 px
+- 900 px
+- 1120 px
+- 1320 px
 - 1440 px
-- wide >= 1680 px
+- 1920 px
 
-Desktop Review: Page Navigator + Paper + Inspector.
+Desktop largo: Page Navigator + documento + Evidence Inspector quando houver largura real.
 
-Tablet: documento prioritário; inspector pode empilhar/drawer.
+Intermediário: a partir de 1120 px para baixo, o inspector deixa de disputar largura com o documento e empilha em fluxo normal.
 
-Mobile: não comprimir três colunas. O shell já usa navegação inferior; a revisão ainda precisa de validação visual final para decidir se Documento/Evidência/Histórico devem virar tabs/sheet dedicados.
+Mobile (<740 px): sidebar desktop desaparece e a navegação vira tab bar inferior fixa com safe area; o rail de páginas vira lista horizontal; toolbar recompõe em duas linhas; documento, inspector, Narrativa, Áudio e Exportar empilham sem largura mínima artificial.
+
+Narrativa e Áudio sempre recebem a largura integral da grade externa de produção; os sublayouts internos decidem quando usar colunas.
 
 ## Testes não visuais
 
 - `presentation_labels.test.ts`: impede vazamento de `unknown`.
 - `ui_contracts.test.tsx`: protege ARIA das tabs, linguagem de OCR, bottom dock e capítulo ativo.
+- `design_quality.test.ts`: protege contraste base, safe area, transparência reduzida, ausência do antigo corte de altura da Revisão e largura integral das etapas de produção.
+- `npm run test:browser:shell`: sobe Vite de forma isolada e verifica overflow/composição em 1920/1440/1320/1120/900/768/739/390/320 px.
 - CI Web: WASM build/diff, audit high, typecheck, Vitest e build.
 - CI Rust: fmt, tests e Clippy.
 
@@ -294,3 +315,6 @@ Nenhum build verde, isoladamente, prova fidelidade visual.
 - Não duplicar lógica do domínio Rust dentro de components.
 - Não criar state manager global apenas para reduzir props.
 - Não mover core/persistência/TTS por motivo puramente visual.
+- Não reintroduzir altura fixa com `overflow:hidden` na Revisão.
+- Não colocar Narrativa e Áudio lado a lado na grade externa; cada workspace complexo precisa de largura integral.
+- Não tratar responsividade como simples redução de tamanhos; abaixo de 740 px a composição deve mudar.

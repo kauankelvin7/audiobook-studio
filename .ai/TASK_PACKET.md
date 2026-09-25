@@ -1,5 +1,13 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — refatoração visual de composição (2026-09-25)
+- Base funcional preservada em `20bb391`; commits de composição OCR já estavam no remoto e foram mantidos.
+- Skills carregadas: React best practices, composição/acessibilidade de UI, Geist e browser verification. Nenhuma dependência nova de UI ou biblioteca de motion foi adicionada.
+- Objetivo: corrigir repetição visual, compressão de workspaces e responsividade por composição, preservando domínio Rust/WASM, adapters, OCR, TTS, persistência e semântica ARIA.
+- Plano executado em lotes: fundação/shell/revisão; narrativa/áudio/exportação; contratos de qualidade e smoke multi-viewport; correção da grade externa de produção.
+- Gates: CI Web/Rust, `design_quality.test.ts`, `ui_contracts.test.tsx`, build e smoke `test:browser:shell` quando Chrome estiver disponível.
+
+
 ## PRE-FLIGHT — persistência de composição OCR (2026-09-24)
 - Base: commit local `b293070` com composição canônica Rust/WASM validada; branch remoto ainda no checkpoint `de75a66`.
 - Objetivo: salvar e reler composição explícita de revisões OCR previamente aprovadas, ligada às evidências históricas e revalidada pelo Rust antes de uso.
