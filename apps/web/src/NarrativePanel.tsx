@@ -199,15 +199,19 @@ export function NarrativePanel({ document, persistence, onApproved }: {
       <p>Aprove o texto na etapa Revisão para preparar o roteiro. Páginas sem texto aprovado precisam de OCR e conferência antes da narração.</p>
       <a className="button-link" href="#review">Ir para revisão do texto</a>
     </div> : script && selectedSection && selectedSegment ? <>
-      <section className="narrative-generator" aria-labelledby="narrative-generator-title">
-        <div><p className="section-kicker">GERAÇÃO LOCAL</p><h3 id="narrative-generator-title">Transformar texto em narrativa</h3><p>O modelo adapta a escrita para uma leitura natural. Você confere as fontes e aprova o resultado.</p></div>
+      <details className="narrative-generator" open={!approved || generating} aria-labelledby="narrative-generator-title">
+        <summary>
+          <span className="section-kicker">GERAÇÃO LOCAL</span>
+          <h3 id="narrative-generator-title">Transformar texto em narrativa</h3>
+          <p>O modelo adapta a escrita para uma leitura natural. Você confere as fontes e aprova o resultado.</p>
+        </summary>
         <div className="narrative-generator-controls">
           <button type="button" onClick={() => void connectModel()} disabled={generating || busy}>{models.length ? "Atualizar modelos" : "Conectar modelo local"}</button>
           {models.length > 0 && <><label htmlFor="narrative-model">Modelo neste computador</label><select id="narrative-model" value={model} disabled={generating || busy} onChange={event => setModel(event.target.value)}>{models.map(name => <option key={name} value={name}>{name}</option>)}</select><div className="generation-buttons"><button className="primary" type="button" disabled={!model || generating || busy} onClick={() => void generate(false)}>Gerar narrativa deste trecho</button><button type="button" disabled={!model || generating || busy} onClick={() => void generate(true)}>Gerar roteiro completo</button></div></>}
           {modelStatus && <p className="footnote" role="status">{modelStatus}</p>}
           {generating && <div className="narrative-generation-progress" role="status"><progress value={progress.completed} max={progress.total || 1} /><span>{savingGeneration ? "Salvando rascunho…" : progress.chapters > 1 ? `Capítulo ${progress.chapter} de ${progress.chapters}…` : `Adaptando trecho ${Math.min(progress.completed + 1, progress.total)} de ${progress.total}…`}</span><button type="button" disabled={savingGeneration} onClick={() => generation.current?.abort()}>Cancelar geração</button></div>}
         </div>
-      </section>
+      </details>
       <div className="narrative-review-layout">
         <NarrativeOutline items={outlineItems} selectedId={selectedSection.id} onSelect={setSelectedSectionId} />
         <section className="narrative-script-editor" aria-labelledby="narrative-editor-title">

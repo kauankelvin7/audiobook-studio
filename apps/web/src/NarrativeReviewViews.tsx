@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { NarrationQa } from "./schemas/narrative";
 import { StudioIcon } from "./StudioIcon";
 
@@ -16,16 +17,56 @@ export function NarrativeOutline({
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
-  return <nav className="narrative-outline" aria-label="Estrutura do roteiro">
-    <div className="narrative-column-heading"><div><p className="summary-kicker">OUTLINE</p><h3>Estrutura</h3></div><span>{items.length}</span></div>
-    <ol>{items.map((item, index) => <li key={item.id}>
-      <button type="button" className={selectedId === item.id ? "selected" : ""} onClick={() => onSelect(item.id)}
-        aria-current={selectedId === item.id ? "true" : undefined}>
-        <span className="narrative-index">{String(index + 1).padStart(2, "0")}</span>
-        <span><strong>{item.title}</strong><small>{item.sourceCount} {item.sourceCount === 1 ? "fonte" : "fontes"}</small></span>
-      </button>
-    </li>)}</ol>
-  </nav>;
+  const [filter, setFilter] = useState("");
+  const query = filter.trim().toLowerCase();
+  const visible = query
+    ? items.filter(item => item.title.toLowerCase().includes(query) || String(items.indexOf(item) + 1).includes(query))
+    : items;
+  const showFilter = items.length > 8;
+  return (
+    <nav className="narrative-outline" aria-label="Estrutura do roteiro">
+      <div className="narrative-column-heading">
+        <div><p className="summary-kicker">OUTLINE</p><h3>Estrutura</h3></div>
+        <span>{visible.length}{query ? `/${items.length}` : ""}</span>
+      </div>
+      {showFilter && (
+        <div className="narrative-outline-search">
+          <StudioIcon name="review" size={13} />
+          <input
+            type="search"
+            aria-label="Filtrar capítulos"
+            placeholder="Filtrar…"
+            value={filter}
+            onChange={event => setFilter(event.target.value)}
+          />
+        </div>
+      )}
+      <ol>
+        {visible.length === 0 && (
+          <li><p className="narrative-outline-empty">Nenhum capítulo corresponde.</p></li>
+        )}
+        {visible.map((item) => {
+          const index = items.indexOf(item);
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                className={selectedId === item.id ? "selected" : ""}
+                onClick={() => onSelect(item.id)}
+                aria-current={selectedId === item.id ? "true" : undefined}
+              >
+                <span className="narrative-index">{String(index + 1).padStart(2, "0")}</span>
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.sourceCount} {item.sourceCount === 1 ? "fonte" : "fontes"}</small>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
 }
 
 export function NarrativeSourceCard({ refs, texts }: { refs: string[]; texts: string[] }) {

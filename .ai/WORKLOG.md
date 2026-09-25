@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-25 — modo leitura, rascunho narrativo e progresso por capítulo
+- Commit `7e258a1` consolida o trabalho acumulado desde `dc2f147`: modo leitura, ReadingPlayer, tema Claro/Escuro/Sistema, rascunho narrativo persistido e barra de progresso de geração narrativa.
+- Progresso de geração narrativa corrigido: quando o documento tem múltiplos capítulos exibe "Capítulo X de Y", caso contrário mantém "Adaptando trecho X de Y". Contagem por seção em vez de por segmento individual.
+- Push confirmado: `dc2f147..7e258a1 → origin/codex/m4-content-model`. Typecheck passou antes do commit.
+- Gates: typecheck passou; smoke shell passava em dez larguras antes do commit. Testes unitários (188) e build de produção validados na sessão anterior.
+
 ## 2026-09-25 — refatoração visual de composição
 - A revisão concluiu que o principal problema do frontend era composição: pouco respiro, workspaces técnicos comprimidos, superfícies genéricas e breakpoint móvel que apenas reduzia tamanhos.
 - `6e4e51d` substituiu fundação/shell/revisão por shell flutuante, sidebar e header glass com base escura, campos opacos, sombras em camadas, reader/inspector com largura segura e mobile <740 px com tab bar e safe area. A regra de altura fixa/overflow oculto da Revisão foi removida.
