@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { StudioIcon, type StudioIconName } from "./StudioIcon";
+import { detectRuntimeCapabilities } from "./adapters/runtime_capabilities";
 const sections: [string, string, StudioIconName][] = [["project", "Projeto", "project"], ["document", "Documento", "document"], ["review", "Revisão", "review"], ["narrative", "Narrativa", "narrative"], ["audio", "Áudio", "audio"], ["export", "Exportar", "export"]];
 export function useProductStage() {
   const [stage, setStage] = useState(() => window.location.hash.slice(1) || "project");
@@ -63,6 +64,37 @@ function ProjectHeader({ fileName, pageCount, saved, narrativeReady, audioBusy, 
     </div>
   </header>;
 }
+function RuntimeDiagnostics({ fileName, pageCount, saved, chapterCount }: { fileName: string; pageCount: number; saved: boolean; chapterCount: number }) {
+  const [runtime, setRuntime] = useState(() => detectRuntimeCapabilities());
+
+  useEffect(() => {
+    const refresh = () => setRuntime(detectRuntimeCapabilities());
+    const synthesis = typeof window === "undefined" ? null : window.speechSynthesis ?? null;
+    synthesis?.addEventListener("voiceschanged", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      synthesis?.removeEventListener("voiceschanged", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
+  return <>
+    <dl>
+      <dt>Documento</dt><dd>{fileName || "Nenhum documento aberto"}</dd>
+      <dt>Páginas importadas</dt><dd>{pageCount}</dd>
+      <dt>Armazenamento do projeto</dt><dd>{saved ? "Disponível neste navegador" : "Ainda não salvo"}</dd>
+      <dt>Capítulos disponíveis</dt><dd>{chapterCount}</dd>
+      <dt>Processamento local</dt><dd>{runtime.workers && runtime.wasm ? "Compatível" : "Limitado neste navegador"}</dd>
+      <dt>Persistência local</dt><dd>{runtime.opfs && runtime.webLocks ? "Compatível" : "Compatibilidade reduzida"}</dd>
+      <dt>Voz do sistema</dt><dd>{runtime.webSpeech
+        ? runtime.localVoiceCount > 0 ? `${runtime.localVoiceCount} voz(es) local(is)` : "Sem voz local exposta pelo navegador"
+        : "Indisponível"}</dd>
+      <dt>Tela ativa durante geração</dt><dd>{runtime.wakeLock ? "Suportado" : "Não suportado"}</dd>
+    </dl>
+    {runtime.android && <p>No Android, mantenha esta tela aberta durante a geração. O sistema pode pausar abas em segundo plano; o Studio tenta manter a tela ativa quando o navegador permite.</p>}
+  </>;
+}
+
 export function AppShell({ children, fileName, pageCount, saved, hasDocument, narrativeReady = false, audioBusy = false, chapterCount = 0 }: { children: ReactNode; fileName: string; pageCount: number; saved: boolean; hasDocument: boolean; narrativeReady?: boolean; audioBusy?: boolean; chapterCount?: number }) {
   const active = useProductStage();
   const [utility, setUtility] = useState("");
@@ -73,6 +105,6 @@ export function AppShell({ children, fileName, pageCount, saved, hasDocument, na
     <StudioSidebar active={active} fileName={fileName} pageCount={pageCount} saved={saved} onUtility={openUtility} />
     <div className="workspace-frame"><ProjectHeader fileName={fileName} pageCount={pageCount} saved={saved} narrativeReady={narrativeReady} audioBusy={audioBusy} chapterCount={chapterCount} /><main id="main-content" className={`shell${hasDocument ? " has-document" : ""}`}>{children}</main></div>
     <nav className="mobile-nav" aria-label="Etapas do projeto">{sections.filter(([id]) => ["project", "document", "review", "audio"].includes(id)).map(([id,label,icon]) => <a key={id} href={`#${id}`} aria-current={active === id ? "location" : undefined}><span className="mobile-nav-icon"><StudioIcon name={icon} size={18} /></span><span>{label}</span></a>)}<details className="mobile-more"><summary><StudioIcon name="more" />Mais</summary><div><a href="#narrative">Narrativa</a><a href="#export">Exportar</a><button onClick={() => openUtility("Diagnóstico")}>Diagnóstico</button><button onClick={() => openUtility("Configurações")}>Configurações</button></div></details></nav>
-    <dialog ref={dialog} className="studio-dialog" aria-labelledby="utility-title"><h2 id="utility-title">{utility}</h2>{utility === "Diagnóstico" ? <dl><dt>Documento</dt><dd>{fileName || "Nenhum documento aberto"}</dd><dt>Páginas importadas</dt><dd>{pageCount}</dd><dt>Armazenamento do projeto</dt><dd>{saved ? "Disponível neste navegador" : "Ainda não salvo"}</dd><dt>Capítulos disponíveis</dt><dd>{chapterCount}</dd></dl> : <p>O documento é processado neste dispositivo. As fontes visuais são locais. As opções de voz e de leitura ficam na etapa Áudio.</p>}<form method="dialog"><button>Fechar</button></form></dialog>
+    <dialog ref={dialog} className="studio-dialog" aria-labelledby="utility-title"><h2 id="utility-title">{utility}</h2>{utility === "Diagnóstico" ? <RuntimeDiagnostics fileName={fileName} pageCount={pageCount} saved={saved} chapterCount={chapterCount} /> : <p>O documento é processado neste dispositivo. As fontes visuais são locais. As opções de voz e de leitura ficam na etapa Áudio.</p>}<form method="dialog"><button>Fechar</button></form></dialog>
   </div>;
 }

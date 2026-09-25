@@ -1,5 +1,14 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — compatibilidade de runtime Android (2026-09-25)
+- Base: `main` em `cb42cdaf`, após player narrativo progressivo. Relatos do usuário indicam funções inconsistentes no celular.
+- Evidência no código: TTS Piper/ONNX roda em Worker com modelo local ~63 MB; persistência depende de IndexedDB + OPFS + Web Locks; leitura rápida exige voz `localService`; jobs Web longos não têm garantia em segundo plano.
+- Objetivo: manter o fluxo local-first e o comportamento desktop, reduzindo a duração de cada inferência TTS em mobile, reutilizando uma única sessão Piper, mantendo a tela ativa durante geração quando Wake Lock existir e expondo diagnóstico de capacidades no Android.
+- Escopo: somente adapters/Web Worker/UI diagnóstica. Sem alterar DocumentIR, OCR, narrativa, QA, hashes, política de aprovação ou formato final WAV.
+- Segurança/fail-closed: chunks preservam ordem de tokens; cada WAV parcial e o WAV reunido continuam validados; ausência de Wake Lock/OPFS/Web Locks degrada sem inventar suporte.
+- Verificação planejada: typecheck, Vitest, build, CI Rust/Web e teste real em Chrome Android quando houver dispositivo/browser acessível.
+
+
 ## PRE-FLIGHT — refatoração visual de composição (2026-09-25)
 - Base funcional preservada em `20bb391`; commits de composição OCR já estavam no remoto e foram mantidos.
 - Skills carregadas: React best practices, composição/acessibilidade de UI, Geist e browser verification. Nenhuma dependência nova de UI ou biblioteca de motion foi adicionada.

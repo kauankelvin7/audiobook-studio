@@ -25,6 +25,7 @@ import { AudioWorkspace } from "./AudioWorkspace";
 import { useLocalSpeechPlayer } from "./useLocalSpeechPlayer";
 import { useApprovedNarrativeRecord } from "./useApprovedNarrativeRecord";
 import type { NarrativeGenerationState } from "./audio_types";
+import { requestScreenWakeLock } from "./adapters/screen_wake_lock";
 
 const OcrReviewPanel = lazy(async () => ({ default: (await import("./OcrReviewPanel")).OcrReviewPanel }));
 const NarrativePanel = lazy(async () => ({ default: (await import("./NarrativePanel")).NarrativePanel }));
@@ -508,6 +509,7 @@ export function App() {
     wavAbortRef.current = controller;
     setWavBusy(true);
     setStatus("Preparando a voz neste dispositivo. Na primeira vez, o modelo de cerca de 63 MB será baixado.");
+    const wakeLock = await requestScreenWakeLock();
     try {
       const wav = await renderLocalWav(preview, controller.signal, setWavProgress);
       if (controller.signal.aborted) return;
@@ -538,6 +540,7 @@ export function App() {
     } catch (error) {
       if (!controller.signal.aborted) setStatus(userError(error, "Não foi possível gerar o áudio. Tente novamente."));
     } finally {
+      await wakeLock?.release().catch(() => undefined);
       if (wavAbortRef.current === controller) {
         wavAbortRef.current = null;
         setWavBusy(false);
@@ -558,6 +561,7 @@ export function App() {
     setCompleteProgress(0);
     setCompleteTotal(source.pages.length);
     setStatus("Conferindo todas as páginas antes da exportação…");
+    const wakeLock = await requestScreenWakeLock();
     try {
       const sessions = [];
       for (let page = 1; page <= source.pages.length; page++) {
@@ -594,6 +598,7 @@ export function App() {
         setStatus(userError(error, "Não foi possível exportar o audiobook. Tente novamente."));
       }
     } finally {
+      await wakeLock?.release().catch(() => undefined);
       if (wavAbortRef.current === controller) { wavAbortRef.current = null; setWavBusy(false); }
     }
   }
@@ -640,6 +645,7 @@ export function App() {
     });
     setNarrativeAudioStatus("Preparando a fila de narração…");
     setStatus("Preparando a fila de narração…");
+    const wakeLock = await requestScreenWakeLock();
 
     try {
       const approved = await loadLatestApprovedNarrative(store, source);
@@ -765,6 +771,7 @@ export function App() {
         setStatus(message);
       }
     } finally {
+      await wakeLock?.release().catch(() => undefined);
       if (controller.signal.aborted && generation === importGenerationRef.current) {
         const message = "Geração interrompida. Os capítulos já concluídos continuam disponíveis para ouvir.";
         setNarrativeAudioStatus(message);

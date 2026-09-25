@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { joinValidatedWavs, readingTextForTts, renderLocalWav, validateWav } from "./local_wav";
+import { joinValidatedWavs, readingTextForTts, renderLocalWav, splitTextForTts, validateWav } from "./local_wav";
 import type { ReadingSession } from "./rust_reading_preview";
 
 const session: ReadingSession = {
@@ -36,6 +36,14 @@ describe("local WAV adapter", () => {
       .toThrowError(/12 mil/);
   });
 
+  it("splits long synthesis input without losing token order", () => {
+    const text = Array.from({ length: 90 }, (_, index) => `Frase ${index}. conteúdo`).join(" ");
+    const chunks = splitTextForTts(text, 128);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.every(chunk => chunk.length <= 128)).toBe(true);
+    expect(chunks.join(" ").split(/\s+/)).toEqual(text.split(/\s+/));
+  });
+
   it("accepts complete PCM WAV and rejects corrupt output", async () => {
     await expect(validateWav(wav())).resolves.toBeUndefined();
     await expect(validateWav(new Blob([new Uint8Array(44)]))).rejects.toMatchObject({ code: "INVALID_AUDIO" });
@@ -55,11 +63,20 @@ describe("local WAV adapter", () => {
     await expect(joinValidatedWavs([])).rejects.toMatchObject({ code: "INVALID_AUDIO" });
   });
 
-  it("terminates worker after a validated result", async () => {
+  it("reuses one worker for multiple synthesis chunks and joins the results", async () => {
     const worker = { postMessage: vi.fn(), terminate: vi.fn(), onmessage: null as Worker["onmessage"], onerror: null as Worker["onerror"] };
-    const promise = renderLocalWav(session, new AbortController().signal, vi.fn(), () => worker);
-    expect(worker.postMessage).toHaveBeenCalledWith({ type: "render", text: "Primeiro.\nSegundo." });
-    worker.onmessage?.call(worker as unknown as Worker, { data: { type: "result", wav: wav() } } as MessageEvent);
+    const longSession: ReadingSession = {
+      ...session,
+      pages: [{ ...session.pages[0], chunks: [{ regionId: "a", text: "Primeira frase. ".repeat(20) }] }],
+    };
+    const promise = renderLocalWav(longSession, new AbortController().signal, vi.fn(), () => worker, 128);
+    const request = worker.postMessage.mock.calls[0][0] as { type: string; texts: string[] };
+    expect(request.type).toBe("render");
+    expect(request.texts.length).toBeGreaterThan(1);
+    request.texts.forEach((_, index) => {
+      worker.onmessage?.call(worker as unknown as Worker, { data: { type: "chunk", index, wav: wav() } } as MessageEvent);
+    });
+    worker.onmessage?.call(worker as unknown as Worker, { data: { type: "complete", count: request.texts.length } } as MessageEvent);
     await expect(promise).resolves.toBeInstanceOf(Blob);
     expect(worker.terminate).toHaveBeenCalledOnce();
   });
@@ -71,8 +88,10 @@ describe("local WAV adapter", () => {
     controller.abort();
     await expect(promise).rejects.toMatchObject({ code: "CANCELLED" });
     expect(worker.terminate).toHaveBeenCalledOnce();
-    const failed = renderLocalWav(session, new AbortController().signal, vi.fn(), () => worker);
-    worker.onmessage?.call(worker as unknown as Worker, {
+
+    const failedWorker = { postMessage: vi.fn(), terminate: vi.fn(), onmessage: null as Worker["onmessage"], onerror: null as Worker["onerror"] };
+    const failed = renderLocalWav(session, new AbortController().signal, vi.fn(), () => failedWorker);
+    failedWorker.onmessage?.call(failedWorker as unknown as Worker, {
       data: { type: "error", message: "Failed to fetch voice model" },
     } as MessageEvent);
     await expect(failed).rejects.toMatchObject({
