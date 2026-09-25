@@ -3,6 +3,7 @@ import type { LocalProjectPersistence } from "./adapters/local_project_persisten
 import { saveApprovedNative } from "./adapters/canonical_native";
 import { userError } from "./adapters/user_error";
 import type { DocumentIrV2 } from "./schemas/ingestion";
+import { StudioIcon } from "./StudioIcon";
 
 export function NativeTextApprovalPanel({ document, persistence, onApproved }: {
   document: DocumentIrV2;
@@ -12,7 +13,9 @@ export function NativeTextApprovalPanel({ document, persistence, onApproved }: {
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const [expanded, setExpanded] = useState(() => !window.location.hash.includes("#review"));
+  const [expanded, setExpanded] = useState(false);
+  const [reviewPage, setReviewPage] = useState(document.pages[0]?.number ?? 1);
+  const [approved, setApproved] = useState(false);
 
   async function approve() {
     if (!persistence || !confirmed || busy) return;
@@ -21,6 +24,7 @@ export function NativeTextApprovalPanel({ document, persistence, onApproved }: {
     try {
       await saveApprovedNative(persistence, document);
       setStatus("Texto nativo aprovado. O roteiro preliminar está disponível em Narrativa.");
+      setApproved(true);
       onApproved();
     } catch (error) {
       setStatus(userError(error, "Não foi possível aprovar o texto. Confira as páginas e tente novamente."));
@@ -28,21 +32,25 @@ export function NativeTextApprovalPanel({ document, persistence, onApproved }: {
   }
 
   const pending = document.pages.filter(page => page.extractionQuality !== "good").length;
+  const selectedPage = document.pages.find(page => page.number === reviewPage);
   return <section className="panel native-approval-panel" aria-labelledby="native-approval-title">
+    <header className="approval-heading"><span className="approval-icon"><StudioIcon name={approved ? "check" : "review"} /></span><div><h2 id="native-approval-title">{approved ? "Texto aprovado" : "Aprovar texto do PDF"}</h2><p>{document.pages.length - pending} de {document.pages.length} páginas com texto</p></div></header>
+    <p className="approval-description">Confira o texto extraído antes de preparar a narração.</p>
+    {pending > 0 && <p className="notice">{pending} {pending === 1 ? "página precisa" : "páginas precisam"} de revisão. Use o OCR para conferir o conteúdo antes de aprovar.</p>}
     <details open={expanded} onToggle={event => setExpanded(event.currentTarget.open)}>
-      <summary><span><strong id="native-approval-title">Aprovar texto do PDF</strong><small>{document.pages.length - pending} de {document.pages.length} páginas com texto</small></span><span className={pending ? "warning-text" : "success-text"}>{pending ? `${pending} pendências` : "Pronto para conferir"}</span></summary>
-      <p>Confira as páginas com texto selecionável. Páginas vazias, corrompidas ou com conteúdo estruturado exigem revisão específica.</p>
-    {document.pages.map(page => <details key={page.number}>
-      <summary>Página {page.number} · {page.extractionQuality === "good" ? "texto encontrado" : "revisão necessária"}</summary>
-      {page.regions.map(region => <p key={region.id}>{region.sources.rawText ?? "Sem texto nativo"}</p>)}
-    </details>)}
+      <summary><span>Conferir texto por página</span><StudioIcon name="document" size={17} /></summary>
+      <label htmlFor="approval-page">Página para conferir</label>
+      <select id="approval-page" value={reviewPage} onChange={event => setReviewPage(Number(event.target.value))}>{document.pages.map(page => <option key={page.number} value={page.number}>Página {page.number}{page.extractionQuality === "good" ? "" : " · revisão necessária"}</option>)}</select>
+      <div className="approval-page-text">{selectedPage?.regions.length ? selectedPage.regions.map(region => <p key={region.id}>{region.sources.rawText ?? "Sem texto extraído"}</p>) : <p>Esta página precisa de OCR para recuperar o texto.</p>}</div>
+    </details>
+    <div className="approval-actions">
     <label className="check-label"><input type="checkbox" checked={confirmed}
       onChange={event => setConfirmed(event.target.checked)} />Conferi o texto de todas as páginas com o PDF.</label>
-    <button type="button" disabled={busy || !confirmed || !persistence} onClick={() => void approve()}>
+    <button className="primary" type="button" disabled={busy || !confirmed || !persistence || pending > 0 || approved} onClick={() => void approve()}>
       {busy ? "Aprovando texto…" : "Aprovar texto nativo do PDF para análise"}
     </button>
-    <p className="footnote">Para páginas digitalizadas ou ambíguas, use a comparação OCR nesta etapa.</p>
+    {approved && <a className="button-link primary" href="#narrative">Abrir roteiro narrativo</a>}
     {status && <p role="status">{status}</p>}
-    </details>
+    </div>
   </section>;
 }

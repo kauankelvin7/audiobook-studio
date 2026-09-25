@@ -14,10 +14,25 @@ export function PdfOriginalPage({
   zoom: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const [error, setError] = useState("");
+  const [rendering, setRendering] = useState(true);
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
   const [readyVersion, setReadyVersion] = useState(0);
 
   useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    const update = () => setAvailableWidth(Math.max(1, shell.clientWidth - 32));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    setError("");
     let cancelled = false;
     let loadingTask: ReturnType<typeof getDocument> | null = null;
     let loadedPdf: PDFDocumentProxy | null = null;
@@ -35,6 +50,8 @@ export function PdfOriginalPage({
       setReadyVersion(version => version + 1);
     })().catch(() => {
       if (!cancelled) {
+        setError("Não foi possível abrir a página original. Use a visualização Texto ou reabra o PDF.");
+        setRendering(false);
         pdfRef.current = null;
         setReadyVersion(version => version + 1);
       }
@@ -50,7 +67,9 @@ export function PdfOriginalPage({
   useEffect(() => {
     const pdf = pdfRef.current;
     const canvas = canvasRef.current;
-    if (!pdf || !canvas || pageNumber < 1 || pageNumber > pdf.numPages) return;
+    if (!pdf || !canvas || availableWidth <= 0 || pageNumber < 1 || pageNumber > pdf.numPages) return;
+    setRendering(true);
+    setError("");
 
     let cancelled = false;
     let renderTask: ReturnType<Awaited<ReturnType<PDFDocumentProxy["getPage"]>>["render"]> | null = null;
@@ -61,7 +80,8 @@ export function PdfOriginalPage({
         page.cleanup();
         return;
       }
-      const viewport = page.getViewport({ scale: zoom / 100 });
+      const original = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: (availableWidth / original.width) * zoom / 100 });
       const outputScale = Math.min(globalThis.devicePixelRatio || 1, 2);
       const context = canvas.getContext("2d", { alpha: false });
       if (!context) {
@@ -82,6 +102,7 @@ export function PdfOriginalPage({
       });
       try {
         await renderTask.promise;
+        if (!cancelled) setRendering(false);
       } finally {
         page.cleanup();
       }
@@ -89,6 +110,8 @@ export function PdfOriginalPage({
       if (!cancelled && !(error instanceof Error && error.name === "RenderingCancelledException")) {
         const context = canvas.getContext("2d");
         context?.clearRect(0, 0, canvas.width, canvas.height);
+        setError("Não foi possível exibir esta página. Tente novamente ou use a visualização Texto.");
+        setRendering(false);
       }
     });
 
@@ -96,9 +119,11 @@ export function PdfOriginalPage({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [pageNumber, zoom, readyVersion]);
+  }, [pageNumber, zoom, readyVersion, availableWidth]);
 
-  return <div className="original-page-shell" aria-label={`Página ${pageNumber} no formato original`}>
+  return <div ref={shellRef} className="original-page-shell" aria-label={`Página ${pageNumber} no formato original`} aria-busy={rendering}>
+    {error && <p role="alert" className="notice">{error}</p>}
+    {rendering && !error && <span className="pdf-loading" role="status">Carregando página…</span>}
     <canvas ref={canvasRef} className="original-page-canvas" />
   </div>;
 }

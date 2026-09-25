@@ -185,7 +185,7 @@ label {
   font-weight: 600;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"])),
 select,
 textarea {
   display: block;

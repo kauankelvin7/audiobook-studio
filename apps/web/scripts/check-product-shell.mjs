@@ -37,6 +37,7 @@ try {
   for (const [width, height] of [
     [1920, 1080],
     [1440, 960],
+    [1340, 600],
     [1320, 900],
     [1120, 900],
     [900, 900],
@@ -63,8 +64,22 @@ try {
     assert.equal(shell.sidebar === "none", width < 740);
     assert.deepEqual(errors, []);
 
+    if (width === 1440) {
+      await page.getByRole("button", { name: "Configurações" }).first().click();
+      await page.getByRole("radio", { name: "Escuro" }).check();
+      assert.equal(await page.locator("html").getAttribute("data-appearance"), "dark");
+      await page.getByRole("radio", { name: "Claro" }).check();
+      assert.equal(await page.locator("html").getAttribute("data-appearance"), "light");
+      await page.getByRole("button", { name: "Fechar" }).click();
+    }
+
     await page.locator("#pdf-input").setInputFiles(resolve("../../tests/fixtures/text_and_blank.pdf"));
     await page.getByText(/Progresso salvo neste dispositivo/).waitFor({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Original", exact: true }).click();
+    await page.locator('.original-page-shell[aria-busy="false"]').waitFor({ timeout: 30_000 });
+    const fit = await page.locator(".original-page-canvas").evaluate(canvas => ({ width: canvas.getBoundingClientRect().width, parent: canvas.closest(".paper-scroll").clientWidth }));
+    assert.ok(fit.width <= fit.parent, `PDF does not fit at ${width}: ${JSON.stringify(fit)}`);
+    await page.getByRole("button", { name: "Texto", exact: true }).click();
     await page.getByRole("button", { name: "Página 2" }).first().click();
 
     await page.evaluate(() => { location.hash = "#review"; });
@@ -106,10 +121,19 @@ try {
     assert.ok(production.narrativeWidth >= production.gridWidth - 2, `narrative compressed at ${width}px: ${JSON.stringify(production)}`);
     assert.ok(production.audioWidth >= production.gridWidth - 2, `audio compressed at ${width}px: ${JSON.stringify(production)}`);
 
-    if (width === 1440 || width === 390) {
+    if (width === 1440 || width === 390 || width === 1340) {
       await page.evaluate(() => { location.hash = "#review"; });
       await page.waitForTimeout(80);
       await page.screenshot({ path: resolve(`../../work/leve-inspired-review-${width}.png`), fullPage: true });
+      if (width === 1440) await page.screenshot({ path: resolve("../../work/studio-paper-review-1440x960.png") });
+      if (width === 1440) {
+        await page.getByRole("button", { name: "Página 1", exact: true }).click();
+        await page.getByRole("checkbox", { name: "Modo leitura", exact: true }).check();
+        await page.locator('.original-page-shell[aria-busy="false"]').waitFor({ timeout: 30_000 });
+        await page.getByRole("button", { name: "Sair da leitura", exact: true }).waitFor();
+        await page.screenshot({ path: resolve("../../work/studio-reading-1440x960.png") });
+        await page.getByRole("button", { name: "Sair da leitura", exact: true }).click();
+      }
     }
 
     assert.deepEqual(errors, []);

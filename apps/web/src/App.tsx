@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { ReadingPlayer } from "./ReadingPlayer";
 import { createBrowserLocalPersistence, type BrowserLocalPersistence } from "./adapters/browser_local_persistence";
 import type { CheckpointDraft } from "./adapters/local_project_persistence";
 import { MAX_PDF_BYTES } from "./adapters/pdf_limits";
@@ -53,6 +54,7 @@ export function App() {
   const [narrativeEpoch, setNarrativeEpoch] = useState(0);
   const [ocrCommitBusy, setOcrCommitBusy] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
+  const [readingMode, setReadingMode] = useState(false);
   const [endPage, setEndPage] = useState(1);
   const [preview, setPreview] = useState<ReadingSession | null>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -625,7 +627,7 @@ export function App() {
   );
 
   return <AppShell fileName={fileName} pageCount={document?.pages.length ?? 0} saved={ocrSourceReady}
-    hasDocument={!!document} narrativeReady={!!approvedNarrative} audioBusy={wavBusy} chapterCount={completeWav?.chapters.length ?? 0}>
+    hasDocument={!!document} readingMode={readingMode} narrativeReady={!!approvedNarrative} audioBusy={wavBusy} chapterCount={completeWav?.chapters.length ?? 0}>
     {!document && <header className="intro">
       <p className="eyebrow">Audiobook Studio · leitura de PDF</p>
       <h1>Do documento à voz.</h1>
@@ -635,7 +637,7 @@ export function App() {
       disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} onChange={importFile} />
     <div className="editor-grid">
     <section className="stage-section" id="document" aria-label="Documento">
-    {document ? <DocumentWorkspace document={document} pageNumber={pageNumber} onPageChange={setPageNumber} sourcePdf={sourcePdf} />
+    {document ? <DocumentWorkspace document={document} pageNumber={pageNumber} onPageChange={setPageNumber} sourcePdf={sourcePdf} readingMode={readingMode} onReadingModeChange={enabled => { completeAudioRef.current?.pause(); setReadingMode(enabled); }} />
       : <div className="stage-empty"><span className="section-number">02</span><div><h2>Documento</h2><p>O texto encontrado no PDF aparecerá aqui para conferência.</p></div></div>}
     </section>
     <section className="stage-section" id="review" aria-label="Revisão do texto">
@@ -650,7 +652,14 @@ export function App() {
       onApproved={() => setCanonicalEpoch(value => value + 1)} />}
     </section>
     </div>
-    {stage === "review" && document && <ReviewBottomDock
+    {readingMode && <ReadingPlayer audio={completeWav} onPageChange={setPageNumber} onExit={() => setReadingMode(false)} pages={completeWav?.chapters.map((chapter, index) => {
+      if (!("mode" in completeWav) || completeWav.mode !== "narrative") return chapter.pageNumber;
+      if (!approvedNarrative || approvedNarrative.approved.approval.scriptHash !== completeWav.scriptHash) return null;
+      const spoken = approvedNarrative.approved.plan.spokenChapters[index];
+      const refs = approvedNarrative.approved.speechUnits.filter(unit => unit.chapterId === spoken?.id).flatMap(unit => unit.sourceRefs);
+      return documentV2?.pages.find(page => page.regions.some(region => refs.includes(region.id)))?.number ?? null;
+    }) ?? []} />}
+    {!readingMode && stage === "review" && document && <ReviewBottomDock
       narrativeReady={!!approvedNarrative}
       narrativeChapters={approvedNarrative?.approved.plan.spokenChapters.length ?? 0}
       narrativeQaStatus={approvedNarrative?.approved.qa.status ?? null}

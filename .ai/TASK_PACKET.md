@@ -1,5 +1,12 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — revisão visual e geração narrativa local (2026-09-25)
+- Pedido: corrigir cortes, menu de páginas, aprovação, tipografia, cards e movimento; investigar geração narrativa ausente.
+- Evidência: alturas e sticky concorrentes cortam controles em viewport baixo; aprovação lista todas as páginas antes da ação; draft atual é literal e não tem provider de produção.
+- Plano: tornar áreas roláveis previsíveis, ajustar original à largura, conferir uma página por vez, fontes locais legíveis; conectar candidato de modelo local preservando IDs/refs e QA/aprovação existentes.
+- Restrições: fontes de referência não documentadas por pedido do usuário; sem alteração de áudio/TTS; nenhuma aprovação automática; modelo opcional local e candidato tratado como não confiável.
+- Verificação: typecheck/test/build, Rust fmt/test, smoke visual responsivo, geração local real e revisão de diff. Lead escreve UI; adapter de modelo isolado em change set próprio.
+
 ## PRE-FLIGHT — refatoração visual de composição (2026-09-25)
 - Base funcional preservada em `20bb391`; commits de composição OCR já estavam no remoto e foram mantidos.
 - Skills carregadas: React best practices, composição/acessibilidade de UI, Geist e browser verification. Nenhuma dependência nova de UI ou biblioteca de motion foi adicionada.

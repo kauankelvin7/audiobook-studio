@@ -72,6 +72,7 @@ try {
   await page.getByRole("button", { name: "Próximo capítulo" }).click();
   assert.ok(await player.evaluate(audio => audio.currentTime) > 0, "O player não avançou para o segundo capítulo.");
   await page.getByRole("button", { name: "Capítulo anterior" }).click();
+  await player.evaluate(audio => audio.pause());
   assert.ok(await player.evaluate(audio => audio.currentTime) < duration / 2,
     "O player não voltou ao primeiro capítulo.");
   const downloadPromise = page.waitForEvent("download");
@@ -86,7 +87,7 @@ try {
   assert.equal(bytes.toString("ascii", 8, 12), "WAVE");
   assert.ok(bytes.length > 44_100, "Download não contém áudio suficiente.");
   const manifestDownload = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Baixar índice e manifesto do audiobook" }).click();
+  await page.getByRole("link", { name: "Baixar índice e manifesto", exact: true }).click();
   const manifestFile = await manifestDownload;
   if (process.env.AUDIO_SMOKE_MANIFEST_OUTPUT) await manifestFile.saveAs(resolve(process.env.AUDIO_SMOKE_MANIFEST_OUTPUT));
   const manifest = JSON.parse(await (async () => {
@@ -101,22 +102,44 @@ try {
   await page.getByRole("link", { name: "Baixar audiobook completo em WAV" }).waitFor({ timeout: 60_000 });
   assert.equal(await page.locator('audio[aria-label="Audiobook completo"]').count(), 1);
   assert.equal(await page.locator("#complete-audio-title + p").count(), 1);
+  await page.getByRole("checkbox", { name: "Modo leitura", exact: true }).check();
+  await page.getByLabel("Audiobook no modo leitura", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Próximo capítulo na leitura" }).click();
+  console.log("Reading chapter:", await page.locator(".page-counter").textContent(), await page.locator(".reading-player-heading").textContent());
+  await page.getByText("Página 2 de 2", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Sair da leitura", exact: true }).click();
   await page.getByRole("checkbox", { name: "Conferi o texto de todas as páginas com o PDF." }).check();
   await page.getByRole("button", { name: "Aprovar texto nativo do PDF para análise" }).click();
   await page.getByText("Texto nativo aprovado. O roteiro preliminar está disponível em Narrativa.").waitFor({ timeout: 30_000 });
   const narrativeFields = page.locator('textarea[id^="narrative-segment-"]');
   await narrativeFields.first().waitFor({ timeout: 30_000 });
-  assert.equal(await narrativeFields.count(), 2);
-  await narrativeFields.nth(0).fill("O livro começa na primeira página e apresenta seu texto completo.");
-  await narrativeFields.nth(1).fill("Na segunda página, o texto chega ao fim.");
+  assert.equal(await narrativeFields.count(), 1);
+  if (process.env.NARRATIVE_LOCAL_MODEL) {
+    await page.getByRole("button", { name: "Conectar modelo local" }).click();
+    await page.locator("#narrative-model").selectOption(process.env.NARRATIVE_LOCAL_MODEL);
+    await page.getByRole("button", { name: "Gerar roteiro completo", exact: true }).click();
+    await page.getByText("Narrativa gerada.", { exact: false }).waitFor({ timeout: 400_000 });
+    const generated = await narrativeFields.inputValue();
+    console.log("Generated narrative:", generated);
+    assert.ok(generated.length > 10);
+    await page.reload();
+    await narrativeFields.waitFor({ timeout: 30_000 });
+    assert.equal(await narrativeFields.inputValue(), generated, "Generated draft did not reload");
+  } else {
+    await narrativeFields.fill("O livro começa na primeira página e apresenta seu texto completo.");
+    await page.locator(".narrative-outline button").nth(1).click();
+    await narrativeFields.fill("Na segunda página, o texto chega ao fim.");
+  }
   await page.getByRole("button", { name: "Conferir roteiro" }).click();
   await page.getByText("Conferência concluída.", { exact: false }).waitFor({ timeout: 30_000 });
   await page.locator("#narrative-rationale").fill("Comparei cada capítulo com sua página original.");
   await page.getByRole("checkbox", { name: /Conferi o roteiro com o texto aprovado/ }).check();
   await page.getByRole("button", { name: "Aprovar roteiro para áudio" }).click();
+  await page.waitForFunction(() => document.querySelector(".narrative-status")?.textContent?.length > 0);
+  console.log("Narrative approval:", await page.locator(".narrative-status").textContent());
   await page.getByText("Roteiro aprovado. Trechos de narração salvos neste dispositivo.").waitFor({ timeout: 30_000 });
   const narrativeReportDownload = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Baixar roteiro, fontes e QA" }).click();
+  await page.getByRole("link", { name: "Baixar roteiro, fontes e relatório de revisão" }).click();
   const narrativeReportFile = await narrativeReportDownload;
   if (process.env.AUDIO_NARRATIVE_REPORT_OUTPUT)
     await narrativeReportFile.saveAs(resolve(process.env.AUDIO_NARRATIVE_REPORT_OUTPUT));
