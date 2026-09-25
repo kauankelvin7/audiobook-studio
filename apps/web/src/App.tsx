@@ -45,6 +45,7 @@ export function App() {
   const completeWavUrlRef = useRef<string | null>(null);
   const completeAudioRef = useRef<HTMLAudioElement | null>(null);
   const [document, setDocument] = useState<DocumentIr | null>(null);
+  const [sourcePdf, setSourcePdf] = useState<Blob | null>(null);
   const [documentV2, setDocumentV2] = useState<DocumentIrV2 | null>(null);
   const [ocrSourceReady, setOcrSourceReady] = useState(false);
   const [ocrEpoch, setOcrEpoch] = useState(0);
@@ -193,6 +194,15 @@ export function App() {
         const parsed = documentIrSchema.safeParse(JSON.parse(await blob.text()));
         if (!parsed.success || cancelled || importGenerationRef.current !== 0) return;
         setDocument(parsed.data);
+        const sourcePdfRecord = latest?.artifacts.find(artifact => artifact.artifactKey === "source_pdf");
+        if (sourcePdfRecord) {
+          try {
+            const recoveredSource = await localPersistence!.service.readArtifact(sourcePdfRecord);
+            if (!cancelled && importGenerationRef.current === 0) setSourcePdf(recoveredSource);
+          } catch {
+            if (!cancelled && importGenerationRef.current === 0) setSourcePdf(null);
+          }
+        }
         let recoveredAudio = false;
         let audioRecoveryFailed = false;
         const audioExpected = latest?.checkpoint?.artifactKeys.some(key => key.startsWith("literal_wav_")) ?? false;
@@ -296,6 +306,7 @@ export function App() {
     workerRef.current?.terminate();
     workerRef.current = null;
     setDocument(null);
+    setSourcePdf(null);
     setFileName(file.name);
     if (file.size > MAX_PDF_BYTES) {
       setBusy(false);
@@ -303,6 +314,7 @@ export function App() {
       return;
     }
 
+    setSourcePdf(file);
     setBusy(true);
     setStatus("Lendo o PDF neste dispositivo…");
     const worker = new Worker(new URL("./workers/pipeline.worker.ts", import.meta.url), { type: "module" });
@@ -623,7 +635,7 @@ export function App() {
       disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} onChange={importFile} />
     <div className="editor-grid">
     <section className="stage-section" id="document" aria-label="Documento">
-    {document ? <DocumentWorkspace document={document} pageNumber={pageNumber} onPageChange={setPageNumber} />
+    {document ? <DocumentWorkspace document={document} pageNumber={pageNumber} onPageChange={setPageNumber} sourcePdf={sourcePdf} />
       : <div className="stage-empty"><span className="section-number">02</span><div><h2>Documento</h2><p>O texto encontrado no PDF aparecerá aqui para conferência.</p></div></div>}
     </section>
     <section className="stage-section" id="review" aria-label="Revisão do texto">
