@@ -79,10 +79,20 @@ export async function loadLatestApprovedOcr(persistence: LocalProjectPersistence
   if (!latest || latest.sourceHash !== source.sourceHash) return null;
   const key = [...latest.artifactKeys].reverse().find(value => /^canonical_ocr_[0-9a-f]{64}$/.test(value));
   if (!key) return null;
+  return (await loadApprovedOcrByKey(persistence, source, key)).canonical;
+}
+
+export async function loadApprovedOcrByKey(persistence: LocalProjectPersistence,
+  source: DocumentIrV2, key: string): Promise<{ canonical: CanonicalOcr; review: SavedOcrReview }> {
+  const latest = await persistence.loadLatest(source.documentId);
+  if (!latest || latest.sourceHash !== source.sourceHash || !latest.artifactKeys.includes(key)
+    || !/^canonical_ocr_[0-9a-f]{64}$/.test(key)) throw new Error("A aprovação OCR não pertence ao projeto ativo.");
   const record = await persistence.loadArtifactRecord(source.documentId, key);
-  if (!record || record.kind !== "model" || record.mediaType !== "application/json" || record.sizeBytes > 32_000_000)
+  if (!record || record.kind !== "model" || record.mediaType !== "application/json" || !record.pinned
+    || record.regenerable || record.finalArtifact || record.sizeBytes > 32_000_000)
     throw new Error("A aprovação canônica salva está indisponível.");
   const stored = envelopeSchema.parse(JSON.parse(await (await persistence.readArtifact(record)).text()));
+  if (key !== `canonical_ocr_${stored.promotion.reviewHash.slice(7)}`) throw new Error("A aprovação OCR tem chave divergente.");
   const reviewRecord = await persistence.loadArtifactRecord(source.documentId, stored.reviewArtifactKey);
   if (!reviewRecord || !latest.artifactKeys.includes(reviewRecord.artifactKey))
     throw new Error("A revisão de origem da aprovação não está disponível.");
@@ -98,5 +108,7 @@ export async function loadLatestApprovedOcr(persistence: LocalProjectPersistence
     || JSON.stringify(semanticOutline) !== JSON.stringify(stored.semanticOutline)
     || JSON.stringify(draft) !== JSON.stringify(stored.draft))
     throw new Error("A análise salva não confere com o texto aprovado.");
-  return stored;
+  if ((await persistence.loadLatest(source.documentId))?.checksum !== latest.checksum)
+    throw new Error("O projeto mudou durante a leitura da aprovação OCR.");
+  return { canonical: stored, review };
 }

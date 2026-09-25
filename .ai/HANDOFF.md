@@ -1,5 +1,9 @@
 # HANDOFF — retorno ao Codex Work
 
+## Composição OCR persistente — 2026-09-24
+- Adapter Web aceita seleção explícita de duas a oito chaves `canonical_ocr_...` já aprovadas, reabre cada aprovação/revisão/evidência, chama a composição Rust/WASM e salva `canonical_ocr_batch_<compositionHash>` em OPFS/IndexedDB com CAS. Leitura recalcula todo o conjunto; retry sequencial e concorrente do mesmo hash retorna o artefato existente.
+- Teste com WASM real e storage falso cobriu duas regiões, ordem diferente, reload, retry concorrente, duplicata e corrupção de bytes. Nenhum fluxo de UI usa ainda o batch. Próxima etapa: controle para selecionar aprovações históricas e integração segura da composição ao texto canônico consumido pela Narrativa; requer revisão do binding `canonicalReviewHash` existente.
+
 ## Composição OCR no core — 2026-09-24
 - O Rust agora compõe até oito aprovações OCR locais distintas contra o mesmo DocumentIR v2 original. Cada aprovação passa pela validação existente de candidato, revisão e hashes; duplicatas e fontes alteradas falham. A ordem da entrada não altera resultado nem `compositionHash`.
 - Saída preserva cada região aprovada, seus hashes de revisão/texto, revisão e atestado local. Regiões não aprovadas continuam `review_required`; página sem texto usa o alvo reservado `__page__`. O contrato está exposto no WASM e coberto por teste real Web/WASM.

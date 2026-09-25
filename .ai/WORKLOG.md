@@ -1,10 +1,15 @@
 # Worklog
 
+## 2026-09-24 — persistência da composição OCR
+- Base `b293070` local. `canonical_ocr_batch.ts` salva conjunto escolhido de aprovações individuais já persistidas; cada item reabre a revisão histórica e a evidência, recomputa promoção no Rust e só então compõe no WASM. A chave deriva do `compositionHash`; leitura revalida o conjunto e o checkpoint. Nenhum item é selecionado automaticamente.
+- QA independente identificou retry concorrente que falhava em CAS e ausência de checagem de `pinned`/`regenerable`/`finalArtifact` no manifest da aprovação individual. Corrigidos. Teste com IndexedDB/OPFS falso e WASM real cobre duas regiões, ordem, reload, retry concorrente e corrupção; passou.
+- Primeira suíte completa detectou conflito de sequência no teste de duas gravações concorrentes com lock falso sem serialização. O tratamento de retry agora retorna somente batch existente integralmente revalidado e idêntico; o teste usa lock serializado como Web Locks. Web STANDARD final passou: 169 testes, 2 ignorados, typecheck e build. Interface e narrativa continuam no fluxo individual. Validação visual fica com o usuário.
+
 ## 2026-09-24 — composição OCR canônica no Rust/WASM
 - A pedido do usuário, validação visual do redesign ficou sob responsabilidade dele; trabalho avançou para a lacuna funcional de múltiplas correções OCR aprovadadas.
 - `compose_approved_ocr` recebe revisões locais contra o mesmo DocumentIR original, valida cada uma pela promoção Rust existente, rejeita duplicatas/alvos repetidos e ordena o resultado por página/região. Referências incluem hash da revisão, hash do texto, revisão e atestado; `compositionHash` fixa o conjunto. Regiões não aprovadas seguem `review_required`.
 - Revisão independente encontrou duas falhas médias: metadados de atestação omitidos e custo potencial de 256 revisões em documentos grandes. Corrigidas com campos por referência, teto de oito revisões e limite de 128 MB considerando uma serialização inicial mais três por revisão. A segunda revisão independente detectou que a primeira fórmula subestimava o trabalho; a fórmula foi corrigida. Testes cobrem duas regiões, entrada reordenada, duplicata, fonte alterada, página `__page__`, revisão inválida e limite de lote. Web testa a exportação WASM real.
-- Gates: `cargo test --workspace` passou (5+13+33 testes), `npm run wasm:build` passou, `npm run test:standard` passou (168 testes, 2 ignorados, typecheck e build). `cargo fmt --all -- --check`, Clippy e `git diff --check` serão confirmados no fechamento.
+- Gates finais: `cargo fmt --all -- --check`, `cargo test --workspace` (5+13+33 testes), `cargo clippy --workspace --all-targets -- -D warnings`, `npm run wasm:build`, `npm run test:standard` (168 testes, 2 ignorados, typecheck e build) e `git diff --check` passaram. Revisão independente refez a checagem da fórmula de custo; a correção final conta uma serialização inicial e três por revisão.
 - Limite do lote: composição ainda não é selecionável/salva pela UI. A aprovação OCR individual existente permanece ativa; não houve promoção automática nem autorização adicional de TTS.
 
 ## 2026-09-24 — sincronização e verificação do redesign

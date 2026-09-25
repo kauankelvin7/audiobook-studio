@@ -1,5 +1,13 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — persistência de composição OCR (2026-09-24)
+- Base: commit local `b293070` com composição canônica Rust/WASM validada; branch remoto ainda no checkpoint `de75a66`.
+- Objetivo: salvar e reler composição explícita de revisões OCR previamente aprovadas, ligada às evidências históricas e revalidada pelo Rust antes de uso.
+- Evidência: core já entrega `compositionHash`, referências por alvo e DocumentIR derivado; Web persiste aprovações individuais com CAS mas ainda não monta um conjunto.
+- Restrições: seleção explícita de chaves de aprovações existentes; não escolher revisão silenciosamente nem alterar o fluxo de narrativa nesta etapa. TypeScript só valida contrato e coordena OPFS/IndexedDB/WASM.
+- Riscos: aprovação órfã, review histórico adulterado, fonte trocada, corrida de checkpoint, repetição não idempotente. Validar cada artefato e revisão, recomputar composição no WASM, usar chave pelo hash e CAS.
+- Verificação: teste com WASM real e storage falso, Web STANDARD, Rust gates se core mudar, diff check, QA independente. Risco HIGH; Lead writer único.
+
 ## PRE-FLIGHT — composição canônica de revisões OCR (2026-09-24)
 - Base: `de75a66` alinhado ao remoto; CI `quality` 36076176027 verde. Gates locais após `npm ci`: Rust fmt/test e Web STANDARD verdes. Validação visual delegada pelo usuário.
 - Objetivo: compor múltiplas aprovações OCR independentes em um DocumentIR v2 derivado, com proveniência e hash canônicos, sem liberar regiões não aprovadas.
