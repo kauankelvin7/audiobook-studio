@@ -4,28 +4,48 @@ import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
+type PdfZoomMode = "fit-width" | "fit-page" | "custom";
+type ViewportSize = { width: number; height: number };
+
+const PDF_CSS_UNITS = 96 / 72;
+const MAX_RASTER_PIXELS = 18_000_000;
+const PAGE_GUTTER = 32;
+
+function safeOutputScale(viewport: { width: number; height: number }) {
+  const deviceScale = Math.min(globalThis.devicePixelRatio || 1, 2);
+  const cssPixels = Math.max(1, viewport.width * viewport.height);
+  const pixelLimitedScale = Math.sqrt(MAX_RASTER_PIXELS / cssPixels);
+  return Math.max(0.25, Math.min(deviceScale, pixelLimitedScale));
+}
+
 export function PdfOriginalPage({
   source,
   pageNumber,
   zoom,
+  zoomMode,
+  onResolvedZoom,
 }: {
   source: Blob;
   pageNumber: number;
   zoom: number;
+  zoomMode: PdfZoomMode;
+  onResolvedZoom?: (zoom: number) => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
   const [readyVersion, setReadyVersion] = useState(0);
-  const [availableWidth, setAvailableWidth] = useState(0);
+  const [viewportSize, setViewportSize] = useState<ViewportSize>({ width: 0, height: 0 });
 
   useEffect(() => {
     const shell = shellRef.current;
-    if (!shell) return;
-    const update = () => setAvailableWidth(shell.clientWidth);
+    const scrollHost = shell?.closest(".paper-scroll");
+    if (!(scrollHost instanceof HTMLElement)) return;
+
+    const update = () => setViewportSize({ width: scrollHost.clientWidth, height: scrollHost.clientHeight });
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(shell);
+    observer.observe(scrollHost);
     return () => observer.disconnect();
   }, []);
 
@@ -73,11 +93,23 @@ export function PdfOriginalPage({
         page.cleanup();
         return;
       }
-      const natural = page.getViewport({ scale: 1 });
-      const fitWidth = availableWidth > 0 ? Math.max(220, availableWidth - 28) : natural.width;
-      const fitScale = Math.min(1, fitWidth / natural.width);
-      const viewport = page.getViewport({ scale: fitScale * (zoom / 100) });
-      const outputScale = Math.min(globalThis.devicePixelRatio || 1, 2);
+
+      const base = page.getViewport({ scale: 1 });
+      const availableWidth = Math.max(220, viewportSize.width - PAGE_GUTTER);
+      const availableHeight = Math.max(320, viewportSize.height - PAGE_GUTTER);
+      const fitWidthScale = availableWidth / base.width;
+      const fitPageScale = Math.min(fitWidthScale, availableHeight / base.height);
+      const scale = zoomMode === "fit-width"
+        ? fitWidthScale
+        : zoomMode === "fit-page"
+          ? fitPageScale
+          : PDF_CSS_UNITS * (zoom / 100);
+      const boundedScale = Math.max(0.25, Math.min(4, scale));
+      const viewport = page.getViewport({ scale: boundedScale });
+      const resolvedZoom = Math.round((boundedScale / PDF_CSS_UNITS) * 100);
+      onResolvedZoom?.(resolvedZoom);
+
+      const outputScale = safeOutputScale(viewport);
       const context = canvas.getContext("2d", { alpha: false });
       if (!context) {
         page.cleanup();
@@ -111,7 +143,7 @@ export function PdfOriginalPage({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [pageNumber, zoom, readyVersion, availableWidth]);
+  }, [pageNumber, zoom, zoomMode, readyVersion, viewportSize.width, viewportSize.height, onResolvedZoom]);
 
   return <div ref={shellRef} className="original-page-shell" aria-label={`Página ${pageNumber} no formato original`}>
     <canvas ref={canvasRef} className="original-page-canvas" />

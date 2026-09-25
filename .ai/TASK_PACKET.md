@@ -1,5 +1,22 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — consolidação visual escura do frontend (2026-09-25)
+- Ampliação autorizada pelo usuário: revisar todo o frontend, inclusive tema escuro, componentes e responsividade.
+- Diagnóstico: `tokens.css`, `shell.css`, `review.css` e `narrative.css` já definem linguagem escura, porém `editorial.css` carregado por último redefine 165 ocorrências para superfícies claras e até `color-scheme: light`. `production.css` também mantém um player progressivo com cartões claros hardcoded.
+- Decisão: preservar a arquitetura de estilos existente, mas transformar `editorial.css` em camada final escura e coerente em vez de manter dois temas concorrentes. O player progressivo passa a usar tokens escuros diretamente no arquivo de produção.
+- Alvos: hierarquia, densidade, sidebar, project bar, painéis, inputs, review workbench, inspector, narrativa, áudio/exportação, dialogs e mobile. Sem alterações no core, OCR, schemas, persistência, narrativa determinística ou áudio.
+- Risco: regressão visual/responsiva. Gates: typecheck, Vitest, build, CI Rust/Web, preview Vercel e smoke multi-viewport quando disponível.
+
+
+## PRE-FLIGHT — leitor PDF e composição de leitura (2026-09-25)
+- Base: `main` em `213a258`. Referência visual enviada pelo usuário mostra o PDF comprimido entre rail de páginas e inspector, com zoom pouco útil.
+- Evidência no código: `DocumentViewer` limita zoom a 70–200%; `PdfOriginalPage` combina fit-to-width com o percentual, trava o fit em escala <=1 e mantém scroll interno em um shell de no máximo 900 px.
+- Objetivo: priorizar a área de leitura, oferecer zoom previsível (largura, página e 50–300%), eliminar rolagem aninhada do fac-símile e evitar raster excessivo em zoom alto.
+- Decisão: manter `pdfjs-dist` 5.4.296 já instalado. Não adicionar React-PDF/novo viewer porque PDF.js já cobre renderização, viewport e cancelamento e o problema atual é de composição/escala.
+- Escopo: `DocumentWorkspace`, `PdfOriginalPage`, CSS do leitor, testes/contratos e documentação visual. OCR, DocumentIR, persistência, narrativa e TTS permanecem intocados.
+- Verificação planejada: typecheck, Vitest, build, CI Rust/Web, preview Vercel e inspeção visual manual posterior em desktop/mobile.
+
+
 ## PRE-FLIGHT — compatibilidade de runtime Android (2026-09-25)
 - Base: `main` em `cb42cdaf`, após player narrativo progressivo. Relatos do usuário indicam funções inconsistentes no celular.
 - Evidência no código: TTS Piper/ONNX roda em Worker com modelo local ~63 MB; persistência depende de IndexedDB + OPFS + Web Locks; leitura rápida exige voz `localService`; jobs Web longos não têm garantia em segundo plano.

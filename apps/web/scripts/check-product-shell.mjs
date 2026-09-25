@@ -65,7 +65,7 @@ try {
 
     await page.locator("#pdf-input").setInputFiles(resolve("../../tests/fixtures/text_and_blank.pdf"));
     await page.getByText(/Progresso salvo neste dispositivo/).waitFor({ timeout: 30_000 });
-    await page.getByRole("button", { name: "Página 2" }).first().click();
+    await page.getByRole("button", { name: "Próxima página" }).click();
 
     await page.evaluate(() => { location.hash = "#review"; });
     await page.waitForTimeout(120);

@@ -27,14 +27,16 @@ describe("qualidade visual base", () => {
   const accessibility = readFileSync(resolve(root, "src/styles/accessibility.css"), "utf8");
   const editorial = readFileSync(resolve(root, "src/styles/editorial.css"), "utf8");
   const production = readFileSync(resolve(root, "src/styles/production.css"), "utf8");
+  const workspace = readFileSync(resolve(root, "src/DocumentWorkspace.tsx"), "utf8");
+  const pdfViewer = readFileSync(resolve(root, "src/PdfOriginalPage.tsx"), "utf8");
   const main = readFileSync(resolve(root, "src/main.tsx"), "utf8");
 
   it("mantém contraste AA na base e na workstation editorial", () => {
     expect(contrast("#f4f6f8", "#0b0d12")).toBeGreaterThanOrEqual(4.5);
     expect(contrast("#18222e", "#e7eaed")).toBeGreaterThanOrEqual(4.5);
     expect(tokens).toContain("--color-ink: #f4f6f8");
-    expect(editorial).toContain("--color-ink: #18222e");
-    expect(editorial).toContain("--color-canvas: #e7eaed");
+    expect(editorial).toContain("--color-ink: #f4f7fa");
+    expect(editorial).toContain("--color-canvas: #090d13");
   });
 
   it("não volta a prender a revisão em altura fixa com conteúdo oculto", () => {
@@ -55,6 +57,8 @@ describe("qualidade visual base", () => {
     expect(main).toContain('import "./styles/editorial.css"');
     expect(editorial).toContain(".studio-sidebar");
     expect(editorial).toContain(".review-bottom-dock");
+    expect(editorial).toContain("color-scheme: dark");
+    expect(editorial).not.toContain("color-scheme: light");
     expect(production).toContain(".progressive-audio");
     expect(production).toContain(".audio-generation-loader");
   });
@@ -62,5 +66,16 @@ describe("qualidade visual base", () => {
   it("não comprime Narrativa e Áudio lado a lado na grade externa", () => {
     expect(shell).toMatch(/\.production-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
     expect(shell).not.toMatch(/\.production-grid\s*\{[^}]*repeat\(2/s);
+  });
+
+  it("mantém o leitor com zoom útil e composição responsiva própria", () => {
+    expect(workspace).toContain('"fit-width"');
+    expect(workspace).toContain('"fit-page"');
+    expect(workspace).toContain("300");
+    expect(workspace).toContain("pagePanelOpen");
+    expect(pdfViewer).toContain("PDF_CSS_UNITS");
+    expect(pdfViewer).toContain("MAX_RASTER_PIXELS");
+    expect(shell).toContain("@media (min-width: 740px) and (max-width: 1540px)");
+    expect(shell).toContain(".document-workspace.pages-open");
   });
 });

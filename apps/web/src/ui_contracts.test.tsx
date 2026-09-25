@@ -82,10 +82,13 @@ describe("frontend UI contracts", () => {
       reviewMode={true}
     />);
     expect(html).toContain('aria-label="Visualização do documento"');
+    expect(html).toContain('aria-label="Zoom do documento"');
+    expect(html).toContain('aria-label="Mostrar páginas"');
     expect(html).toContain(">Texto<");
     expect(html).toContain(">Original<");
     expect(html).toContain("disabled");
     expect(html).toContain("Trecho de teste");
+    expect(html).toContain(">200%<");
     expect(html).toContain('checked=""');
     expect(html).toContain('role="button"');
   });
