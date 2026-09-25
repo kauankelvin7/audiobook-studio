@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-24 — redesign Studio Dark/Glass
+- Decisão explícita do autor substitui Studio & Paper. O primeiro lote é somente visual: tokens dark/glass, hairlines translúcidos e superfícies elevadas; domínio, adapters, schemas e comportamento ficaram fora do change set.
+- PRE-FLIGHT registrado no TASK_PACKET. Arquivos reais de shell/review/narrativa, DESIGN_SYSTEM, PRODUCT_UX_BASELINE e handoff foram conferidos antes da edição.
+- Commits do lote inicial: `b3c3bee` aplica tokens/CSS dark-glass; `cee7e78` alinha documentação e handoff. Acessibilidade existente continua invariante.
+- Próxima iteração técnica parte do mesmo princípio: ampliar motion/leitor sem alterar contratos de OCR, narrativa, TTS ou persistência.
+
 ## 2026-09-24 — Product UX foundations e shell
 - Preservadas as alterações funcionais pré-existentes. Auditoria curta e baseline em `docs/PRODUCT_UX_BASELINE.md`.
 - Tokens, shell responsivo, navegação por etapas e estados vazios em `main.tsx`/`styles/`; mensagens de falha traduzidas nas telas de OCR, roteiro e áudio.

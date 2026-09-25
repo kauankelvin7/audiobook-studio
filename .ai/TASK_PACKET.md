@@ -1,5 +1,13 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — redesign Studio Dark/Glass (2026-09-24)
+- Base remota inicial: `080f1ac` em `codex/m4-content-model`; CI/deploy anterior verde. Nova instrução explícita substitui Studio & Paper por tema escuro iOS/glass.
+- Objetivo: reskin dirigido por seletores existentes, preservando árvore React, props, domínio Rust/WASM, adapters, schemas, OCR, narrativa, TTS, persistência, exportação e contratos de acessibilidade.
+- Fontes consultadas: `AGENTS.md`, `docs/CONTEXT_INDEX.md`, `.ai/HANDOFF.md`, `.ai/TASK_PACKET.md`, `docs/DESIGN_SYSTEM.md`, `docs/PRODUCT_UX_BASELINE.md`, CSS/React reais e relatório de redesign fornecido pelo autor.
+- Primeiro lote: tokens, glass em shell/review/narrativa, documento escuro, feedback de tap CSS e documentação alinhada. Sem alteração de grid, breakpoints ou regras de domínio.
+- Riscos: contraste real de glass, altura da review-mode e divergência visual sem screenshot. Preservar forced-colors, reduced-motion, pointer coarse e UI contracts.
+- Verificação: CI Web typecheck/test/build; Rust deve permanecer sem diff. Validação visual e smokes continuam como gates da entrega completa.
+
 ## Batch atual — Product UX foundations e shell (2026-09-24)
 - ACTION: registrar baseline funcional, preservar áudio literal/narrativo e melhorar tokens, navegação responsiva, estados vazios e mensagens ao usuário.
 - Telas: projeto, documento, revisão, narrativa, áudio e exportação na tela React existente.
