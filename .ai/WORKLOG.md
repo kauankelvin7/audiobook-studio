@@ -4,6 +4,7 @@
 - Base `b293070` local. `canonical_ocr_batch.ts` salva conjunto escolhido de aprovações individuais já persistidas; cada item reabre a revisão histórica e a evidência, recomputa promoção no Rust e só então compõe no WASM. A chave deriva do `compositionHash`; leitura revalida o conjunto e o checkpoint. Nenhum item é selecionado automaticamente.
 - QA independente identificou retry concorrente que falhava em CAS e ausência de checagem de `pinned`/`regenerable`/`finalArtifact` no manifest da aprovação individual. Corrigidos. Teste com IndexedDB/OPFS falso e WASM real cobre duas regiões, ordem, reload, retry concorrente e corrupção; passou.
 - Primeira suíte completa detectou conflito de sequência no teste de duas gravações concorrentes com lock falso sem serialização. O tratamento de retry agora retorna somente batch existente integralmente revalidado e idêntico; o teste usa lock serializado como Web Locks. Web STANDARD final passou: 169 testes, 2 ignorados, typecheck e build. Interface e narrativa continuam no fluxo individual. Validação visual fica com o usuário.
+- Publicação: `b293070` e `3b853c1` enviados a `origin/codex/m4-content-model`. CI `quality` 36081703501 concluiu com sucesso no HEAD `3b853c1` (Rust e Web verdes).
 
 ## 2026-09-24 — composição OCR canônica no Rust/WASM
 - A pedido do usuário, validação visual do redesign ficou sob responsabilidade dele; trabalho avançou para a lacuna funcional de múltiplas correções OCR aprovadadas.
