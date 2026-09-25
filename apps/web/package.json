@@ -23,7 +23,8 @@
     "test:browser:ocr-learning": "node scripts/stage-ocr-runtime.mjs && node scripts/smoke-ocr-learning.mjs",
     "test:standard": "npm run typecheck && npm test && npm run build",
     "test:full": "npm run test:standard && npm audit --audit-level=high",
-    "deploy:verify": "node scripts/verify-deploy-output.mjs"
+    "deploy:verify": "node scripts/verify-deploy-output.mjs",
+    "test:browser:shell": "node scripts/check-product-shell.mjs"
   },
   "dependencies": {
     "@diffusionstudio/piper-wasm": "1.0.0",
