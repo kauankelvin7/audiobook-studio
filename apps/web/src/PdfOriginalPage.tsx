@@ -15,7 +15,7 @@ function safeOutputScale(viewport: { width: number; height: number }) {
   const deviceScale = Math.min(globalThis.devicePixelRatio || 1, 2);
   const cssPixels = Math.max(1, viewport.width * viewport.height);
   const pixelLimitedScale = Math.sqrt(MAX_RASTER_PIXELS / cssPixels);
-  return Math.max(1, Math.min(deviceScale, pixelLimitedScale));
+  return Math.max(0.25, Math.min(deviceScale, pixelLimitedScale));
 }
 
 export function PdfOriginalPage({

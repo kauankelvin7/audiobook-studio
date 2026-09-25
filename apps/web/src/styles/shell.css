@@ -637,7 +637,7 @@ html { scroll-behavior: smooth; }
 .document-block { border-radius: 5px; outline: 1px solid transparent; outline-offset: 3px; }
 .document-block[role="button"] { cursor: pointer; }
 .document-block.selected { background: rgba(63, 140, 255, .16); outline-color: rgba(63, 140, 255, .38); }
-.document-block h2 { margin: 0 0 20px; font: 600 34px/1.15 var(--font-reading); letter-spacing: -.025em; }
+.document-block h2 { margin: 0 0 1.1em; font: 600 1.9em/1.15 var(--font-reading); letter-spacing: -.025em; }
 .document-block p { margin: 0 0 15px; }
 .document-block pre {
   overflow: auto;
@@ -646,7 +646,7 @@ html { scroll-behavior: smooth; }
   border-radius: 12px;
   background: #ebe6dc;
   color: #202a36;
-  font: 13px/1.65 var(--font-mono);
+  font: .74em/1.65 var(--font-mono);
   white-space: pre;
 }
 
