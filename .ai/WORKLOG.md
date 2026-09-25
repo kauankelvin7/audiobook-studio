@@ -466,3 +466,10 @@
 - `PdfOriginalPage` continua usando `pdfjs-dist` já presente no projeto. Agora distingue `fit-width`, `fit-page` e zoom manual 50–300%; 100% manual usa 96/72 como escala CSS de PDF. O scroll fica no `paper-scroll`, sem scroll aninhado no canvas.
 - Rasterização em DPI alto é limitada a 18 milhões de pixels por página renderizada; o canvas mantém o tamanho CSS solicitado e reduz apenas o fator de raster quando necessário.
 - Contratos não visuais passam a exigir zoom avançado, rail recolhível e limite de raster. OCR, persistência, narrativa e TTS não foram alterados.
+
+## 2026-09-25 — consolidação visual escura do frontend
+- Auditoria do CSS encontrou conflito de tema: a base do produto era dark, mas `editorial.css` carregado ao final redefinia `:root`, mobile, forms, workbench, inspector e painéis para light. O arquivo continha 165 referências a superfícies/cores claras; `production.css` mantinha 36 ocorrências claras, concentradas sobretudo no player progressivo.
+- `editorial.css` foi refeito como camada final dark: shell, sidebar, project bar, importação, reader, inspector OCR, summaries, narrativa, áudio, exportação, dialogs e mobile agora usam a mesma hierarquia de canvas/surface/field/border e a mesma família de estados.
+- O player narrativo progressivo foi convertido para tokens dark no próprio `production.css`, removendo cartões brancos isolados e preservando estrutura, controles e breakpoints.
+- O leitor PDF do commit anterior permanece com zoom fit-width/fit-page/50–300%, rail recolhível e raster limitado. O conjunto agora forma uma única linguagem visual, sem override light posterior.
+- Testes de qualidade visual foram atualizados para exigir `color-scheme: dark` e rejeitar retorno explícito a `color-scheme: light`.

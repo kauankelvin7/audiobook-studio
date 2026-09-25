@@ -35,8 +35,8 @@ describe("qualidade visual base", () => {
     expect(contrast("#f4f6f8", "#0b0d12")).toBeGreaterThanOrEqual(4.5);
     expect(contrast("#18222e", "#e7eaed")).toBeGreaterThanOrEqual(4.5);
     expect(tokens).toContain("--color-ink: #f4f6f8");
-    expect(editorial).toContain("--color-ink: #18222e");
-    expect(editorial).toContain("--color-canvas: #e7eaed");
+    expect(editorial).toContain("--color-ink: #f4f7fa");
+    expect(editorial).toContain("--color-canvas: #090d13");
   });
 
   it("não volta a prender a revisão em altura fixa com conteúdo oculto", () => {
@@ -57,6 +57,8 @@ describe("qualidade visual base", () => {
     expect(main).toContain('import "./styles/editorial.css"');
     expect(editorial).toContain(".studio-sidebar");
     expect(editorial).toContain(".review-bottom-dock");
+    expect(editorial).toContain("color-scheme: dark");
+    expect(editorial).not.toContain("color-scheme: light");
     expect(production).toContain(".progressive-audio");
     expect(production).toContain(".audio-generation-loader");
   });
