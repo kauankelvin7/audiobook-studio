@@ -1,5 +1,24 @@
 # Worklog
 
+## 2026-09-25 — redesign do modo leitura e reorganização dos componentes do frontend
+- Reorganização completa do modo leitura (`DocumentWorkspace`, `ReadingPlayer`, `appearance.css`):
+  - Barra de leitura imersiva com linha de progresso percentual no topo.
+  - 4 temas de leitura: Padrão Escuro (Studio), Papel Suave (creme livro), Sépia Acolhedor e Noite (alto contraste OLED).
+  - Controle de zoom de texto e alternância de largura de leitura (820px confortável / 1040px ampla).
+  - Navegação por teclado: setas `ArrowLeft` / `ArrowRight`, `PageUp` / `PageDown` e `Escape` para sair da leitura.
+  - Botões laterais flutuantes discretos para virar páginas com um clique sem rolar até a barra.
+  - Tocador de áudio no leitor (`ReadingPlayer`) reformulado com scrubber de reprodução, botões de saltar ±10s, play/pause em destaque, minimização elegante e aviso suave quando áudio não gerado.
+- Reestruturação dos componentes desorganizados do frontend:
+  - `LiteralReadingPanel`: dividido em cards de seleção de páginas com grid limpa, buffer de conferência de texto e ações de voz local e síntese Faber com barra de progresso visual.
+  - `CompleteAudiobookPanel`: reorganizado em cartões conceituais comparando Audiobook Narrativo vs Audiobook Literal, barra de progresso gráfica de síntese e tocador integrado.
+  - `ChapterList`: numeração alinhada, badge de duração, indicador de capítulo ativo e scroll organizado.
+  - `AudioHistory`: lista de gravações estruturada em cards com tags de data, tamanho e botões de ação e exclusão alinhados.
+  - `ProjectImportPanel`: dropzone de importação de PDF moderna com suporte visual a arrastar/clicar e estado do arquivo.
+  - `ExportPanel`: chips de metadados do audiobook, botões de download claros com ícones e status de prontidão.
+  - `NativeTextApprovalPanel`: bloco de inspeção página por página elegante e card de aprovação estruturado.
+  - `StudioIcon`: adicionados ícones SVG complementares (play, pause, stop, download, close, prev, next, skipBack, skipForward, upload, trash, text, refresh).
+- Gates: `npm run typecheck` (0 erros), `npm test` (188 testes passaram), `npm run build` (sucesso, 39 arquivos / 81.51 MB).
+
 ## 2026-09-25 — modo leitura, rascunho narrativo e progresso por capítulo
 - Commit `7e258a1` consolida o trabalho acumulado desde `dc2f147`: modo leitura, ReadingPlayer, tema Claro/Escuro/Sistema, rascunho narrativo persistido e barra de progresso de geração narrativa.
 - Progresso de geração narrativa corrigido: quando o documento tem múltiplos capítulos exibe "Capítulo X de Y", caso contrário mantém "Adaptando trecho X de Y". Contagem por seção em vez de por segmento individual.

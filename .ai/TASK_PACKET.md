@@ -1,5 +1,12 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — redesign e reorganização do modo leitura e componentes do frontend (2026-09-25)
+- Pedido: ajustar modo leitura e frontend das partes do sistema, caprichar na organização, identificar e arrumar componentes desorganizados, seguido de commit e push.
+- Evidência: modo leitura carecia de barra de ferramentas de leitura imersiva, temas de leitura confortáveis (papel/sépia/noite), navegação por teclado e tocador integrado rico com scrubber; painéis de importação, aprovação, áudio literal, áudio completo e histórico de gravações continham elementos crus, quebras de linha e desorganização visual.
+- Plano: implementar Reader Bar com temas, controle de tamanho/largura de texto, barra de progresso no topo, botões laterais flutuantes e teclado (ArrowLeft/ArrowRight); refatorar tocador de áudio no leitor com controle de scrubber, play/pause, saltos de 10s e recolhimento; reestruturar LiteralReadingPanel, CompleteAudiobookPanel, ChapterList, AudioHistory, ProjectImportPanel, ExportPanel e NativeTextApprovalPanel com cards semânticos, badges, barras de progresso visuais e feedback refinado.
+- Restrições: sem alteração no Rust/WASM, sem quebra de contratos ARIA e testes de contrato existentes.
+- Verificação: `npm run typecheck` (0 erros), `npm test` (188 testes verdes), `npm run build` (sucesso, 39 arquivos/81.51 MB verificados).
+
 ## PRE-FLIGHT — revisão visual e geração narrativa local (2026-09-25)
 - Pedido: corrigir cortes, menu de páginas, aprovação, tipografia, cards e movimento; investigar geração narrativa ausente.
 - Evidência: alturas e sticky concorrentes cortam controles em viewport baixo; aprovação lista todas as páginas antes da ação; draft atual é literal e não tem provider de produção.
