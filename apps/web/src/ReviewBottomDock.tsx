@@ -50,17 +50,21 @@ export function ReviewBottomDock({
     <article className="review-summary-card audio-summary-card">
       <header className="summary-card-header">
         <div><span className="summary-icon"><StudioIcon name="audio" size={18} /></span>
-          <div><p className="summary-kicker">ÁUDIO</p><h2>{audioBusy ? "Áudio em geração" : audioUrl ? "Áudio disponível" : "Preparar áudio"}</h2></div>
+          <div><p className="summary-kicker">ÁUDIO</p><h2>{audioUrl ? "Ouvir agora" : audioBusy ? "Preparando áudio" : "Preparar áudio"}</h2></div>
         </div>
         <a href="#audio" aria-label="Abrir etapa de áudio"><StudioIcon name="chevron" size={17} /></a>
       </header>
-      {audioBusy && audioProgress ? <div className="summary-progress" aria-label="Progresso da geração">
-        <div><span>Gerando capítulos</span><strong>{audioProgress.current}/{audioProgress.total}</strong></div>
-        <progress value={audioProgress.current} max={Math.max(1, audioProgress.total)} />
-      </div> : audioUrl ? <>
-        <p className="audio-mode-label">{audioMode === "narrative" ? "Audiobook narrativo" : "Leitura literal"} · {audioChapters} {audioChapters === 1 ? "capítulo" : "capítulos"}</p>
+      {audioUrl ? <>
+        <p className="audio-mode-label">{audioMode === "narrative" ? "Audiobook narrativo" : "Leitura literal"} · {audioChapters} {audioChapters === 1 ? "capítulo disponível" : "capítulos disponíveis"}</p>
         <audio className="summary-audio" controls src={audioUrl} aria-label="Audiobook disponível" />
-      </> : <p className="summary-empty">Gere o primeiro capítulo na etapa Áudio depois de concluir as aprovações.</p>}
+        {audioBusy && audioProgress && <div className="summary-progress compact" aria-label="Progresso da geração">
+          <div><span>Continuando a geração</span><strong>{audioProgress.current}/{audioProgress.total}</strong></div>
+          <progress value={audioProgress.current} max={Math.max(1, audioProgress.total)} />
+        </div>}
+      </> : audioBusy && audioProgress ? <div className="summary-progress" aria-label="Progresso da geração">
+        <div><span>Preparando primeiro capítulo</span><strong>{audioProgress.current}/{audioProgress.total}</strong></div>
+        <progress value={audioProgress.current} max={Math.max(1, audioProgress.total)} />
+      </div> : <p className="summary-empty">Gere o primeiro capítulo na etapa Áudio depois de concluir as aprovações.</p>}
       <a className="summary-action audio-action" href="#audio">{audioUrl ? "Abrir player" : "Ir para áudio"}</a>
     </article>
 

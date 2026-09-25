@@ -41,6 +41,8 @@ export function AudioWorkspace({
       ocrCommitBusy={model.ocrCommitBusy}
       narrativeReady={model.narrativeReady}
       narrativeAudioStatus={model.narrativeAudioStatus}
+      narrativeGeneration={model.narrativeGeneration}
+      wavProgress={model.wavProgress}
       completeAudioRef={completeAudioRef}
       onGenerateLiteral={actions.generateCompleteLiteral}
       onGenerateNarrative={actions.generateCompleteNarrative}

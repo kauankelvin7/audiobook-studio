@@ -26,6 +26,7 @@ describe("qualidade visual base", () => {
   const shell = readFileSync(resolve(root, "src/styles/shell.css"), "utf8");
   const accessibility = readFileSync(resolve(root, "src/styles/accessibility.css"), "utf8");
   const editorial = readFileSync(resolve(root, "src/styles/editorial.css"), "utf8");
+  const production = readFileSync(resolve(root, "src/styles/production.css"), "utf8");
   const main = readFileSync(resolve(root, "src/main.tsx"), "utf8");
 
   it("mantém contraste AA na base e na workstation editorial", () => {
@@ -54,6 +55,8 @@ describe("qualidade visual base", () => {
     expect(main).toContain('import "./styles/editorial.css"');
     expect(editorial).toContain(".studio-sidebar");
     expect(editorial).toContain(".review-bottom-dock");
+    expect(production).toContain(".progressive-audio");
+    expect(production).toContain(".audio-generation-loader");
   });
 
   it("não comprime Narrativa e Áudio lado a lado na grade externa", () => {

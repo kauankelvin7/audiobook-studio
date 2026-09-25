@@ -9,6 +9,22 @@ import type { DocumentIrV2 } from "./schemas/ingestion";
 export type SavedWavWithUrl = SavedLiteralAudio & { url: string };
 export type CompleteAudioWithUrl = (CompleteLiteralAudio | CompleteNarrativeAudio) & { url: string };
 
+export type NarrativeChapterGeneration = {
+  chapterNumber: number;
+  title: string;
+  text: string;
+  status: "queued" | "generating" | "ready" | "error";
+  url: string | null;
+  durationSeconds: number | null;
+};
+
+export type NarrativeGenerationState = {
+  phase: "preparing" | "generating" | "assembling" | "complete" | "error" | "cancelled";
+  currentChapter: number | null;
+  message: string;
+  chapters: NarrativeChapterGeneration[];
+};
+
 export type AudioWorkspaceModel = {
   document: DocumentIr | null;
   documentV2: DocumentIrV2 | null;
@@ -36,6 +52,7 @@ export type AudioWorkspaceModel = {
   ocrCommitBusy: boolean;
   narrativeReady: boolean;
   narrativeAudioStatus: string;
+  narrativeGeneration: NarrativeGenerationState | null;
 };
 
 export type AudioWorkspaceActions = {

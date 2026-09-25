@@ -6,9 +6,10 @@ import { OcrInspectorTabs } from "./OcrReviewViews";
 import { ReviewBottomDock } from "./ReviewBottomDock";
 import { DocumentViewer } from "./DocumentWorkspace";
 import { NativeTextApprovalPanel } from "./NativeTextApprovalPanel";
+import { ProgressiveNarrativePlayer } from "./ProgressiveNarrativePlayer";
 import type { DocumentIr } from "./schemas/document";
 import type { DocumentIrV2 } from "./schemas/ingestion";
-import type { CompleteAudioWithUrl } from "./audio_types";
+import type { CompleteAudioWithUrl, NarrativeGenerationState } from "./audio_types";
 
 describe("frontend UI contracts", () => {
   it("renders the OCR inspector as an accessible tab list", () => {
@@ -125,6 +126,29 @@ describe("frontend UI contracts", () => {
     expect(html).toContain("1 para revisar");
     expect(html).toContain("Página 2");
     expect(html).not.toContain("Página 1 · texto encontrado");
+  });
+
+  it("renders progressive narrative playback before the full audiobook exists", () => {
+    const generation: NarrativeGenerationState = {
+      phase: "generating",
+      currentChapter: 2,
+      message: "Capítulo 1 pronto. Continuando a geração.",
+      chapters: [
+        { chapterNumber: 1, title: "Introdução", text: "Texto para acompanhar.", status: "ready",
+          url: "blob:chapter-1", durationSeconds: 12 },
+        { chapterNumber: 2, title: "Continuação", text: "Próximo texto.", status: "generating",
+          url: null, durationSeconds: null },
+      ],
+    };
+    const html = renderToStaticMarkup(<ProgressiveNarrativePlayer
+      generation={generation}
+      voiceProgress={{ loaded: 50, total: 100 }}
+    />);
+    expect(html).toContain("PLAYER EM TEMPO REAL");
+    expect(html).toContain("1 de 2 capítulos disponíveis");
+    expect(html).toContain("Texto do capítulo");
+    expect(html).toContain("Texto para acompanhar.");
+    expect(html).toContain("Gerando agora");
   });
 
 });

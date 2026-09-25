@@ -1,7 +1,9 @@
 import type { MutableRefObject } from "react";
 import { AudioPlayer } from "./AudioPlayer";
 import { ChapterList } from "./ChapterList";
-import type { CompleteAudioWithUrl } from "./audio_types";
+import { ProgressiveNarrativePlayer } from "./ProgressiveNarrativePlayer";
+import type { WavProgress } from "./adapters/local_wav";
+import type { CompleteAudioWithUrl, NarrativeGenerationState } from "./audio_types";
 
 export function CompleteAudiobookPanel({
   completeWav,
@@ -13,6 +15,8 @@ export function CompleteAudiobookPanel({
   ocrCommitBusy,
   narrativeReady,
   narrativeAudioStatus,
+  narrativeGeneration,
+  wavProgress,
   completeAudioRef,
   onGenerateLiteral,
   onGenerateNarrative,
@@ -29,6 +33,8 @@ export function CompleteAudiobookPanel({
   ocrCommitBusy: boolean;
   narrativeReady: boolean;
   narrativeAudioStatus: string;
+  narrativeGeneration: NarrativeGenerationState | null;
+  wavProgress: WavProgress | null;
   completeAudioRef: MutableRefObject<HTMLAudioElement | null>;
   onGenerateLiteral: () => void | Promise<void>;
   onGenerateNarrative: () => void | Promise<void>;
@@ -54,10 +60,25 @@ export function CompleteAudiobookPanel({
     {!narrativeReady && <p id="narrative-audio-requirement" className="audio-inline-note">
       Aprove o roteiro na etapa Narrativa para habilitar a geração narrada.
     </p>}
-    {narrativeAudioStatus && <p className="audio-generation-status" role="status" aria-live="polite">{narrativeAudioStatus}</p>}
-    {completeProgress !== null && <p role="status" aria-live="polite">{completeProgress} de {completeTotal} capítulos processados.</p>}
+    {narrativeAudioStatus && !narrativeGeneration && <p className="audio-generation-status" role="status" aria-live="polite">{narrativeAudioStatus}</p>}
 
-    {completeWav && <div className="wav-result">
+    {narrativeGeneration && <ProgressiveNarrativePlayer generation={narrativeGeneration} voiceProgress={wavProgress} />}
+
+    {wavBusy && !narrativeGeneration && <section className="audio-generation-loader" aria-label="Progresso da geração de áudio">
+      <div className="generation-loader-heading">
+        <span className="loading-ring" aria-hidden="true" />
+        <div><strong>Gerando áudio neste dispositivo</strong>
+          <small>{completeProgress !== null && completeTotal > 0
+            ? `${completeProgress} de ${completeTotal} capítulos concluídos`
+            : "Preparando a voz local…"}</small></div>
+      </div>
+      {completeProgress !== null && completeTotal > 0 && <progress value={completeProgress} max={completeTotal} />}
+      {wavProgress && wavProgress.total > 0 && <p>{Math.min(100, Math.round(wavProgress.loaded / wavProgress.total * 100))}% dos arquivos de voz preparados</p>}
+    </section>}
+
+    {completeProgress !== null && !narrativeGeneration && <p role="status" aria-live="polite">{completeProgress} de {completeTotal} capítulos processados.</p>}
+
+    {completeWav && (!narrativeGeneration || !("mode" in completeWav) || completeWav.mode !== "narrative") && <div className="wav-result">
       <p>Modo: {"mode" in completeWav && completeWav.mode === "narrative" ? "Narrativo" : "Literal"}.</p>
       <AudioPlayer src={completeWav.url} label="Audiobook completo" audioRef={completeAudioRef} onTimeUpdate={onTimeUpdate} />
       <div className="reading-actions">
@@ -67,5 +88,11 @@ export function CompleteAudiobookPanel({
       </div>
       <ChapterList completeWav={completeWav} currentChapter={currentChapter} onSeek={onSeek} />
     </div>}
+
+    {completeWav && narrativeGeneration && "mode" in completeWav && completeWav.mode === "narrative"
+      && <div className="final-audio-ready" role="status">
+        <span><strong>Arquivo final pronto</strong><small>Todos os capítulos foram validados e o WAV completo já pode ser exportado.</small></span>
+        <a className="button-link button-secondary" href="#export">Ir para exportação</a>
+      </div>}
   </section>;
 }

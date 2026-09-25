@@ -72,7 +72,7 @@ export async function saveNarrativeChapter(store: LocalProjectPersistence, sourc
   return key;
 }
 
-async function loadChapter(store: LocalProjectPersistence, source: DocumentIrV2,
+export async function loadNarrativeChapter(store: LocalProjectPersistence, source: DocumentIrV2,
   approved: ApprovedNarrativeRecord, key: string, chapterNumber: number): Promise<Blob | null> {
   if (!chunkKey.test(key)) return null;
   const [record, metaRecord] = await Promise.all([
@@ -107,7 +107,7 @@ export async function listNarrativeChapters(store: LocalProjectPersistence, sour
       if (meta.success) number = meta.data.chapterNumber;
     } catch { continue; }
     if (number > 0 && number <= approved.approved.plan.spokenChapters.length
-      && !found.has(number) && await loadChapter(store, source, approved, key, number)) found.set(number, key);
+      && !found.has(number) && await loadNarrativeChapter(store, source, approved, key, number)) found.set(number, key);
   }
   return found;
 }
@@ -124,7 +124,7 @@ export async function saveCompleteNarrativeAudio(store: LocalProjectPersistence,
   let startSeconds = 0;
   for (const [index, key] of keys.entries()) {
     if (!latest.artifactKeys.includes(key) || !latest.artifactKeys.includes(`${key}_meta`)) throw new Error("O capítulo não pertence ao checkpoint atual.");
-    const wav = await loadChapter(store, source, approved, key, index + 1);
+    const wav = await loadNarrativeChapter(store, source, approved, key, index + 1);
     if (!wav) throw new Error(`O capítulo ${index + 1} não passou na validação.`);
     const durationSeconds = (wav.size - 44) / 44_100;
     chapters.push({ pageNumber: index + 1, audioKey: key, startSeconds, durationSeconds });

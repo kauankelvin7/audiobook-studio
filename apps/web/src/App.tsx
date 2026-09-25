@@ -8,7 +8,7 @@ import { listLiteralAudios, loadCompleteLiteralAudio, loadLiteralAudio, loadLite
   type CompleteLiteralAudio, type LiteralAudioEntry, type SavedLiteralAudio } from "./adapters/saved_literal_audio";
 import { buildReadingSession, type ReadingSession } from "./adapters/rust_reading_preview";
 import { loadLatestApprovedNarrative } from "./adapters/approved_narrative";
-import { listNarrativeChapters, loadCompleteNarrativeAudio, narrativeReadingSession,
+import { listNarrativeChapters, loadCompleteNarrativeAudio, loadNarrativeChapter, narrativeReadingSession,
   saveCompleteNarrativeAudio, saveNarrativeChapter, type CompleteNarrativeAudio } from "./adapters/narrative_audio";
 import type { ArtifactWrite } from "./adapters/ports";
 import { documentIrSchema, type DocumentIr } from "./schemas/document";
@@ -24,6 +24,7 @@ import { ExportPanel } from "./ExportPanel";
 import { AudioWorkspace } from "./AudioWorkspace";
 import { useLocalSpeechPlayer } from "./useLocalSpeechPlayer";
 import { useApprovedNarrativeRecord } from "./useApprovedNarrativeRecord";
+import type { NarrativeGenerationState } from "./audio_types";
 
 const OcrReviewPanel = lazy(async () => ({ default: (await import("./OcrReviewPanel")).OcrReviewPanel }));
 const NarrativePanel = lazy(async () => ({ default: (await import("./NarrativePanel")).NarrativePanel }));
@@ -42,6 +43,7 @@ export function App() {
   const wavUrlRef = useRef<string | null>(null);
   const savedWavUrlRef = useRef<string | null>(null);
   const completeWavUrlRef = useRef<string | null>(null);
+  const progressiveNarrativeUrlsRef = useRef<Set<string>>(new Set());
   const completeAudioRef = useRef<HTMLAudioElement | null>(null);
   const [document, setDocument] = useState<DocumentIr | null>(null);
   const [sourcePdf, setSourcePdf] = useState<Blob | null>(null);
@@ -73,6 +75,7 @@ export function App() {
   const [audioMaintenanceBusy, setAudioMaintenanceBusy] = useState(false);
   const [currentAudioKey, setCurrentAudioKey] = useState<string | null>(null);
   const [narrativeAudioStatus, setNarrativeAudioStatus] = useState("");
+  const [narrativeGeneration, setNarrativeGeneration] = useState<NarrativeGenerationState | null>(null);
 
   function clearWav() {
     wavAbortRef.current?.abort();
@@ -99,6 +102,24 @@ export function App() {
     setCompleteWav(null);
     setCompleteProgress(null);
     setCurrentChapter(0);
+  }
+
+  function clearNarrativeGeneration() {
+    for (const url of progressiveNarrativeUrlsRef.current) URL.revokeObjectURL(url);
+    progressiveNarrativeUrlsRef.current.clear();
+    setNarrativeGeneration(null);
+  }
+
+  function publishNarrativeChapter(chapterNumber: number, wav: Blob) {
+    const url = URL.createObjectURL(wav);
+    progressiveNarrativeUrlsRef.current.add(url);
+    const durationSeconds = Math.max(0, (wav.size - 44) / 44_100);
+    setNarrativeGeneration(current => current ? {
+      ...current,
+      chapters: current.chapters.map(chapter => chapter.chapterNumber === chapterNumber
+        ? { ...chapter, status: "ready", url, durationSeconds }
+        : chapter),
+    } : current);
   }
 
   function seekChapter(index: number) {
@@ -278,6 +299,8 @@ export function App() {
       if (wavUrlRef.current) URL.revokeObjectURL(wavUrlRef.current);
       if (savedWavUrlRef.current) URL.revokeObjectURL(savedWavUrlRef.current);
       if (completeWavUrlRef.current) URL.revokeObjectURL(completeWavUrlRef.current);
+      for (const url of progressiveNarrativeUrlsRef.current) URL.revokeObjectURL(url);
+      progressiveNarrativeUrlsRef.current.clear();
       workerRef.current?.terminate();
       workerRef.current = null;
       if (persistenceRef.current === localPersistence) persistenceRef.current = null;
@@ -295,6 +318,7 @@ export function App() {
     clearWav();
     clearSavedWav();
     clearCompleteWav();
+    clearNarrativeGeneration();
     setAudioHistory([]);
     setCurrentAudioKey(null);
     setPreview(null);
@@ -523,6 +547,8 @@ export function App() {
 
   async function exportCompleteWav() {
     if (!documentV2 || !persistenceRef.current || wavBusy || busy || ocrCommitBusy) return;
+    clearNarrativeGeneration();
+    setNarrativeAudioStatus("");
     const source = documentV2;
     const generation = importGenerationRef.current;
     const store = persistenceRef.current.service;
@@ -580,60 +606,185 @@ export function App() {
       setStatus(message);
       return;
     }
+
     const source = documentV2;
     const generation = importGenerationRef.current;
     const store = persistenceRef.current.service;
     const controller = new AbortController();
     wavAbortRef.current = controller;
+    let activeChapter: number | null = null;
+
+    clearNarrativeGeneration();
+    clearCompleteWav();
+    setWavProgress(null);
     setWavBusy(true);
     setCompleteProgress(0);
-    setNarrativeAudioStatus("Conferindo roteiro e fontes antes da síntese…");
-    setStatus("Conferindo roteiro e fontes antes da síntese…");
+
+    const seedChapters = approvedNarrative.approved.plan.spokenChapters.map((chapter, index) => ({
+      chapterNumber: index + 1,
+      title: chapter.displayTitle,
+      text: approvedNarrative.approved.speechUnits
+        .filter(unit => unit.chapterId === chapter.id)
+        .map(unit => unit.displayText)
+        .join("\n\n"),
+      status: "queued" as const,
+      url: null,
+      durationSeconds: null,
+    }));
+    setCompleteTotal(seedChapters.length);
+    setNarrativeGeneration({
+      phase: "preparing",
+      currentChapter: null,
+      message: "Conferindo o roteiro aprovado e preparando a fila de áudio…",
+      chapters: seedChapters,
+    });
+    setNarrativeAudioStatus("Preparando a fila de narração…");
+    setStatus("Preparando a fila de narração…");
+
     try {
       const approved = await loadLatestApprovedNarrative(store, source);
       if (!approved) throw new Error("Aprove um roteiro narrativo antes de gerar o WAV.");
       const chapterCount = approved.approved.plan.spokenChapters.length;
-      setCompleteTotal(chapterCount);
       const sessions = Array.from({ length: chapterCount }, (_, index) =>
         narrativeReadingSession(source, approved, index + 1));
+      const keys: Array<string | null> = Array.from({ length: chapterCount }, () => null);
+
       const cached = await listNarrativeChapters(store, source, approved);
-      const keys: string[] = [];
-      for (const [index, session] of sessions.entries()) {
+      let readyCount = 0;
+      for (let index = 0; index < chapterCount; index++) {
         if (controller.signal.aborted || generation !== importGenerationRef.current) return;
         const key = cached.get(index + 1);
-        if (key) keys.push(key);
-        else {
-          const progressMessage = `Gerando áudio narrativo do capítulo ${index + 1} de ${chapterCount}…`;
-          setNarrativeAudioStatus(progressMessage);
-          setStatus(progressMessage);
-          const wav = await renderLocalWav(session, controller.signal, setWavProgress);
-          if (controller.signal.aborted) return;
-          keys.push(await saveNarrativeChapter(store, source, approved, index + 1, wav));
-        }
-        setCompleteProgress(index + 1);
+        if (!key) continue;
+        const wav = await loadNarrativeChapter(store, source, approved, key, index + 1);
+        if (!wav) continue;
+        keys[index] = key;
+        publishNarrativeChapter(index + 1, wav);
+        readyCount += 1;
       }
+
+      if (readyCount > 0) {
+        setCompleteProgress(readyCount);
+        const cachedMessage = readyCount === chapterCount
+          ? "Todos os capítulos já estavam salvos. Preparando o arquivo final…"
+          : `${readyCount} ${readyCount === 1 ? "capítulo recuperado" : "capítulos recuperados"}. Você já pode ouvir enquanto continuo a geração.`;
+        setNarrativeAudioStatus(cachedMessage);
+        setNarrativeGeneration(current => current ? { ...current, phase: "generating", message: cachedMessage } : current);
+      }
+
+      for (const [index, session] of sessions.entries()) {
+        if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+        if (keys[index]) continue;
+        const chapterNumber = index + 1;
+        activeChapter = chapterNumber;
+        const progressMessage = `Gerando capítulo ${chapterNumber} de ${chapterCount}. Assim que ficar pronto, ele entra no player.`;
+        setNarrativeAudioStatus(progressMessage);
+        setStatus(progressMessage);
+        setWavProgress(null);
+        setNarrativeGeneration(current => current ? {
+          ...current,
+          phase: "generating",
+          currentChapter: activeChapter,
+          message: progressMessage,
+          chapters: current.chapters.map(chapter => chapter.chapterNumber === activeChapter
+            ? { ...chapter, status: "generating" }
+            : chapter),
+        } : current);
+
+        const wav = await renderLocalWav(session, controller.signal, progress => {
+          setWavProgress(progress);
+          if (progress.total > 0) {
+            const percent = Math.min(100, Math.round(progress.loaded / progress.total * 100));
+            setNarrativeGeneration(current => current ? {
+              ...current,
+              message: percent < 100
+                ? `Preparando a voz local · ${percent}% · capítulo ${chapterNumber} de ${chapterCount}`
+                : `Voz pronta. Sintetizando capítulo ${chapterNumber} de ${chapterCount}…`,
+            } : current);
+          }
+        });
+        if (controller.signal.aborted || generation !== importGenerationRef.current) return;
+
+        const key = await saveNarrativeChapter(store, source, approved, chapterNumber, wav);
+        keys[index] = key;
+        publishNarrativeChapter(chapterNumber, wav);
+        readyCount += 1;
+        setCompleteProgress(readyCount);
+        const readyMessage = readyCount < chapterCount
+          ? `Capítulo ${chapterNumber} pronto. ${readyCount} de ${chapterCount} disponíveis para ouvir.`
+          : "Todos os capítulos estão prontos. Montando o audiobook final…";
+        setNarrativeAudioStatus(readyMessage);
+        setNarrativeGeneration(current => current ? {
+          ...current,
+          message: readyMessage,
+          currentChapter: readyCount < chapterCount ? chapterNumber + 1 : null,
+        } : current);
+      }
+
       if (controller.signal.aborted || generation !== importGenerationRef.current) return;
-      const complete = await saveCompleteNarrativeAudio(store, source, approved, keys);
+      const finalKeys = keys.filter((key): key is string => key !== null);
+      if (finalKeys.length !== chapterCount) throw new Error("Nem todos os capítulos ficaram disponíveis para a montagem final.");
+
+      setWavProgress(null);
+      setNarrativeGeneration(current => current ? {
+        ...current,
+        phase: "assembling",
+        currentChapter: null,
+        message: "Todos os capítulos podem ser ouvidos. Finalizando o WAV completo para exportação…",
+      } : current);
+      setNarrativeAudioStatus("Todos os capítulos podem ser ouvidos. Finalizando o arquivo completo…");
+      setStatus("Validando e montando o audiobook narrativo completo…");
+
+      const complete = await saveCompleteNarrativeAudio(store, source, approved, finalKeys);
       if (controller.signal.aborted || generation !== importGenerationRef.current) return;
       clearCompleteWav();
       const url = URL.createObjectURL(complete.blob);
       completeWavUrlRef.current = url;
       setCompleteWav({ ...complete, url });
       setCompleteProgress(chapterCount);
-      const successMessage = "Audiobook narrativo completo salvo neste dispositivo. Confira o player e baixe o WAV.";
+      const successMessage = "Audiobook narrativo completo. O player progressivo continua disponível e o WAV final já pode ser exportado.";
       setNarrativeAudioStatus(successMessage);
+      setNarrativeGeneration(current => current ? {
+        ...current,
+        phase: "complete",
+        currentChapter: null,
+        message: successMessage,
+      } : current);
       setStatus(successMessage);
     } catch (error) {
       if (!controller.signal.aborted && generation === importGenerationRef.current) {
         const message = userError(error, "Não foi possível gerar o áudio narrativo. Confira o roteiro e tente novamente.");
         setNarrativeAudioStatus(message);
+        setNarrativeGeneration(current => current ? {
+          ...current,
+          phase: "error",
+          message,
+          chapters: current.chapters.map(chapter => chapter.chapterNumber === activeChapter
+            ? { ...chapter, status: "error" }
+            : chapter),
+        } : current);
         setStatus(message);
       }
     } finally {
-      if (wavAbortRef.current === controller) { wavAbortRef.current = null; setWavBusy(false); }
+      if (controller.signal.aborted && generation === importGenerationRef.current) {
+        const message = "Geração interrompida. Os capítulos já concluídos continuam disponíveis para ouvir.";
+        setNarrativeAudioStatus(message);
+        setNarrativeGeneration(current => current ? {
+          ...current,
+          phase: "cancelled",
+          currentChapter: null,
+          message,
+          chapters: current.chapters.map(chapter => chapter.status === "generating"
+            ? { ...chapter, status: "queued" }
+            : chapter),
+        } : current);
+      }
+      if (wavAbortRef.current === controller) {
+        wavAbortRef.current = null;
+        setWavProgress(null);
+        setWavBusy(false);
+      }
     }
   }
-
 
 
   const approvedNarrative = useApprovedNarrativeRecord(
@@ -701,9 +852,9 @@ export function App() {
       narrativeReady={!!approvedNarrative}
       narrativeChapters={approvedNarrative?.approved.plan.spokenChapters.length ?? 0}
       narrativeQaStatus={approvedNarrative?.approved.qa.status ?? null}
-      audioUrl={completeWav?.url ?? null}
-      audioChapters={completeWav?.chapters.length ?? 0}
-      audioMode={completeWav ? ("mode" in completeWav ? completeWav.mode : "literal") : null}
+      audioUrl={completeWav?.url ?? narrativeGeneration?.chapters.find(chapter => chapter.url)?.url ?? null}
+      audioChapters={completeWav?.chapters.length ?? narrativeGeneration?.chapters.filter(chapter => chapter.status === "ready").length ?? 0}
+      audioMode={completeWav ? ("mode" in completeWav ? completeWav.mode : "literal") : narrativeGeneration ? "narrative" : null}
       audioBusy={wavBusy}
       audioProgress={completeProgress !== null ? { current: completeProgress, total: completeTotal } : null}
       exportReady={!!completeWav}
@@ -715,6 +866,8 @@ export function App() {
         persistence={ocrSourceReady ? persistenceRef.current?.service ?? null : null}
         onApproved={() => {
           setNarrativeAudioStatus("");
+          clearNarrativeGeneration();
+          if (completeWav && "mode" in completeWav && completeWav.mode === "narrative") clearCompleteWav();
           setNarrativeEpoch(value => value + 1);
         }} />
     </Suspense> : <div className="stage-empty"><span className="section-number">04</span><div><h2>Narrativa</h2><p>Depois da revisão, prepare o roteiro de cada capítulo.</p></div></div>}
@@ -728,6 +881,7 @@ export function App() {
         wavBusy, wavProgress, wavUrl, busy, ocrCommitBusy,
         narrativeReady: !!approvedNarrative,
         narrativeAudioStatus,
+        narrativeGeneration,
       }}
       actions={{
         openSavedAudio,

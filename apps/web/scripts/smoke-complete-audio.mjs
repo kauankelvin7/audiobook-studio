@@ -132,20 +132,23 @@ try {
   assert.notEqual(narrativeReport.qa.status, "fail");
   assert.equal(narrativeReport.approval.attestation, "local_operator_confirmed");
   await page.getByRole("button", { name: "Gerar audiobook narrativo em WAV" }).click();
-  await page.getByText("Audiobook narrativo completo salvo neste dispositivo.", { exact: false }).waitFor({ timeout: 600_000 });
-  await page.getByText("Modo: Narrativo.").waitFor();
-  const narrativeDuration = await player.evaluate(async audio => {
+  await page.getByText("PLAYER EM TEMPO REAL", { exact: true }).waitFor({ timeout: 60_000 });
+  const progressivePlayer = page.locator('audio[aria-label^="Capítulo 1:"]');
+  await progressivePlayer.waitFor({ timeout: 600_000 });
+  const firstChapterDuration = await progressivePlayer.evaluate(async audio => {
     if (audio.readyState < 1) await new Promise((resolveReady, reject) => {
       audio.addEventListener("loadedmetadata", resolveReady, { once: true });
-      audio.addEventListener("error", () => reject(new Error("WAV narrativo não decodificou.")), { once: true });
+      audio.addEventListener("error", () => reject(new Error("Capítulo progressivo não decodificou.")), { once: true });
     });
     await audio.play();
     return audio.duration;
   });
-  assert.ok(Number.isFinite(narrativeDuration) && narrativeDuration > 0);
+  assert.ok(Number.isFinite(firstChapterDuration) && firstChapterDuration > 0,
+    "O primeiro capítulo progressivo não ficou disponível.");
+  await page.getByText("Audiobook narrativo completo.", { exact: false }).waitFor({ timeout: 600_000 });
+  await page.getByText("Arquivo final pronto", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Próximo capítulo" }).click();
-  assert.ok(await player.evaluate(audio => audio.currentTime) > 0,
-    "O player narrativo não avançou para o segundo capítulo.");
+  await page.locator('audio[aria-label^="Capítulo 2:"]').waitFor();
   const narrativeDownload = page.waitForEvent("download");
   await page.getByRole("link", { name: "Baixar audiobook completo em WAV" }).click();
   const narrativeFile = await narrativeDownload;

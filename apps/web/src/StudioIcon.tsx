@@ -16,6 +16,10 @@ const paths = {
   book: "M12 5.5C8.8 3.2 5.5 3.8 3 5v14.5c3-1.5 6-1.4 9 .8 3-2.2 6-2.3 9-.8V5c-2.5-1.2-5.8-1.8-9 .5z M12 5.5v14.8",
   save: "M4 3.5h13.5l2.5 2.5v14.5H4z M7 3.5v6h9v-6 M7 20.5v-7h10v7",
   more: "M12 5h.01 M12 12h.01 M12 19h.01",
+  play: "M8 5.5v13l10-6.5z",
+  pause: "M8 5.5v13 M16 5.5v13",
+  previous: "M7 6v12 M18 6.5 9.5 12l8.5 5.5z",
+  next: "M17 6v12 M6 6.5l8.5 5.5L6 17.5z",
 } as const;
 
 export type StudioIconName = keyof typeof paths;
