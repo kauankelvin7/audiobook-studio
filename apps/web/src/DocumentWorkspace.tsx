@@ -13,6 +13,8 @@ type Props = {
   sourcePdf?: Blob | null;
   readingMode?: boolean;
   onReadingModeChange?: (enabled: boolean) => void;
+  railVisible?: boolean;
+  onToggleRail?: () => void;
 };
 
 export function PageNavigator({ document, pageNumber, onPageChange }: Props) {
@@ -21,6 +23,7 @@ export function PageNavigator({ document, pageNumber, onPageChange }: Props) {
   const pending = document.pages.filter(page => page.textQuality === "needs_ocr").length;
   const pages = document.pages.filter(page => (!pendingOnly || page.textQuality === "needs_ocr") && (!query || `${page.number} ${page.rawText}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
   const selectedButton = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     const button = selectedButton.current;
     const list = button?.closest("ol");
@@ -32,6 +35,7 @@ export function PageNavigator({ document, pageNumber, onPageChange }: Props) {
     if (item.left < bounds.left) list.scrollLeft -= bounds.left - item.left;
     else if (item.right > bounds.right) list.scrollLeft += item.right - bounds.right;
   }, [pageNumber]);
+
   return <aside className="page-rail" aria-label="Páginas do documento">
     <div className="result-heading"><div><p className="section-kicker">DOCUMENTO</p><h2 id="result-title">Páginas</h2></div><span className="count-badge">{document.pages.length}</span></div>
     <div className="page-search"><StudioIcon name="search" size={17} /><input aria-label="Buscar página ou conteúdo" placeholder="Buscar no documento" value={query} onChange={event => setQuery(event.target.value)} /></div>
@@ -49,16 +53,36 @@ export function PageNavigator({ document, pageNumber, onPageChange }: Props) {
   </aside>;
 }
 
-export function DocumentViewer({ document, pageNumber, onPageChange, selectedRegion, onRegionSelect, sourcePdf, readingMode = false, onReadingModeChange }: Props) {
+export function DocumentViewer({
+  document,
+  pageNumber,
+  onPageChange,
+  selectedRegion,
+  onRegionSelect,
+  sourcePdf,
+  readingMode = false,
+  onReadingModeChange,
+  railVisible = true,
+  onToggleRail,
+}: Props) {
   const [zoom, setZoom] = useState(100);
   const [readingTheme, setReadingTheme] = useState<"default" | "paper" | "sepia" | "night">("default");
   const [readerWidth, setReaderWidth] = useState<"standard" | "wide">("standard");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const review = !readingMode;
   const [viewMode, setViewMode] = useState<"text" | "original">("text");
   const viewer = useRef<HTMLDivElement>(null);
   const selectedPage = document.pages.find(page => page.number === pageNumber) ?? document.pages[0];
   const totalPages = document.pages.length;
   const progressPercent = totalPages > 0 ? Math.round((pageNumber / totalPages) * 100) : 0;
+
+  useEffect(() => {
+    function onFsChange() {
+      setIsFullscreen(!!globalThis.document.fullscreenElement);
+    }
+    globalThis.document.addEventListener("fullscreenchange", onFsChange);
+    return () => globalThis.document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
 
   useEffect(() => {
     if (!readingMode) return;
@@ -78,11 +102,27 @@ export function DocumentViewer({ document, pageNumber, onPageChange, selectedReg
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [readingMode, pageNumber, totalPages, onPageChange, onReadingModeChange]);
 
-  return <div className={`document-canvas${readingMode ? ` reading-active reader-theme-${readingTheme} reader-width-${readerWidth}` : ""}`} ref={viewer}>
+  return <div
+    className={`document-canvas${readingMode ? ` reading-active reader-theme-${readingTheme} reader-width-${readerWidth}` : ""}${isFullscreen ? " is-fullscreen" : ""}`}
+    ref={viewer}
+  >
     {readingMode && <div className="reader-top-progress" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100} aria-label="Progresso de leitura">
       <div className="reader-top-progress-bar" style={{ width: `${progressPercent}%` }} />
     </div>}
     <div className={`document-toolbar${readingMode ? " reader-toolbar" : ""}`}>
+      {!readingMode && onToggleRail && (
+        <button
+          className={`icon-button${!railVisible ? " active-rail-btn" : ""}`}
+          type="button"
+          onClick={onToggleRail}
+          aria-label={railVisible ? "Ocultar lista de páginas" : "Mostrar lista de páginas"}
+          title={railVisible ? "Ocultar páginas (mais espaço para o documento)" : "Mostrar páginas"}
+          aria-pressed={railVisible}
+        >
+          <StudioIcon name="sidebar" size={17} />
+        </button>
+      )}
+
       <div className="page-arrows">
         <button className="icon-button" onClick={() => onPageChange(Math.max(1, pageNumber - 1))} disabled={pageNumber <= 1} aria-label="Página anterior">‹</button>
         <button className="icon-button" onClick={() => onPageChange(Math.min(totalPages, pageNumber + 1))} disabled={pageNumber >= totalPages} aria-label="Próxima página">›</button>
@@ -102,15 +142,26 @@ export function DocumentViewer({ document, pageNumber, onPageChange, selectedReg
       </div>}
 
       <div className="viewer-tools">
-        <button className="icon-button" aria-label="Diminuir zoom" onClick={() => setZoom(Math.max(70, zoom - 10))} disabled={zoom <= 70}>−</button>
-        <output aria-label="Zoom do documento">{zoom}%</output>
-        <button className="icon-button" aria-label="Aumentar zoom" onClick={() => setZoom(Math.min(200, zoom + 10))} disabled={zoom >= 200}>+</button>
+        <button className="icon-button" aria-label="Diminuir zoom" onClick={() => setZoom(Math.max(50, zoom - 10))} disabled={zoom <= 50} title="Diminuir zoom (−)">−</button>
+        <output aria-label="Zoom do documento" title="Clique para redefinir para 100%" onClick={() => setZoom(100)} style={{ cursor: "pointer" }}>{zoom}%</output>
+        <button className="icon-button" aria-label="Aumentar zoom" onClick={() => setZoom(Math.min(250, zoom + 10))} disabled={zoom >= 250} title="Aumentar zoom (+)">+</button>
 
         {readingMode && <button className="icon-button" type="button" aria-label={readerWidth === "standard" ? "Expandir largura do texto" : "Largura padrão"} title={readerWidth === "standard" ? "Texto expandido" : "Texto padrão"} onClick={() => setReaderWidth(w => w === "standard" ? "wide" : "standard")}>
           <StudioIcon name="text" size={16} />
         </button>}
 
-        <button className="icon-button" aria-label="Expandir documento" onClick={() => { if (globalThis.document.fullscreenElement) void globalThis.document.exitFullscreen(); else void viewer.current?.requestFullscreen().catch(() => {}); }}>
+        <button
+          className="icon-button"
+          aria-label={isFullscreen ? "Sair da tela cheia" : "Expandir documento"}
+          title={isFullscreen ? "Sair da tela cheia (Esc)" : "Tela cheia"}
+          onClick={() => {
+            if (globalThis.document.fullscreenElement) {
+              void globalThis.document.exitFullscreen().catch(() => {});
+            } else {
+              void viewer.current?.requestFullscreen().catch(() => {});
+            }
+          }}
+        >
           <StudioIcon name="fullscreen" size={17} />
         </button>
 
@@ -140,14 +191,27 @@ export function DocumentViewer({ document, pageNumber, onPageChange, selectedReg
       </button>}
 
       {viewMode === "original" && sourcePdf
-        ? <div className="page-view original-view" key={`original-${pageNumber}`}><Suspense fallback={<div className="original-page-shell" aria-busy="true" />}>
+        ? <div className="page-view original-view"><Suspense fallback={<div className="original-page-shell" aria-busy="true" />}>
             <PdfOriginalPage source={sourcePdf} pageNumber={pageNumber} zoom={zoom} />
           </Suspense></div>
-        : <div className="page-view text-view" key={`text-${pageNumber}`}><article className={`page${readingMode ? " reading-article" : ""}`} style={{ fontSize: `${18 * zoom / 100}px` }} aria-labelledby={`page-${selectedPage.number}`}><p className="paper-eyebrow" id={`page-${selectedPage.number}`}>PÁGINA {selectedPage.number}</p>{selectedPage.textQuality === "needs_ocr" ? <p className="notice">Esta página não tem texto selecionável. Use o OCR para conferir seu conteúdo.</p> : <div className="blocks">{selectedPage.blocks.map(block => <div key={block.id} className={`document-block${review && selectedRegion === block.id ? " selected" : ""}`} tabIndex={review ? 0 : undefined} role={review ? "button" : undefined} aria-label={review ? `Selecionar trecho: ${block.text.slice(0, 60)}` : undefined} onClick={() => { if (review) onRegionSelect?.(block.id); }} onKeyDown={event => { if (review && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onRegionSelect?.(block.id); } }}>
+        : <div className="page-view text-view"><article className={`page${readingMode ? " reading-article" : ""}`} style={{ fontSize: `${18 * zoom / 100}px` }} aria-labelledby={`page-${selectedPage.number}`}><p className="paper-eyebrow" id={`page-${selectedPage.number}`}>PÁGINA {selectedPage.number}</p>{selectedPage.textQuality === "needs_ocr" ? <p className="notice">Esta página não tem texto selecionável. Use o OCR para conferir seu conteúdo.</p> : <div className="blocks">{selectedPage.blocks.map(block => <div key={block.id} className={`document-block${review && selectedRegion === block.id ? " selected" : ""}`} tabIndex={review ? 0 : undefined} role={review ? "button" : undefined} aria-label={review ? `Selecionar trecho: ${block.text.slice(0, 60)}` : undefined} onClick={() => { if (review) onRegionSelect?.(block.id); }} onKeyDown={event => { if (review && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onRegionSelect?.(block.id); } }}>
           {block.type === "heading" ? <h2>{block.text}</h2> : block.type === "code" ? <pre><code>{block.text}</code></pre> : <p>{block.text}</p>}
         </div>)}</div>}</article></div>}
     </div>
   </div>;
 }
 
-export function DocumentWorkspace(props: Props) { return <div className="result document-workspace" aria-labelledby="result-title"><PageNavigator {...props}/><DocumentViewer {...props}/></div>; }
+export function DocumentWorkspace(props: Props) {
+  const [railVisible, setRailVisible] = useState(true);
+
+  return (
+    <div className={`result document-workspace${railVisible ? "" : " rail-hidden"}`} aria-labelledby="result-title">
+      {railVisible && <PageNavigator {...props} />}
+      <DocumentViewer
+        {...props}
+        railVisible={railVisible}
+        onToggleRail={() => setRailVisible(v => !v)}
+      />
+    </div>
+  );
+}

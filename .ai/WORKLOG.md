@@ -1,5 +1,20 @@
 # Worklog
 
+## 2026-09-25 — otimização de troca de páginas do PDF, zoom responsivo e tela cheia
+- Resolução da lentidão crítica ao trocar páginas do PDF (`PdfOriginalPage.tsx` e `DocumentWorkspace.tsx`):
+  - Eliminada chave `original-${pageNumber}` que forçava desmontagem e remontagem completa do leitor e do worker a cada página.
+  - Implementado cache com `WeakMap` para instâncias de `PDFDocumentProxy`, evitando re-parsear o arquivo PDF na navegação entre páginas.
+  - Corrigido loop de `ResizeObserver` ao medir a largura do container pai estável (`.paper-scroll`) em vez do shell com `max-content`.
+  - Transição de páginas sem tela preta/branca piscando, mantendo o canvas renderizado enquanto a nova página carrega em segundo plano.
+- Ajuste de zoom e visibilidade de componentes:
+  - Faixa de zoom expandida de 50% a 250% com clique rápido no percentual para redefinir para 100%.
+  - Adicionado botão de recolhimento/expansão da lista de páginas (`PageNavigator`) na barra de ferramentas do documento para liberar mais de 250px e focar no documento e outros componentes.
+  - Escala proporcional no modo texto: headings e parágrafos usam `em` para escalar harmonicamente com o zoom.
+- Correção de tela cheia (Fullscreen):
+  - Adicionado suporte estilizado dedicado para `:fullscreen`, `:-webkit-full-screen` e `.is-fullscreen` no `.document-canvas`.
+  - Barra de ferramentas fixada no topo com backdrop blur e container rolável com suporte a zoom sem corte de margens ou distorção.
+- Gates: `npm run typecheck` (0 erros), `npm test` (188 testes passaram), `npm run build` (sucesso, 39 arquivos / 81.51 MB).
+
 ## 2026-09-25 — redesign do modo leitura e reorganização dos componentes do frontend
 - Reorganização completa do modo leitura (`DocumentWorkspace`, `ReadingPlayer`, `appearance.css`):
   - Barra de leitura imersiva com linha de progresso percentual no topo.

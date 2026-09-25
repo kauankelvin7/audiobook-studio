@@ -1,5 +1,12 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — correção de zoom, fullscreen, colapso de páginas e performance de troca de páginas do PDF (2026-09-25)
+- Pedido: ajustar zoom (incluindo modo leitura e tela cheia), permitir ocultar/ajustar espaçamento da lista de páginas para facilitar visualização de outros componentes, resolver lentidão/travamento ao trocar páginas do PDF, e preparar deploy sem erros.
+- Evidência: `PdfOriginalPage` era desmontado/remontado a cada página por chave com número de página, re-parseando o PDF de dezenas de páginas do zero no worker; `ResizeObserver` observava o shell com `width: max-content` gerando loop; falta de regras para `:fullscreen` quebrava a viewport ao dar zoom; headings usavam tamanho fixo em px quebrando proporção do zoom; barra de páginas consumia espaço horizontal fixo sem opção de recolhimento.
+- Plano: introduzir cache de `PDFDocumentProxy` via `WeakMap`, manter o componente montado entre trocas de páginas, medir container pai estável no `ResizeObserver`; estilizar `.document-canvas:fullscreen` com rolagem bidirecional fluida; adicionar botão de toggle na toolbar para recolher/expandir o `PageNavigator`; unificar zoom proporcional em `em`.
+- Restrições: sem alteração no Rust/WASM, sem quebra de contratos ARIA e testes de contrato existentes.
+- Verificação: `npm run typecheck` (0 erros), `npm test` (188 testes verdes), `npm run build` (sucesso, 39 arquivos/81.51 MB verificados).
+
 ## PRE-FLIGHT — redesign e reorganização do modo leitura e componentes do frontend (2026-09-25)
 - Pedido: ajustar modo leitura e frontend das partes do sistema, caprichar na organização, identificar e arrumar componentes desorganizados, seguido de commit e push.
 - Evidência: modo leitura carecia de barra de ferramentas de leitura imersiva, temas de leitura confortáveis (papel/sépia/noite), navegação por teclado e tocador integrado rico com scrubber; painéis de importação, aprovação, áudio literal, áudio completo e histórico de gravações continham elementos crus, quebras de linha e desorganização visual.

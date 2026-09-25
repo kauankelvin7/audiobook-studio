@@ -876,3 +876,117 @@ body { background: var(--color-canvas); color: var(--color-ink); font-size: 14px
   .reading-player-top { flex-wrap: wrap; }
 }
 
+/* ========================================================
+   WORKSPACE EXPANSION (HIDE PAGE RAIL) & ZOOM POLISH
+   ======================================================== */
+
+.document-workspace.rail-hidden {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.icon-button.active-rail-btn {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-soft-border);
+  color: var(--color-accent-hover);
+}
+
+.pdf-page-overlay-loading {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(18, 22, 31, 0.85);
+  backdrop-filter: blur(8px);
+  color: var(--color-accent-hover);
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--color-accent-soft-border);
+  z-index: 5;
+  box-shadow: var(--shadow-sm);
+  animation: studio-reveal 150ms ease;
+}
+
+.original-page-shell {
+  position: relative;
+}
+
+/* Zoom do texto proporcional */
+.document-block h2 {
+  margin: 0 0 0.6em;
+  font: 600 1.9em/1.15 var(--font-reading);
+  letter-spacing: -.025em;
+}
+
+.document-block p {
+  margin: 0 0 0.85em;
+  font-size: 1em;
+  line-height: 1.72;
+}
+
+/* ========================================================
+   FULLSCREEN MODE STYLING & ZOOM SUPPORT
+   ======================================================== */
+
+.document-canvas:fullscreen,
+.document-canvas:-webkit-full-screen,
+.document-canvas.is-fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  background: #090b10 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  z-index: 99999 !important;
+}
+
+.document-canvas:fullscreen .document-toolbar,
+.document-canvas:-webkit-full-screen .document-toolbar,
+.document-canvas.is-fullscreen .document-toolbar {
+  position: relative !important;
+  top: 0 !important;
+  width: 100% !important;
+  flex-shrink: 0 !important;
+  border-radius: 0 !important;
+  background: rgba(18, 22, 31, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  padding: 10px 24px !important;
+  z-index: 10 !important;
+}
+
+.document-canvas:fullscreen .paper-scroll,
+.document-canvas:-webkit-full-screen .paper-scroll,
+.document-canvas.is-fullscreen .paper-scroll {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: calc(100vh - 60px) !important;
+  max-height: calc(100vh - 60px) !important;
+  overflow: auto !important;
+  padding: 40px 24px !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  background: #090b10 !important;
+}
+
+.document-canvas:fullscreen .page,
+.document-canvas:-webkit-full-screen .page,
+.document-canvas.is-fullscreen .page {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+  margin: 0 auto 40px auto !important;
+}
+
+.document-canvas:fullscreen .original-page-shell,
+.document-canvas:-webkit-full-screen .original-page-shell,
+.document-canvas.is-fullscreen .original-page-shell {
+  margin: 0 auto 40px auto !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+}
+
+
