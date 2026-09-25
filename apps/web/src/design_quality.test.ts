@@ -49,4 +49,9 @@ describe("qualidade visual base", () => {
   it("carrega estilos específicos de produção em vez de depender de painel genérico", () => {
     expect(main).toContain('import "./styles/production.css"');
   });
+
+  it("não comprime Narrativa e Áudio lado a lado na grade externa", () => {
+    expect(shell).toMatch(/\.production-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+    expect(shell).not.toMatch(/\.production-grid\s*\{[^}]*repeat\(2/s);
+  });
 });

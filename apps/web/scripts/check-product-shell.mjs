@@ -1,9 +1,39 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { createServer } from "node:net";
 import { resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "playwright-core";
 
-const browser = await chromium.launch({ channel: "chrome", headless: true });
+const probe = createServer();
+probe.listen(0, "127.0.0.1");
+await once(probe, "listening");
+const port = probe.address().port;
+await new Promise((done, reject) => probe.close(error => error ? reject(error) : done()));
+const baseUrl = `http://127.0.0.1:${port}/`;
+const server = spawn(process.execPath, [
+  resolve("node_modules/vite/bin/vite.js"),
+  "--host", "127.0.0.1",
+  "--port", String(port),
+  "--strictPort",
+], { cwd: process.cwd(), stdio: "ignore" });
+
+let browser;
 try {
+  let ready = false;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try {
+      if ((await fetch(baseUrl)).ok) { ready = true; break; }
+    } catch {
+      // Aguarda o Vite aceitar conexões.
+    }
+    await delay(200);
+  }
+  assert.ok(ready, "Vite did not start");
+
+  browser = await chromium.launch({ channel: "chrome", headless: true });
+
   for (const [width, height] of [
     [1920, 1080],
     [1440, 960],
@@ -19,7 +49,7 @@ try {
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
 
-    await page.goto("http://localhost:5173/", { waitUntil: "networkidle" });
+    await page.goto(baseUrl, { waitUntil: "networkidle" });
     await page.getByRole("heading", { name: "Do documento à voz." }).waitFor();
 
     const shell = await page.evaluate(() => ({
@@ -58,13 +88,36 @@ try {
     assert.ok(review.inspectorWidth > 0, `evidence inspector collapsed at ${width}px`);
     if (width < 740) assert.equal(review.mobileNavPosition, "fixed");
 
+    await page.evaluate(() => { location.hash = "#narrative"; });
+    await page.waitForTimeout(80);
+    const production = await page.evaluate(() => {
+      const grid = document.querySelector(".production-grid");
+      const narrative = document.querySelector("#narrative");
+      const audio = document.querySelector("#audio");
+      return {
+        viewport: document.documentElement.clientWidth,
+        content: document.documentElement.scrollWidth,
+        gridWidth: grid?.getBoundingClientRect().width ?? 0,
+        narrativeWidth: narrative?.getBoundingClientRect().width ?? 0,
+        audioWidth: audio?.getBoundingClientRect().width ?? 0,
+      };
+    });
+    assert.ok(production.content <= production.viewport + 1, `production overflow at ${width}px: ${JSON.stringify(production)}`);
+    assert.ok(production.narrativeWidth >= production.gridWidth - 2, `narrative compressed at ${width}px: ${JSON.stringify(production)}`);
+    assert.ok(production.audioWidth >= production.gridWidth - 2, `audio compressed at ${width}px: ${JSON.stringify(production)}`);
+
     if (width === 1440 || width === 390) {
+      await page.evaluate(() => { location.hash = "#review"; });
+      await page.waitForTimeout(80);
       await page.screenshot({ path: resolve(`../../work/leve-inspired-review-${width}.png`), fullPage: true });
     }
 
-    console.log(`PASS shell/review ${width}x${height} overflow=0`);
+    assert.deepEqual(errors, []);
+    console.log(`PASS shell/review/production ${width}x${height} overflow=0`);
     await page.close();
   }
 } finally {
-  await browser.close();
+  await browser?.close();
+  server.kill();
+  await Promise.race([once(server, "exit"), delay(5_000)]);
 }
