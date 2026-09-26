@@ -6,6 +6,7 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // Cache global de instâncias de PDF para navegação instantânea entre páginas sem re-parsear
 const pdfCache = new WeakMap<Blob, Promise<PDFDocumentProxy>>();
+type PdfRenderTask = ReturnType<Awaited<ReturnType<PDFDocumentProxy["getPage"]>>["render"]>;
 
 export function PdfOriginalPage({
   source,
@@ -21,30 +22,34 @@ export function PdfOriginalPage({
   const [containerWidth, setContainerWidth] = useState(0);
   const [error, setError] = useState("");
   const [rendering, setRendering] = useState(true);
-  const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
-  const currentRenderTask = useRef<ReturnType<Awaited<ReturnType<PDFDocumentProxy["getPage"]>>["render"]> | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
+  const renderRequest = useRef(0);
+  const currentRenderTask = useRef<PdfRenderTask | null>(null);
 
-  // 1. Mede o container PAI (.paper-scroll), que tem largura estável e NÃO entra em loop com o canvas
+  // Mede a área disponível da página, sem incluir o padding do contêiner.
   useEffect(() => {
-    const parent = shellRef.current?.parentElement || shellRef.current;
+    const parent = shellRef.current;
     if (!parent) return;
 
-    const updateWidth = () => {
-      const w = parent.clientWidth;
-      if (w > 0) {
-        setContainerWidth(Math.max(280, w - 48));
-      }
+    const updateWidth = (width: number) => {
+      setContainerWidth(Math.max(0, width));
     };
 
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
+    const styles = getComputedStyle(parent);
+    updateWidth(parent.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight));
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (entry) updateWidth(entry.contentRect.width);
+    });
     observer.observe(parent);
     return () => observer.disconnect();
   }, []);
 
-  // 2. Carrega o documento PDF apenas UMA VEZ por Blob (reutilizando a promessa em cache)
+  // 2. Carrega o PDF. A renderização espera o estado atualizado de documento e largura.
   useEffect(() => {
     setError("");
+    setPdfDoc(null);
+    setRendering(true);
     let cancelled = false;
 
     let promise = pdfCache.get(source);
@@ -59,17 +64,12 @@ export function PdfOriginalPage({
 
     promise
       .then(loadedPdf => {
-        if (!cancelled) {
-          pdfDocRef.current = loadedPdf;
-          // Força render inicial assim que o PDF estiver pronto
-          renderPage(loadedPdf, pageNumber, zoom, containerWidth);
-        }
+        if (!cancelled) setPdfDoc(loadedPdf);
       })
       .catch(() => {
         if (!cancelled) {
           setError("Não foi possível abrir o PDF original. Use a visualização Texto.");
           setRendering(false);
-          pdfDocRef.current = null;
         }
       });
 
@@ -81,7 +81,13 @@ export function PdfOriginalPage({
   // Função isolada de render da página do PDF
   async function renderPage(pdf: PDFDocumentProxy, num: number, zoomLevel: number, width: number) {
     const canvas = canvasRef.current;
-    if (!canvas || !pdf || width <= 0 || num < 1 || num > pdf.numPages) return;
+    if (!canvas || !pdf || num < 1 || num > pdf.numPages) return;
+    if (width <= 0) {
+      setRendering(false);
+      return;
+    }
+
+    const request = ++renderRequest.current;
 
     // Cancela qualquer render anterior em andamento
     if (currentRenderTask.current) {
@@ -92,8 +98,11 @@ export function PdfOriginalPage({
     setRendering(true);
     setError("");
 
+    let page: Awaited<ReturnType<PDFDocumentProxy["getPage"]>> | undefined;
+    let task: PdfRenderTask | null = null;
     try {
-      const page = await pdf.getPage(num);
+      page = await pdf.getPage(num);
+      if (request !== renderRequest.current) return;
       const original = page.getViewport({ scale: 1 });
       // Escala base para caber no container com folga confortável
       const baseScale = width / original.width;
@@ -102,17 +111,14 @@ export function PdfOriginalPage({
       const outputScale = Math.min(globalThis.devicePixelRatio || 1, 2);
 
       const context = canvas.getContext("2d", { alpha: false });
-      if (!context) {
-        page.cleanup();
-        return;
-      }
+      if (!context) return;
 
       canvas.width = Math.max(1, Math.floor(viewport.width * outputScale));
       canvas.height = Math.max(1, Math.floor(viewport.height * outputScale));
       canvas.style.width = `${viewport.width}px`;
       canvas.style.height = `${viewport.height}px`;
 
-      const task = page.render({
+      task = page.render({
         canvas,
         canvasContext: context,
         viewport,
@@ -121,28 +127,35 @@ export function PdfOriginalPage({
 
       currentRenderTask.current = task;
       await task.promise;
-      setRendering(false);
-      page.cleanup();
+      if (request === renderRequest.current) setRendering(false);
     } catch (err) {
-      if (!(err instanceof Error && err.name === "RenderingCancelledException")) {
+      if (request === renderRequest.current && !(err instanceof Error && err.name === "RenderingCancelledException")) {
         setError("Não foi possível exibir esta página original. Tente novamente.");
         setRendering(false);
       }
+    } finally {
+      if (currentRenderTask.current === task) currentRenderTask.current = null;
+      page?.cleanup();
     }
   }
 
   // 3. Atualização veloz ao trocar de página, zoom ou largura do container
   useEffect(() => {
-    if (!pdfDocRef.current || containerWidth <= 0) return;
-    void renderPage(pdfDocRef.current, pageNumber, zoom, containerWidth);
+    if (!pdfDoc) return;
+    if (containerWidth <= 0) {
+      setRendering(false);
+      return;
+    }
+    void renderPage(pdfDoc, pageNumber, zoom, containerWidth);
 
     return () => {
+      renderRequest.current += 1;
       if (currentRenderTask.current) {
         currentRenderTask.current.cancel();
         currentRenderTask.current = null;
       }
     };
-  }, [pageNumber, zoom, containerWidth]);
+  }, [pdfDoc, pageNumber, zoom, containerWidth]);
 
   return (
     <div

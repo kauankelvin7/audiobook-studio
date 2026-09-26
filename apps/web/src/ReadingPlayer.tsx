@@ -23,14 +23,33 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(!audio);
+  const [rate, setRate] = useState(1);
+  const [volume, setVolume] = useState(1);
+  const [playbackError, setPlaybackError] = useState("");
 
   useEffect(() => {
+    const element = player.current;
     active.current = -1;
     setChapter(0);
     setCurrentTime(0);
+    setDuration(0);
+    setReady(false);
     setIsPlaying(false);
+    setPlaybackError("");
+    if (audio) setMinimized(false);
+    if (element) {
+      element.pause();
+      element.currentTime = 0;
+    }
   }, [audio?.url]);
+
+  useEffect(() => {
+    const element = player.current;
+    if (!element) return;
+    element.volume = volume;
+    element.playbackRate = rate;
+  }, [audio?.url, rate, volume]);
 
   useEffect(() => {
     const element = player.current;
@@ -42,11 +61,17 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onEnded = () => setIsPlaying(false);
+    const onError = () => {
+      setReady(false);
+      setIsPlaying(false);
+      setPlaybackError("Não foi possível carregar este áudio. Verifique o arquivo e tente novamente.");
+    };
     element.addEventListener("loadedmetadata", loaded);
     element.addEventListener("durationchange", loaded);
     element.addEventListener("play", onPlay);
     element.addEventListener("pause", onPause);
     element.addEventListener("ended", onEnded);
+    element.addEventListener("error", onError);
     if (element.readyState >= 1) loaded();
     return () => {
       element.removeEventListener("loadedmetadata", loaded);
@@ -54,6 +79,7 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
       element.removeEventListener("play", onPlay);
       element.removeEventListener("pause", onPause);
       element.removeEventListener("ended", onEnded);
+      element.removeEventListener("error", onError);
     };
   }, [audio?.url]);
 
@@ -79,7 +105,13 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
   function togglePlay() {
     const el = player.current;
     if (!el) return;
-    if (el.paused) void el.play().catch(() => {});
+    if (el.paused) {
+      setPlaybackError("");
+      void el.play().catch(() => {
+        setIsPlaying(false);
+        setPlaybackError("Não foi possível iniciar o áudio. Tente novamente.");
+      });
+    }
     else el.pause();
   }
 
@@ -105,6 +137,18 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
     if (!el) return;
     el.currentTime = val;
     setCurrentTime(val);
+  }
+
+  function changeRate(next: number) {
+    const element = player.current;
+    if (element) element.playbackRate = next;
+    setRate(next);
+  }
+
+  function changeVolume(next: number) {
+    const element = player.current;
+    if (element) element.volume = next;
+    setVolume(next);
   }
 
   function changeFollow(enabled: boolean) {
@@ -152,32 +196,27 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
   const currentChapterObj = audio.chapters[chapter];
   const totalChapters = audio.chapters.length;
 
-  if (minimized) {
-    return (
-      <aside className="reading-player-minimized" aria-label="Tocador recolhido">
-        <div className="mini-player-bar">
-          <button type="button" className="mini-play-btn" onClick={togglePlay} aria-label={isPlaying ? "Pausar áudio" : "Tocar áudio"}>
-            <StudioIcon name={isPlaying ? "pause" : "play"} size={16} />
-          </button>
-          <span className="mini-label">
-            {isNarrative ? "Capítulo" : "Pág."} {chapter + 1}/{totalChapters} · {formatSeconds(currentTime)}
-          </span>
-          <button type="button" className="expand-pill" onClick={() => setMinimized(false)}>
-            Expandir tocador
-          </button>
-        </div>
-      </aside>
-    );
-  }
-
   return (
-    <section className="reading-player" aria-label="Tocador de áudio no modo leitura">
-      <audio
-        ref={player}
-        src={audio.url}
-        onTimeUpdate={handleTimeUpdate}
-        preload="metadata"
-      />
+    <>
+      <audio ref={player} src={audio.url} onTimeUpdate={handleTimeUpdate} preload="metadata" hidden />
+      {minimized ? (
+        <aside className="reading-player-minimized" aria-label="Tocador recolhido">
+          <div className="mini-player-bar">
+            <button type="button" className="mini-play-btn" onClick={togglePlay} aria-label={isPlaying ? "Pausar áudio" : "Tocar áudio"} aria-pressed={isPlaying}>
+              <StudioIcon name={isPlaying ? "pause" : "play"} size={16} />
+            </button>
+            <span className="mini-label">
+              {isNarrative ? "Capítulo" : "Pág."} {chapter + 1}/{totalChapters} · {formatSeconds(currentTime)}
+            </span>
+            <button type="button" className="expand-pill" onClick={() => setMinimized(false)}>
+              Expandir tocador
+            </button>
+          </div>
+          {playbackError && <p role="alert" className="reading-player-error">{playbackError}</p>}
+        </aside>
+      ) : (
+      <section className="reading-player" aria-label="Tocador de áudio no modo leitura">
+      {playbackError && <p role="alert" className="reading-player-error">{playbackError}</p>}
 
       <div className="reading-player-top">
         <div className="reading-player-track-info">
@@ -236,6 +275,14 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
       </div>
 
       <div className="reading-player-controls-row">
+        <label className="reading-player-chapter">
+          <span className="sr-only">Capítulo atual</span>
+          <select value={chapter} onChange={event => seekChapter(Number(event.target.value))} aria-label="Capítulo atual">
+            {audio.chapters.map((item, index) => <option key={`${item.audioKey}-${index}`} value={index}>
+              {isNarrative ? `Capítulo ${index + 1}` : `Página ${item.pageNumber}`}
+            </option>)}
+          </select>
+        </label>
         <button
           type="button"
           className="icon-button"
@@ -262,6 +309,7 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
           type="button"
           className="main-play-button"
           aria-label={isPlaying ? "Pausar audiobook" : "Tocar audiobook"}
+          aria-pressed={isPlaying}
           onClick={togglePlay}
           disabled={!ready}
         >
@@ -289,6 +337,17 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
         >
           <StudioIcon name="skipForward" size={16} />
         </button>
+
+        <label className="reading-player-rate">
+          <span className="sr-only">Velocidade da leitura</span>
+          <select value={rate} onChange={event => changeRate(Number(event.target.value))} aria-label="Velocidade da leitura">
+            {[0.8, 1, 1.2, 1.5, 2].map(value => <option key={value} value={value}>{value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}x</option>)}
+          </select>
+        </label>
+        <label className="reading-player-volume">
+          <span className="sr-only">Volume</span>
+          <input type="range" min="0" max="1" step="0.05" value={volume} onChange={event => changeVolume(Number(event.target.value))} aria-label="Volume" />
+        </label>
       </div>
 
       {pages[chapter] == null && (
@@ -296,6 +355,8 @@ export function ReadingPlayer({ audio, pages, onPageChange, onExit }: {
           Este capítulo não tem uma página de origem identificada. Use as setas para navegar manualmente.
         </p>
       )}
-    </section>
+      </section>
+      )}
+    </>
   );
 }

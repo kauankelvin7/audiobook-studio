@@ -88,10 +88,10 @@ export function DocumentViewer({
     if (!readingMode) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
-      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+      if (event.key === "ArrowLeft") {
         event.preventDefault();
         onPageChange(Math.max(1, pageNumber - 1));
-      } else if (event.key === "ArrowRight" || event.key === "PageDown") {
+      } else if (event.key === "ArrowRight") {
         event.preventDefault();
         onPageChange(Math.min(totalPages, pageNumber + 1));
       } else if (event.key === "Escape") {
@@ -101,6 +101,19 @@ export function DocumentViewer({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [readingMode, pageNumber, totalPages, onPageChange, onReadingModeChange]);
+
+  useEffect(() => {
+    if (!readingMode) return;
+    const element = viewer.current;
+    if (!element) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      setZoom(value => Math.max(50, Math.min(250, value + (event.deltaY < 0 ? 10 : -10))));
+    };
+    element.addEventListener("wheel", handleWheel, { passive: false });
+    return () => element.removeEventListener("wheel", handleWheel);
+  }, [readingMode]);
 
   return <div
     className={`document-canvas${readingMode ? ` reading-active reader-theme-${readingTheme} reader-width-${readerWidth}` : ""}${isFullscreen ? " is-fullscreen" : ""}`}
@@ -135,7 +148,7 @@ export function DocumentViewer({
       </div>
 
       {readingMode && <div className="reader-theme-selector" role="group" aria-label="Tema de leitura">
-        <button type="button" className={`theme-btn theme-default${readingTheme === "default" ? " active" : ""}`} title="Tema padrão escuro" onClick={() => setReadingTheme("default")}>Escuro</button>
+        <button type="button" className={`theme-btn theme-default${readingTheme === "default" ? " active" : ""}`} title="Tema padrão" onClick={() => setReadingTheme("default")}>Padrão</button>
         <button type="button" className={`theme-btn theme-paper${readingTheme === "paper" ? " active" : ""}`} title="Tema papel suave" onClick={() => setReadingTheme("paper")}>Papel</button>
         <button type="button" className={`theme-btn theme-sepia${readingTheme === "sepia" ? " active" : ""}`} title="Tema sépia acolhedor" onClick={() => setReadingTheme("sepia")}>Sépia</button>
         <button type="button" className={`theme-btn theme-night${readingTheme === "night" ? " active" : ""}`} title="Tema noturno alto contraste" onClick={() => setReadingTheme("night")}>Noite</button>
@@ -143,7 +156,7 @@ export function DocumentViewer({
 
       <div className="viewer-tools">
         <button className="icon-button" aria-label="Diminuir zoom" onClick={() => setZoom(Math.max(50, zoom - 10))} disabled={zoom <= 50} title="Diminuir zoom (−)">−</button>
-        <output aria-label="Zoom do documento" title="Clique para redefinir para 100%" onClick={() => setZoom(100)} style={{ cursor: "pointer" }}>{zoom}%</output>
+        <button type="button" aria-label={`Zoom ${zoom}%. Redefinir para 100%`} title="Redefinir zoom" onClick={() => setZoom(100)}>{zoom}%</button>
         <button className="icon-button" aria-label="Aumentar zoom" onClick={() => setZoom(Math.min(250, zoom + 10))} disabled={zoom >= 250} title="Aumentar zoom (+)">+</button>
 
         {readingMode && <button className="icon-button" type="button" aria-label={readerWidth === "standard" ? "Expandir largura do texto" : "Largura padrão"} title={readerWidth === "standard" ? "Texto expandido" : "Texto padrão"} onClick={() => setReaderWidth(w => w === "standard" ? "wide" : "standard")}>
@@ -173,7 +186,7 @@ export function DocumentViewer({
           <span>Modo leitura</span>
           <input aria-label="Modo leitura" type="checkbox" checked={readingMode} onChange={event => {
             if (event.target.checked) {
-              setViewMode(sourcePdf ? "original" : "text");
+              setViewMode(selectedPage.textQuality === "needs_ocr" && sourcePdf ? "original" : "text");
               setZoom(100);
             }
             onReadingModeChange?.(event.target.checked);
@@ -205,7 +218,7 @@ export function DocumentWorkspace(props: Props) {
   const [railVisible, setRailVisible] = useState(true);
 
   return (
-    <div className={`result document-workspace${railVisible ? "" : " rail-hidden"}`} aria-labelledby="result-title">
+    <div className={`result document-workspace${railVisible ? "" : " rail-hidden"}`} aria-label="Documento">
       {railVisible && <PageNavigator {...props} />}
       <DocumentViewer
         {...props}

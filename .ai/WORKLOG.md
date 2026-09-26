@@ -492,3 +492,45 @@
 - Reconstruídos page navigator, paper viewer, toolbar, inspector OCR com abas e dock Narrativa/Áudio/Exportar. O tipo interno `unknown` é apresentado como "Texto não classificado".
 - O visor usa PDF público GnuCOBOL de 29 páginas para captura visual; não foram inventados capítulos, qualidade de OCR ou estados de aprovação.
 - Validações: typecheck, 160 testes Web, build, smoke OCR e E2E literal+narrativo com capítulos/reload. Capturas 1440×960 e 390×844 passaram sem overflow horizontal.
+
+## 2026-09-25 — redesign de workspace editorial (em andamento, sem commit)
+
+- Base sincronizada por HTTPS em `a3f496e`; alterações locais anteriores permanecem preservadas em `stash@{0}`. PRE-FLIGHT registrado em `.ai/TASK_PACKET.md`.
+- Frontend passou a carregar Geist Sans e Source Serif 4, alinhando fontes reais aos tokens. `studio.css` introduz aliases semânticos claros/escuros, escala de espaçamento, raios discretos e superfícies opacas para o workspace.
+- Shell ganhou paleta de ações nativa via `Ctrl/Cmd+K`; modo sem documento agora mostra importação e estado de biblioteca vazio em vez de etapas indisponíveis. Importação aceita seleção e arrastar/soltar PDF; fluxo de pipeline existente continua sendo único ponto de entrada.
+- Player de leitura recebeu velocidade e volume baseados no elemento `<audio>` nativo; não foram adicionadas dependências, nem alterados contratos Rust/WASM, PDF, worker, persistência ou TTS.
+- Validação parcial: `npm run typecheck` passou após mudanças de importação. Ainda pendentes nesta etapa: teste Web completo, build, smoke visual responsivo e revisão independente.
+
+- Validação final: `npm run typecheck`, `npm test` (188 passed, 2 skipped), `npm run build` e `git diff --check` passaram. Build mantém avisos já existentes do Piper para `fs`, `path` e `crypto`, além de chunks grandes de runtimes locais; saída de deploy conferida com 39 arquivos e 81,60 MB.
+- Revisão independente Terra encontrou e confirmou correção de três pontos: etapas sem conteúdo não aparecem antes do PDF, botões da paleta preservam semântica nativa e player/miniplayer não usam blur ou transparência. A revisão final aprovou; IAB ficou indisponível no reteste, mas a prévia anterior e as condições de código foram verificadas. `test:browser:shell` não rodou por ausência de Chrome em `/opt/google/chrome/chrome`.
+
+## 2026-09-25 — reader e player (em andamento, sem commit)
+
+- Leitor ganhou zoom por `Ctrl/Cmd + wheel`, limitado de 50% a 250%, mantendo botões explícitos e atalho de reset em 100%. O modo leitura real foi aberto com o PDF local de 75 páginas; o ajuste de zoom para 120% foi observado via árvore de acessibilidade.
+- Player persistente inclui seleção de capítulo baseada em metadados já existentes, velocidade e volume nativos. Em viewport estreita, seleção de capítulo/volume e opções secundárias ficam fora do player compacto; toolbar do leitor prioriza página, zoom e saída.
+- Revisão Terra recusou inicialmente rótulos de encaixe sem cálculo real; controles foram removidos. Revisão posterior aprovou o batch. `npm run typecheck`, `npm test` (188 passed, 2 skipped) e `git diff --check` passaram. Smoke visual móvel automático segue pendente por indisponibilidade intermitente do IAB/Chrome local.
+
+## 2026-09-26 — correções visuais do documento e tocador (sem commit)
+
+- No IAB local com `tests/fixtures/text_and_blank.pdf`, a página original agora termina de carregar (`aria-busy=false`) e o canvas cabe no visor móvel. Antes, sua largura incluía o padding interno e criava overflow horizontal de 7 px. Em zoom de 110%, o excedente fica no scroll do visor, sem ampliar a página inteira.
+- O mesmo elemento `<audio>` permanece montado ao minimizar/expandir o tocador. O estado de erro de carregamento/reprodução agora é visível, e o tema padrão de leitura recebeu rótulo coerente com a superfície clara.
+- Conferidos projeto, documento, revisão, narrativa, áudio e exportação na árvore e na captura de página longa a 390 px; leitor em 1280, 739, 390 e 320 px. Em 320/739 px, seletor de tema cabe no toolbar e `scrollWidth` global não supera `innerWidth`.
+- Terra recusou o primeiro diff por sete falhas: nome acessível instável ao ocultar rail, grade de temas móvel, Configurações inacessíveis antes do PDF, `showModal` repetido, erro do player sem estilo, captura de zoom do navegador fora da leitura e `dragleave` interno. As sete foram corrigidas; segunda revisão independente aprovou sem P0–P2.
+- Gates finais desta rodada: `npm run typecheck`, `npm test` (188 passed, 2 skipped), `npm run build`, `cargo fmt --all -- --check`, `cargo test --workspace` e `git diff --check` passaram. Build conserva avisos existentes do Piper e chunks grandes. Sem commit por instrução do usuário.
+
+## 2026-09-26 — rolagem do leitor na tela aberta (sem commit)
+
+- Reproduzido no IAB a 601×610 px: roda sobre o canvas original não movia a página. `.paper-scroll` tinha `overflow: auto` sem excedente vertical próprio, criando região de rolagem aninhada que consumia o gesto. Em modo leitura, passou a usar `overflow: visible`; a roda sobre o PDF moveu `scrollY` de 0 para 610, com máximo 644. Fora do modo leitura, visor existente não foi alterado.
+- Leitura agora abre em Texto quando a página tem texto utilizável; Original permanece no seletor para conferir o PDF. Página que exige OCR continua abrindo em Original. Sem áudio gerado, aviso inicia recolhido como botão compacto e pode ser expandido.
+- Conferidos visualmente Texto/Original, zoom 100–110% e rolagem pelo canvas em 601×610 px; Texto também rolou em 390×844 px sem overflow horizontal. A tela aberta contém a fixture local `text_and_blank.pdf` (2 páginas, uma sem texto), não um livro completo.
+- Revisão Terra encontrou `PageUp`/`PageDown` capturados para trocar página. Removida a captura; no IAB, `PageDown` moveu `scrollY` de 0 para 270 mantendo Página 1. Segunda revisão aprovou sem P0–P2 no escopo.
+- `npm run typecheck`, `npm test` (188 passed, 2 skipped), `npm run build` e `git diff --check` passaram. Smoke visual de zoom horizontal/fullscreen móvel segue pendente. Sem commit.
+
+## 2026-09-26 — polimento da tela inicial e controles (sem commit)
+
+- Ícones locais normalizados em SVG 24×24; botões de ícone e toolbar ganharam contraste, estados hover/desabilitado e foco visível consistente.
+- Tela inicial reorganizada: chamada principal mais clara, importação de PDF com hierarquia e espaçamento melhores, e três passos de orientação no estado vazio. O card de documento aberto agora acomoda título, estado e ação de troca sem compressão.
+- Importação passou a informar arquivo inválido arrastado em `role=status`, mostra nome substituto quando o projeto recuperado não tem nome e evita a instrução inicial contraditória enquanto já há documento.
+- Prévia local inspecionada em desktop e 320/390 px. Em 320 px não houve overflow horizontal; os três passos continuam acessíveis por rolagem acima da navegação fixa. Nenhum PDF do usuário foi substituído.
+- Revisão independente Terra apontou três P2 na recuperação/importação, corrigidos e aprovados na segunda rodada, sem novos P0–P2.
+- Gates: `cargo fmt --all -- --check`, `cargo test --workspace` (51 testes), `npm run typecheck`, `npm test` (188 passaram, 2 ignorados), `npm run build` e `git diff --check` passaram. Avisos existentes do Piper (`fs`, `path`, `crypto`) e chunks grandes permanecem.

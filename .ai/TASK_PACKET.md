@@ -1,5 +1,26 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — polish visual transversal (2026-09-26)
+- Pedido: melhorar ícones, botões, SVGs, tela inicial e acabamento geral, com liberdade criativa. Não fazer commit até implementação completa.
+- Base: alterações editoriais anteriores continuam locais; preservar trabalho existente. `docs/CONTEXT_INDEX.md`, `docs/DESIGN_SYSTEM.md`, política multiagente e código React/CSS consultados.
+- Direção: manter Geist/Source Serif e paleta editorial, refinar geometria de ícones, alvo/foco/estados de botões e hierarquia da importação. Documento permanece prioridade; decoração não substitui informação.
+- Ownership: Luna ícones em `StudioIcon.tsx`; Luna conteúdo/composição sem CSS em `ProjectImportPanel.tsx` e `LibraryEmpty.tsx`; Lead integra CSS e valida visualmente. Terra faz revisão independente.
+- Verificação: tela vazia via origem local separada, documento existente, 390/768/desktop, controles por teclado, typecheck/test/build, Rust fmt/test e `git diff --check`. Risco MEDIUM.
+
+## PRE-FLIGHT — rolagem do PDF no leitor (2026-09-26)
+- Pedido: reproduzir na tela aberta a falta de rolagem e permitir ler o PDF sem obstrução.
+- Evidência: em modo leitura, `.paper-scroll` tem `overflow: auto`, nenhuma altura vertical excedente e herda `overscroll-behavior: contain`; roda sobre o PDF não move o documento (`scrollY` permaneceu 270). Aviso fixo de áudio sem arquivo ocupa área útil.
+- Plano: liberar o encadeamento vertical da rolagem e iniciar o aviso sem áudio recolhido, mantendo ação explícita para expandir. Verificar roda sobre o canvas, zoom horizontal, desktop/móvel, Web gates e revisão independente.
+- Escopo: CSS de leitor e estado de apresentação do player; sem Rust/WASM, domínio ou armazenamento. Nenhum commit.
+
+## PRE-FLIGHT — workspace premium inspirado em leitores e ferramentas de trabalho (2026-09-25)
+- Base: `a3f496e`, sincronizada por HTTPS; checkout limpo. O redesign local anterior foi preservado em `stash@{0}` antes do fast-forward e não deve ser aplicado sem comparação deliberada.
+- Objetivo: evoluir o frontend para um workspace de leitura e produção com hierarquia, tipografia, espaçamento e componentes inspirados em Notion, Linear, Readwise Reader e ElevenReader, sem copiar identidades, conteúdo ou fluxos proprietários.
+- Direção: superfície clara e neutra como padrão, sidebar escura de baixa ênfase, UI densa mas respirável, foco real no documento, player persistente e discreto durante leitura. Tema escuro continua disponível. Motion é funcional e reduzida quando solicitada.
+- Base técnica: introduzir primitives locais compatíveis com shadcn/ui construídos sobre Radix apenas para componentes que substituírem controles manuais. Não introduzir Tailwind ou reescrever o domínio Rust/WASM; CSS existente pode migrar em lotes pequenos.
+- Restrições: preservar importação, OCR, narrativa, persistência, TTS, exportação, âncoras de navegação e contratos de acessibilidade. Textos novos passam por `humanizer`; ícones SVG existentes permanecem decorativos quando acompanhados de rótulos.
+- Riscos: regressão em tabs OCR, diálogo de preferências, foco sob player persistente, responsividade e conflitos de CSS legado. Validar tabulação, Escape, foco, `prefers-reduced-motion`, 375/768/1440 px, typecheck, Web STANDARD e smoke de shell.
+
 ## PRE-FLIGHT — correção de zoom, fullscreen, colapso de páginas e performance de troca de páginas do PDF (2026-09-25)
 - Pedido: ajustar zoom (incluindo modo leitura e tela cheia), permitir ocultar/ajustar espaçamento da lista de páginas para facilitar visualização de outros componentes, resolver lentidão/travamento ao trocar páginas do PDF, e preparar deploy sem erros.
 - Evidência: `PdfOriginalPage` era desmontado/remontado a cada página por chave com número de página, re-parseando o PDF de dezenas de páginas do zero no worker; `ResizeObserver` observava o shell com `width: max-content` gerando loop; falta de regras para `:fullscreen` quebrava a viewport ao dar zoom; headings usavam tamanho fixo em px quebrando proporção do zoom; barra de páginas consumia espaço horizontal fixo sem opção de recolhimento.

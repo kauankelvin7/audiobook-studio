@@ -20,6 +20,7 @@ import { AppShell, useProductStage } from "./AppShell";
 import { DocumentWorkspace } from "./DocumentWorkspace";
 import { NativeTextApprovalPanel } from "./NativeTextApprovalPanel";
 import { ProjectImportPanel } from "./ProjectImportPanel";
+import { LibraryEmpty } from "./LibraryEmpty";
 import { ReviewBottomDock } from "./ReviewBottomDock";
 import { ExportPanel } from "./ExportPanel";
 import { AudioWorkspace } from "./AudioWorkspace";
@@ -285,10 +286,7 @@ export function App() {
     };
   }, []);
 
-  function importFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
+  function importDocument(file: File) {
     const generation = ++importGenerationRef.current;
     readingRequestRef.current++;
     speechRef.current?.stop();
@@ -442,6 +440,12 @@ export function App() {
       workerRef.current = null;
     };
     worker.postMessage({ type: "extract", file });
+  }
+
+  function importFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = "";
+    if (file) importDocument(file);
   }
 
   async function prepareReading() {
@@ -633,8 +637,10 @@ export function App() {
       <h1>Do documento à voz.</h1>
       <p>Importe seu PDF, confira o texto e prepare uma narração para ouvir e baixar.</p>
     </header>}
-    <ProjectImportPanel hasDocument={!!document} fileName={fileName} status={status}
-      disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} onChange={importFile} />
+    <ProjectImportPanel hasDocument={!!document} fileName={fileName}
+      status={document && status === "Escolha um PDF para conferir o texto extraído." ? "Projeto aberto. Confira o texto antes de continuar." : status}
+      disabled={busy || wavBusy || audioMaintenanceBusy || ocrCommitBusy} onChange={importFile} onFile={importDocument} />
+    {!document && <LibraryEmpty />}
     <div className="editor-grid">
     <section className="stage-section" id="document" aria-label="Documento">
     {document ? <DocumentWorkspace document={document} pageNumber={pageNumber} onPageChange={setPageNumber} sourcePdf={sourcePdf} readingMode={readingMode} onReadingModeChange={enabled => { completeAudioRef.current?.pause(); setReadingMode(enabled); }} />

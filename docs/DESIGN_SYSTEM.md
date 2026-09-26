@@ -1,18 +1,19 @@
 # Audiobook Studio — Design System
 
-## Studio Dark/Glass
+## Workspace editorial
 
-O Audiobook Studio usa uma superfície escura inspirada em interfaces iOS, com glass restrito a barras, navegação, drawers e superfícies operacionais elevadas.
+O Audiobook Studio usa um workspace claro, denso e calmo para leitura e produção. A barra lateral e a project bar são escuras para orientar navegação; conteúdo, documento e controles são superfícies opacas de alto contraste.
 
-- **Canvas**: plano contínuo quase preto que integra sidebar e workspace.
-- **Glass**: barras e superfícies elevadas translúcidas com blur, sem substituir hierarquia ou legibilidade.
-- **Reading**: documento e roteiro continuam priorizando leitura prolongada, agora em cartões escuros com hairline.
+- **Canvas**: `#F7F7F5`, sem texturas ou gradientes decorativos.
+- **Navegação**: Studio `#202A36`, com estado atual visível e poucas ações por nível.
+- **Reading**: papel e roteiro mantêm tipografia serifada, largura confortável e fundo dedicado.
 
-A interface deve parecer uma ferramenta editorial/técnica, não um dashboard genérico e não uma UI “AI-first”. Glass é linguagem de profundidade, não decoração; continuam proibidos sparkles, gradientes arbitrários e cards aninhados sem função.
+A interface deve parecer ferramenta editorial/técnica, não dashboard genérico, nem clone de player. Gradientes decorativos, glass, sombras pesadas e cartões aninhados sem função são proibidos.
 
 ## Fontes de verdade no código
 
 - Tokens globais: `apps/web/src/styles/tokens.css`
+- Camada de alinhamento atual: `apps/web/src/styles/studio.css`
 - Shell/layout/base legado: `apps/web/src/styles/shell.css`
 - Revisão e bottom dock: `apps/web/src/styles/review.css`
 - Narrativa: `apps/web/src/styles/narrative.css`
@@ -22,13 +23,12 @@ A interface deve parecer uma ferramenta editorial/técnica, não um dashboard ge
 - Bootstrap: `apps/web/src/main.tsx`
 - Orquestração do app: `apps/web/src/App.tsx`
 
-Não recriar tokens localmente em componentes sem necessidade. A camada visual deve ser organizada por responsabilidade: fundação/tokens, shell/revisão, narrativa e produção. Evitar uma pilha de overrides tardios que recoloque todos os componentes na mesma aparência.
+Não recriar tokens localmente em componentes sem necessidade. A camada visual deve ser organizada por responsabilidade: fundação/tokens, shell/revisão, narrativa e produção. A consolidação gradual de estilos legados deve terminar removendo overrides substituídos, sem alterar contratos de domínio.
 
 ## Princípios de composição
 
-- shell com respiro externo e navegação flutuante; não colar a UI às bordas da viewport;
-- glass apenas na estrutura e superfícies elevadas; campos e áreas de leitura têm base mais opaca;
-- sombras em camadas, hairlines e raios consistentes criam profundidade sem transformar tudo em card;
+- shell com respiro externo e navegação persistente; não colar UI às bordas da viewport;
+- superfícies opacas, hairlines e raios discretos criam hierarquia sem transformar tudo em card;
 - botões neutros por padrão e CTA explícito; controles têm alvo mínimo, foco e feedback de pressão;
 - cada superfície recebe composição conforme a função: revisão, narrativa, áudio e exportação não devem parecer o mesmo painel renomeado;
 - workspaces densos não são comprimidos lado a lado só para preencher uma grade;
@@ -36,7 +36,7 @@ Não recriar tokens localmente em componentes sem necessidade. A camada visual d
 - respeitar safe areas, `prefers-reduced-transparency`, `prefers-reduced-motion`, `forced-colors` e fallback sem `backdrop-filter`;
 - ausência de overflow horizontal deve ser testada em múltiplos breakpoints, não inferida pelo CSS.
 
-O Audiobook Studio mantém identidade própria, Geist/Source Serif, paleta escura e componentes específicos do produto.
+O Audiobook Studio mantém identidade própria, Geist/Source Serif, paleta editorial clara e componentes específicos do produto.
 
 ## Tipografia
 
@@ -59,29 +59,25 @@ Escala de referência:
 
 ## Paleta
 
-Baseline visual atual: **Studio Dark/Glass**.
+Baseline visual atual: **Workspace editorial**.
 
 | Token | Valor |
 | --- | --- |
-| Canvas | `#0B0D12` |
-| Surface | `#14171E` |
-| Paper raised | `#1C2029` |
-| Ink | `#F2F3F5` |
-| Ink muted | `rgba(242,243,245,0.62)` |
-| Studio | `#0B0D12` |
-| Primary | `#3F8CFF` |
-| Primary hover | `#67A6FF` |
-| Primary soft | `rgba(63,140,255,0.16)` |
-| Success | `#32D74B` |
-| Warning/review | `#FF9F0A` |
-| Danger | `#FF453A` |
-| Border | `rgba(255,255,255,0.08)` |
-| Border strong | `rgba(255,255,255,0.16)` |
-| Glass | `rgba(20,23,30,0.72)` |
-| Glass strong | `rgba(28,32,41,0.82)` |
-| Glass blur | `blur(24px) saturate(160%)` |
+| Canvas | `#F7F7F5` |
+| Surface | `#FFFFFF` |
+| Reader | `#ECEBE7` |
+| Ink | `#1C1D1F` |
+| Ink muted | `#62656B` |
+| Studio | `#202A36` |
+| Primary | `#2F5EE5` |
+| Primary hover | `#254BCC` |
+| Primary soft | `#EDF2FF` |
+| Warning/review | `#9A5B18` |
+| Danger | `#B23A3A` |
+| Border | `#E5E5E1` |
+| Border strong | `#D5D5CF` |
 
-O tema é escuro por decisão de produto. Sidebar e canvas compartilham o mesmo plano; project bar, bottom dock, navegação móvel e diálogos podem usar glass. Conteúdo de leitura não deve depender de transparência para manter contraste previsível.
+Tema escuro é suporte integral, não inversão parcial: superfícies, bordas, texto, diálogo e player usam tokens sem depender de transparência.
 
 ## Espaçamento, raio e motion
 
@@ -89,11 +85,11 @@ Escala de projeto desejada: `4, 8, 12, 16, 20, 24, 32, 40, 48, 64 px`.
 
 Raios:
 
-- small: 8 px
-- control: 10 px
-- card: 14 px
-- panel: 22 px
-- shell: 26 px
+- small: 6 px
+- control: 8 px
+- card: 10 px
+- panel: 12 px
+- shell: 14 px
 
 Motion:
 

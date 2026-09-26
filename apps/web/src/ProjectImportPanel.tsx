@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useState, type ChangeEvent, type DragEvent } from "react";
 import { StudioIcon } from "./StudioIcon";
 
 export function ProjectImportPanel({
@@ -7,30 +7,54 @@ export function ProjectImportPanel({
   status,
   disabled,
   onChange,
+  onFile,
 }: {
   hasDocument: boolean;
   fileName: string;
   status: string;
   disabled: boolean;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onFile: (file: File) => void;
 }) {
+  const [dragging, setDragging] = useState(false);
+  const [dropError, setDropError] = useState("");
+  function dropFile(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    const file = [...event.dataTransfer.files].find(candidate => candidate.type === "application/pdf" || candidate.name.toLowerCase().endsWith(".pdf"));
+    if (disabled) return;
+    if (!file) {
+      setDropError("Escolha um arquivo PDF para continuar.");
+      return;
+    }
+    setDropError("");
+    onFile(file);
+  }
+
   return (
     <section className="panel import-panel" id="project" aria-labelledby="import-title">
       <div className="section-heading">
         <span className="section-number">01</span>
         <div>
           <p className="section-kicker">PROJETO</p>
-          <h2 id="import-title">{hasDocument ? "Documento do projeto" : "Comece com um PDF"}</h2>
+          <h2 id="import-title">{hasDocument ? "Documento do projeto" : "Adicionar um PDF"}</h2>
         </div>
       </div>
 
-      <div className={`import-dropzone${hasDocument ? " has-file" : ""}`}>
+      <div
+        className={`import-dropzone${hasDocument ? " has-file" : ""}${dragging ? " is-dragging" : ""}${disabled ? " is-disabled" : ""}`}
+        aria-disabled={disabled || undefined}
+        onDragOver={event => { event.preventDefault(); if (!disabled) setDragging(true); }}
+        onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
+        onDrop={dropFile}
+      >
         <input
           id="pdf-input"
           className="import-file-input"
           type="file"
           accept=".pdf,application/pdf"
-          onChange={onChange}
+          aria-describedby="pdf-input-hint"
+          onChange={event => { setDropError(""); onChange(event); }}
           disabled={disabled}
         />
         <label htmlFor="pdf-input" className="import-dropzone-label">
@@ -41,24 +65,24 @@ export function ProjectImportPanel({
           <div className="import-text-block">
             {hasDocument ? (
               <>
-                <strong className="import-title">PDF pronto no navegador</strong>
-                <p className="file-name-highlight">{fileName}</p>
-                <span className="import-hint">Clique para trocar por outro documento PDF</span>
+                <strong className="import-title">Trocar o PDF do projeto</strong>
+                <p className="file-name-highlight">{fileName || "Documento atual"}</p>
+                <span id="pdf-input-hint" className="import-hint">Escolha outro arquivo para substituir este documento.</span>
               </>
             ) : (
               <>
-                <strong className="import-title">Selecione o arquivo PDF do seu livro</strong>
-                <p className="import-lead">O texto será extraído e processado totalmente no seu navegador.</p>
-                <span className="import-badge-tag">Até 32 MB · Local-First</span>
+                <strong className="import-title">Arraste um PDF ou escolha um arquivo</strong>
+                <p id="pdf-input-hint" className="import-lead">O documento é aberto e processado neste navegador.</p>
+                <span className="import-badge-tag">PDF · até 32 MB · processamento local</span>
               </>
             )}
           </div>
         </label>
       </div>
 
-      {status && (
+      {(dropError || status) && (
         <p role="status" aria-live="polite" className="import-status-text">
-          {status}
+          {dropError || status}
         </p>
       )}
     </section>
