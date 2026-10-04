@@ -1,4 +1,4 @@
-# Audiobook Studio
+# Audiobook-Studio
 
 Projeto local-first para transformar documentos em áudio. A interface importa PDFs, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa vozes locais do navegador. O produto gera WAV literal completo ou WAV narrativo com a voz Faber pt-BR, capítulos, player, download e reabertura após reload. O modo narrativo exige aprovação local do texto nativo ou de correção OCR, roteiro reescrito e revisado pelo operador, QA sem finding crítico e SpeechUnits validados em Rust. Páginas vazias/corrompidas bloqueiam a aprovação nativa; o rascunho narrativo inicial ainda usa texto literal e precisa de edição humana.
 
