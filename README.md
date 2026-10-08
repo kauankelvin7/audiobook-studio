@@ -1,22 +1,79 @@
-# Audiobook-Studio
+<div align="center">
 
-Projeto local-first para transformar documentos em áudio. A interface importa PDFs, mostra o texto por página e permite ouvir de uma a dez páginas após conferência explícita. A leitura imediata usa vozes locais do navegador. O produto gera WAV literal completo ou WAV narrativo com a voz Faber pt-BR, capítulos, player, download e reabertura após reload. O modo narrativo exige aprovação local do texto nativo ou de correção OCR, roteiro reescrito e revisado pelo operador, QA sem finding crítico e SpeechUnits validados em Rust. Páginas vazias/corrompidas bloqueiam a aprovação nativa; o rascunho narrativo inicial ainda usa texto literal e precisa de edição humana.
+# Audiobook Studio
 
-## Estrutura
+**Do PDF ao áudio, com revisão humana e processamento local.**
 
-- `audiobook_studio_engineering/`: relatório mestre, prompt original e regras originais do pacote.
-- `crates/core/`: domínio determinístico, validação de fonte e sessões de leitura.
-- `crates/wasm/`: fachada Rust/WASM usada pelo navegador.
-- `apps/web/`: interface, PDF.js, storage local, Web Worker e adapter de voz.
-- `docs/`, `.ai/`: decisões, contexto e registro de trabalho.
+Um estúdio experimental para ler, revisar, narrar e exportar documentos em áudio — mantendo o documento original, o histórico de decisões e as gravações no dispositivo.
 
-O modo de leitura está delimitado em `docs/adr/0015-native-text-reading-preview.md` e a exportação em `docs/adr/0016-local-wav-export.md`. Páginas escaneadas ou com extração suspeita não entram na sessão. O usuário deve conferir todo o texto exibido antes de ouvir ou gerar WAV. A voz de leitura imediata depende das vozes locais expostas pelo navegador; a exportação baixa um modelo de cerca de 63 MB na primeira geração. O app salva cada WAV localmente, lista gravações anteriores válidas e permite abrir, baixar ou excluir uma gravação antiga após confirmação. A exclusão preserva o projeto atual e um checkpoint de recuperação (ADR 0017). Reprodução programática e download foram testados em Chrome e Edge; qualidade auditiva ainda exige escuta humana.
+[![Web](https://img.shields.io/badge/Web-React%20%2B%20TypeScript-3178C6?style=flat-square&logo=react&logoColor=white)](apps/web/)
+[![Core](https://img.shields.io/badge/Core-Rust%20%2B%20WASM-000000?style=flat-square&logo=rust&logoColor=white)](crates/core/)
+[![Qualidade](https://github.com/kauankelvin7/audiobook-studio/actions/workflows/quality.yml/badge.svg)](https://github.com/kauankelvin7/audiobook-studio/actions/workflows/quality.yml)
+[![Licença](https://img.shields.io/github/license/kauankelvin7/audiobook-studio?style=flat-square)](LICENSE)
 
-## Desenvolvimento
+[**Experimentar a aplicação**](https://audiobook-studio-omega.vercel.app) · [**Arquitetura**](docs/ARCHITECTURE_OVERVIEW.md) · [**Executar localmente**](#executar-localmente) · [**Limitações**](#limitações-e-maturidade)
 
-Requer Node.js 22.12+ para a versão atual do Vite.
+</div>
+
+---
+
+## O projeto
+
+A conversão de PDF em fala não começa na voz: começa em identificar **qual texto do arquivo é confiável**. PDFs podem misturar camadas de texto nativo, páginas digitalizadas, tabelas, código e caracteres corrompidos. Ler ou reescrever esses trechos sem revisão pode mudar seu significado.
+
+O Audiobook Studio separa importação, análise, revisão, roteiro, geração e exportação. O **Rust** valida contratos e decisões canônicas; a aplicação **React/TypeScript** opera o navegador, os arquivos locais, o OCR e a síntese de voz.
+
+O sistema é **local-first**, não um serviço de conversão hospedado. A interface é distribuída pela web, mas documentos, revisões e WAVs são guardados localmente no navegador. Alguns componentes/vozes precisam ser baixados na primeira utilização.
+
+## Fluxo de uso
+
+| Etapa | O que acontece |
+|---|---|
+| **01 · Projeto** | Importação de PDF (até 32 MB), identificação da fonte e checkpoint local. |
+| **02 · Documento** | Navegação por páginas no modo texto ou visualização original. |
+| **03 · Revisão** | Inspeção do texto nativo, OCR local seletivo, comparação e decisões explícitas. |
+| **04 · Narrativa** | Estruturação, edição e revisão de um roteiro com referências à fonte e verificação de QA. |
+| **05 · Áudio** | Leitura local do navegador, geração WAV literal/narrativa com Piper e navegação por capítulos. |
+| **06 · Exportar** | Download do WAV e de manifesto com informações de capítulos e identidade dos artefatos. |
+
+As aprovações são **ações locais do operador**, não prova de que o conteúdo está semanticamente correto ou de que a identidade do revisor foi verificada. Trechos problemáticos podem bloquear a geração até revisão.
+
+## Arquitetura em uma página
 
 ```text
+PDF (não confiável)
+  └─ PDF.js / Web Worker ──> extração e evidências
+           │
+           ▼
+      Rust core (DocumentIR v2 / validação / revisão / QA)
+           ▲  │
+           │  └─ contratos versionados via Rust/WASM
+           │
+    React + adapters do navegador
+      ├─ IndexedDB ── checkpoints, índices e estado
+      ├─ OPFS ─────── PDF, evidências e áudio
+      ├─ Tesseract ── OCR candidato, com revisão
+      └─ Piper/ONNX ─ síntese local por partes ── WAV + capítulos
+```
+
+**Fronteira de responsabilidade:** a UI não deve decidir por conta própria se uma fonte é aprovada ou se uma narrativa está elegível. Essas regras pertencem ao core Rust. Para fluxo completo, invariantes, estados e trade-offs, veja [Arquitetura e decisões](docs/ARCHITECTURE_OVERVIEW.md) e [ADRs](docs/adr/).
+
+## Organização do repositório
+
+| Diretório | Responsabilidade |
+|---|---|
+| [`crates/core`](crates/core/) | Domínio determinístico: documentos, OCR, referências, revisão, leitura e narrativa. |
+| [`crates/wasm`](crates/wasm/) | Fronteira de exportação e contratos Rust → WebAssembly. |
+| [`apps/web`](apps/web/) | UI React, PDF.js, Web Workers, Tesseract, Piper e adapters de persistência. |
+| [`docs`](docs/) | Decisões arquiteturais, qualidade, segurança, limitações e evolução. |
+| [`.ai`](.ai/) | Pacote de tarefa, handoff e histórico de verificações. |
+| [`scripts`](scripts/) | Ferramentas de build, manutenção e validação do workspace. |
+
+## Executar localmente
+
+**Requisitos:** Node.js **22.x** e npm; Rust **1.94.1** para testar ou modificar o core/WASM. Os assets de OCR e síntese são copiados de dependências fixadas no lockfile durante o build. O navegador precisa oferecer os recursos de armazenamento pertinentes ao fluxo.
+
+```bash
 cd apps/web
 npm ci
 npm run typecheck
@@ -25,26 +82,37 @@ npm run build
 npm run dev
 ```
 
-Com Rust e os componentes de compilação instalados:
+Para conferir a suíte Rust, na raiz do repositório:
 
-```text
+```bash
 cargo fmt --all -- --check
-cargo test --workspace
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Após mudar código Rust usado no navegador, rode `npm run wasm:build` em `apps/web` antes dos testes Web. Consulte `docs/CONTEXT_INDEX.md` antes de iniciar uma tarefa.
+Se alterar Rust consumido pela aplicação, reconstrua o WASM **antes** dos testes Web:
 
-O smoke opt-in `npm run test:browser:local-ocr` executa a engine OCR em uma fixture pública e exige Chromium ou um canal definido por `AUDIO_BROWSER_CHANNEL`. Os assets OCR são copiados das dependências fixadas em `predev` e `prebuild`, sem CDN em tempo de uso. O resultado permanece candidato pendente de revisão.
-
-Correções explicitamente salvas podem alimentar uma memória local de ambiguidades OCR. Ela só aceita pares técnicos limitados, como `0`/`O`, e precisa de três revisões distintas antes de mostrar uma sugestão. O operador atualiza um modelo local versionado em lote; ele contém hashes e regras verificáveis, sem imagens ou texto completo do PDF. A sugestão nunca altera o documento nem é aplicada automaticamente. O smoke `npm run test:browser:ocr-learning` valida Rust/WASM, IndexedDB e ausência de requisições externas.
-
-O smoke funcional de áudio é opt-in porque baixa o modelo de voz na primeira execução e requer Chrome ou Edge instalado. Ele não faz inspeção visual:
-
-```text
+```bash
 cd apps/web
-npm run test:browser:audio
-$env:AUDIO_BROWSER_CHANNEL='msedge'; npm run test:browser:audio
-npm run test:browser:complete-audio
+npm run wasm:build
+npm run test:standard
 ```
 
-`test:browser:complete-audio` importa a mesma fixture de duas páginas, exporta os modos literal e narrativo, compara os WAVs, verifica capítulos, roteiro/QA, download e reload. A primeira geração Piper baixa o modelo de voz. O QA marca `review` enquanto claim grounding depende de conferência humana; a confirmação local não autentica identidade.
+Os testes de navegador que geram áudio/OCR de fato são **opt-in** e podem baixar o modelo de voz. Instruções em [Quality gates](docs/QUALITY_GATES.md) e [estratégia de ingestão/OCR](docs/INGESTION_TEST_STRATEGY.md).
+
+## Limitações e maturidade
+
+- O projeto possui **testes automatizados e smokes documentados**, mas não equivale a uma certificação de fidelidade de audiobooks arbitrários.
+- OCR produz **candidatos**. Correções e sugestões locais não devem substituir texto sem decisão explícita; texto nativo corrompido também não é automaticamente confiável.
+- O **rascunho narrativo inicial** usa material da fonte e demanda edição/revisão humana. A checagem estrutural não substitui avaliação semântica independente.
+- A primeira geração Piper pode baixar um modelo de aproximadamente **63 MB**; navegadores móveis podem suspender trabalhos longos. Compatibilidade em Android físico permanece um gate de validação manual.
+- Histórico, PDF e WAVs dependem do **armazenamento do navegador/origin**. Limpeza dos dados do site pode removê-los; exporte os arquivos que pretende conservar.
+- Documentos complexos (tabelas, fórmulas, diagramas e textos de extração ruim) ainda exigem corpus de referência, benchmarks e inspeção humana.
+
+Para o status **por capacidade**, com evidências e pendências sem promessas de prontidão, veja [Gap analysis](docs/GAP_ANALYSIS.md). Para os limites de confiança, consulte [Security](docs/SECURITY.md).
+
+## Documentação
+
+[Visão arquitetural](docs/ARCHITECTURE_OVERVIEW.md) · [Fluxo das etapas](docs/PRODUCT_STAGE_MAP.md) · [Segurança](docs/SECURITY.md) · [Persistência](docs/PERSISTENCE.md) · [Narrativa e performance](docs/NARRATIVE_AND_PERFORMANCE.md) · [Quality gates](docs/QUALITY_GATES.md) · [Context index](docs/CONTEXT_INDEX.md)
+
+**Licença:** MIT. Este repositório é um laboratório de engenharia em evolução; decisões e verificações são documentadas, incluindo o que ainda não foi validado.

@@ -1,5 +1,14 @@
 # TASK PACKET — Audiobook Studio
 
+## PRE-FLIGHT — documentação arquitetural, dependências e qualidade (2026-10-08)
+- Fonte: `origin/main` atualizado por fast-forward até `aaf39b0`; checkout local estava limpo (`213a258`), sem rebase ou reset. Foram lidos `AGENTS.md`, `docs/CONTEXT_INDEX.md`, `docs/QUALITY_GATES.md`, `docs/SECURITY.md`, `.ai/HANDOFF.md` e históricos, antes de editar.
+- Evidência: o README tinha pouca orientação e `docs/GAP_ANALYSIS.md` ainda afirmava que Piper, WAV e player não existiam; código atual possui ambos e smokes. O core Rust/WASM segue responsável por domínio e invariantes; Web concentra UI/adapters/Workers/OPFS/IndexedDB.
+- Objetivo: reformular apresentação sem inventar capacidade, atualizar mapa de lacunas e arquitetura, adicionar teste para links internos da documentação na CI, e corrigir dependência vulnerável de forma restrita ao lockfile.
+- Escopo: README, documentação/governança, CI, scripts de checagem, licença e lockfile. Não modificar DocumentIR, OCR, narração, aprovação, persistência ou TTS de produção nesta etapa.
+- Riscos: afirmar fidelidade sem goldens; desfazer contrato local-first; badges ou links quebrados; CI regressiva; transitive security update com ruptura. Testar scripts, links, Web standard, smoke de shell, audit, diff; Rust fmt e testes se o linker permitir.
+- Estado inicial: `npm ci` passou com aviso de engine (Windows Node 24, pacote requer Node 22). `cargo test --workspace --locked` bloqueado por `link.exe` de Git/Windows sem linker MSVC; não confundir com falha de código. Ver WORKLOG para resultados finais.
+
+
 ## PRE-FLIGHT — compatibilidade de runtime Android (2026-09-25)
 - Base: `main` em `cb42cdaf`, após player narrativo progressivo. Relatos do usuário indicam funções inconsistentes no celular.
 - Evidência no código: TTS Piper/ONNX roda em Worker com modelo local ~63 MB; persistência depende de IndexedDB + OPFS + Web Locks; leitura rápida exige voz `localService`; jobs Web longos não têm garantia em segundo plano.

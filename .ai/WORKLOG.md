@@ -1,5 +1,19 @@
 # Worklog
 
+## 2026-10-08 — revisão de arquitetura, apresentação e qualidade do repositório
+- PRE-FLIGHT registrado em `.ai/TASK_PACKET.md` a partir do checkout atualizado por fast-forward para `origin/main` em `aaf39b0`. Sem alterações locais do usuário na entrada.
+- Auditoria do código existente, estrutura Rust/WASM/Web, scripts, CI, documentação e estado dos recursos. `README.md` foi reescrito para expor problema/solução, fluxo de seis etapas, fronteiras, execução e limites sem prometer IA/qualidade de narração não comprovadas.
+- `docs/ARCHITECTURE_OVERVIEW.md` descreve contêineres, ownership, fluxos, invariantes, trust boundaries e riscos. `docs/GAP_ANALYSIS.md` foi alinhado às funcionalidades já implementadas: OCR local, Piper/WAV literal/narrativo, capítulos, player, persistência e revisão; composição OCR em lote permanece não integrada ao uso narrativo da UI. Corrigidos links de fluxo e entradas do índice de contexto.
+- Adicionados `scripts/check-documentation.mjs` e seus testes com Node para rejeitar links locais quebrados ou referências fora do repositório nos documentos essenciais; executados como gate na workflow `quality`, com permissões mínimas de leitura. 3 testes do checker e 25 referências locais conferidas. Links externos não são auditados pelo script.
+- `npm audit --audit-level=high` inicial apontou **GHSA-68fv-2mgg-jv7q** em `source-map-js@1.2.1` (via Vite → PostCSS). Atualização conservadora do lockfile para `1.2.2`, sem mudar a versão direta de Vite, removeu o alerta na auditoria seguinte; rerun do conjunto completo registrado adiante.
+- Shell browser smoke executado em Edge (9 viewports, de 1920×1080 a 320×760), sem overflow reportado; isso não equivale a teste de leitura assistiva, inspeção humana de screenshots ou validação Android físico.
+- Rust `cargo fmt --all -- --check` passou; `cargo test --workspace --locked` **BLOCKED_TOOLING** no computador Windows porque o `link.exe` encontrado no PATH é o utilitário GNU do Git, não o linker MSVC. Rust não foi modificado. A CI Linux é o gate para essa suíte.
+- Ambiente Web local Node 24.0.2 gerou EBADENGINE (repo requer Node 22.x); por isso a CI com Node 22 é necessária para o aceite multiplataforma.
+- Sem alteração de contratos do core, persistência, OCR, narrativa, TTS ou interface. Compatibilidade visual profunda, áudio real/escuta, corpus com goldens e Android real permanecem limites.
+- Reexecução final após o lockfile corrigido: `npm ci`, `npm run test:standard` (37 arquivos de teste passaram, 1 ignorado; 181 casos passaram, 2 ignorados; build Vite verificado: 38 arquivos, 81,49 MB) e `npm audit --audit-level=high` (0 vulnerabilidades) concluídos com exit code 0. Scanner de documentos: 3/3 testes, 25 referências existentes, `git diff --check` limpo.
+- Publicação e status do CI remoto a verificar após commit/PR.
+
+
 ## 2026-09-25 — refatoração visual de composição
 - A revisão concluiu que o principal problema do frontend era composição: pouco respiro, workspaces técnicos comprimidos, superfícies genéricas e breakpoint móvel que apenas reduzia tamanhos.
 - `6e4e51d` substituiu fundação/shell/revisão por shell flutuante, sidebar e header glass com base escura, campos opacos, sombras em camadas, reader/inspector com largura segura e mobile <740 px com tab bar e safe area. A regra de altura fixa/overflow oculto da Revisão foi removida.
