@@ -21,7 +21,7 @@ Este mapa descreve ações existentes no produto, seus dados reais e a etapa res
 
 ## Estado da interface
 
-Os controles foram associados às etapas acima em `src/main.tsx`, `src/OcrReviewPanel.tsx`, `src/NativeTextApprovalPanel.tsx` e `src/NarrativePanel.tsx`. O histórico de gravações está em Áudio e os downloads do audiobook completo estão em Exportar. A leitura literal de páginas e seu WAV curto continuam juntos em Áudio. O download de um WAV curto permanece junto da gravação selecionada no histórico, pois é uma ação sobre esse item específico.
+Os controles foram associados às etapas acima em `apps/web/src/App.tsx`, `apps/web/src/DocumentWorkspace.tsx`, `apps/web/src/OcrReviewPanel.tsx`, `apps/web/src/NativeTextApprovalPanel.tsx` e `apps/web/src/NarrativePanel.tsx`. O histórico de gravações está em Áudio e os downloads do audiobook completo estão em Exportar. A leitura literal de páginas e seu WAV curto continuam juntos em Áudio. O download de um WAV curto permanece junto da gravação selecionada no histórico, pois é uma ação sobre esse item específico.
 
 ## Próxima verificação de produto
 

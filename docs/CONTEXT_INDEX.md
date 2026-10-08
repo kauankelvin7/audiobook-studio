@@ -12,6 +12,7 @@ Carregue somente o contexto necessário para a tarefa.
 | Narrativa/QA/performance | `docs/NARRATIVE_AND_PERFORMANCE.md`, `docs/PERFORMANCE_REQUIREMENTS.md`, ADRs 0005–0007, schemas `narrative.ts`/`performance.ts` |
 | IA/segurança | `docs/SECURITY.md`, `docs/AI_GOVERNANCE.md` |
 | CI/release | `.github/workflows/`, `docs/QUALITY_GATES.md` |
+| Visão arquitetural atual e descrição pública | `README.md`, `docs/ARCHITECTURE_OVERVIEW.md`, `docs/GAP_ANALYSIS.md`, `docs/PRODUCT_STAGE_MAP.md` |
 | Escopo/arquitetura transversal | `audiobook_studio_engineering/MASTER_ENGINEERING_REPORT.md` (seções relevantes), `audiobook_studio_engineering/AGENTS_SOURCE.md` |
 | Início de milestone grande | `audiobook_studio_engineering/PROMPT_MESTRE_CODEX.md` |
 | Saídas/análises extensas | skills `context-mode` e `caveman`; `caveman` vale só para comunicação, não para artefatos persistidos |
